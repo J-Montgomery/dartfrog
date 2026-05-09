@@ -14,7 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3 -ggdb")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -Wall")
 
-file(GLOB_RECURSE ALL_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/headers/*.hh)
+file(GLOB_RECURSE ALL_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/headers/*.hpp)
 add_custom_target(format COMMAND clang-format-18 -i ${ALL_SOURCE_FILES})
 
 add_library(dartfrog INTERFACE)
@@ -22,7 +22,11 @@ target_include_directories(dartfrog INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/header
 
 add_executable(dartfrog_tests)
 target_link_libraries(dartfrog_tests dartfrog GTest::gtest_main)
-target_sources(dartfrog_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/basic_tests.cpp)
+target_sources(dartfrog_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/basic_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/merge_unique_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/relation_tests.cpp
+)
 
 enable_testing()
 gtest_discover_tests(dartfrog_tests)

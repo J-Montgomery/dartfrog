@@ -1,9 +1,7 @@
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "dartfrog.hpp"
 
 class AncestryTests : public ::testing::Test {};
 
-TEST_F(AncestryTests, RunBasicTest) {
-    EXPECT_EQ(1, 1);
-}
+TEST_F(AncestryTests, RunBasicTest) { EXPECT_EQ(1, 1); }
