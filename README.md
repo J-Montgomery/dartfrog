@@ -1,4 +1,4 @@
-A C++ library implementing an in-memory datalog, heavily inspired by datafrog and crepe
+A C++ library port of the Datafrog crate
 
 ```bash
 cmake -G "Unix Makefiles" -B bin
