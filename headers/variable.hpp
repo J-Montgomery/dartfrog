@@ -105,8 +105,8 @@ template <std::totally_ordered Tuple> class Variable : public IVariable {
         requires std::totally_ordered<SourceTuple> && std::totally_ordered<Val>
     void from_leapjoin(const Variable<SourceTuple> &source,
                        LeaperList &&leapers, Logic &&logic) {
-        // this->insert(treefrog::leapjoin(source.recent(),
-        //                                 std::forward<LeaperList>(leapers),
-        //                                 std::forward<Logic>(logic)));
+        this->insert(leapjoin(source.recent(),
+                              std::forward<LeaperList>(leapers),
+                              std::forward<Logic>(logic)));
     }
 };
