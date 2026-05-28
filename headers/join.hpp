@@ -55,7 +55,7 @@ void join_helper(std::span<const std::pair<K, V1>> slice1,
         if (k1 < k2) {
             slice1 =
                 gallop(slice1, [&](const auto &x) { return x.first < k2; });
-        } else if (k2 < k2) {
+        } else if (k2 < k1) {
             slice2 =
                 gallop(slice2, [&](const auto &x) { return x.first < k1; });
         } else {
