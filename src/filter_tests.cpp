@@ -20,11 +20,17 @@ TEST(PrefixFilterTest, ForEachCountReportsCorrectly) {
     auto pf = filters::prefix_filter<int>([](int x) { return x > 5; });
 
     size_t idx = 999, cnt = 999;
-    pf.for_each_count(10, [&](size_t i, size_t c) { idx = i; cnt = c; });
+    pf.for_each_count(10, [&](size_t i, size_t c) {
+        idx = i;
+        cnt = c;
+    });
     EXPECT_EQ(idx, 0);
     EXPECT_EQ(cnt, 1);
 
-    pf.for_each_count(3, [&](size_t i, size_t c) { idx = i; cnt = c; });
+    pf.for_each_count(3, [&](size_t i, size_t c) {
+        idx = i;
+        cnt = c;
+    });
     EXPECT_EQ(idx, 0);
     EXPECT_EQ(cnt, 0);
 }
@@ -32,7 +38,8 @@ TEST(PrefixFilterTest, ForEachCountReportsCorrectly) {
 // Value Filter Tests
 
 TEST(ValueFilterTest, IntersectRemovesNonMatching) {
-    auto vf = filters::value_filter<int, int>([](int prefix, int val) { return val > prefix; });
+    auto vf = filters::value_filter<int, int>(
+        [](int prefix, int val) { return val > prefix; });
 
     int a = 3, b = 7, c = 10;
     std::vector<const int *> values = {&a, &b, &c};
@@ -44,7 +51,8 @@ TEST(ValueFilterTest, IntersectRemovesNonMatching) {
 }
 
 TEST(ValueFilterTest, IntersectRemovesAll) {
-    auto vf = filters::value_filter<int, int>([](int prefix, int val) { return val > 100; });
+    auto vf = filters::value_filter<int, int>(
+        [](int prefix, int val) { return val > 100; });
 
     int a = 3, b = 7;
     std::vector<const int *> values = {&a, &b};

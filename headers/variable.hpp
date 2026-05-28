@@ -24,7 +24,7 @@ struct IVariable {
 
 template <std::totally_ordered Tuple> class Variable : public IVariable {
   public:
-    using TupleType = Tuple;
+    using value_type = Tuple;
 
     bool distinct = true;
     std::string name_;
@@ -132,17 +132,15 @@ template <std::totally_ordered Tuple> class Variable : public IVariable {
         insert(Relation<Tuple>::from_iter(std::forward<R>(range)));
     }
 
-    template <typename K, typename V1, typename V2, typename Res,
-              typename Logic, join::JoinInput<std::pair<K, V2>> I2>
-    void from_join(const Variable<std::pair<K, V1>> &input1, const I2 &input2,
-                   Variable<Res> &output, Logic &&logic) {
-        join::join_into(input1, input2, *this, std::forward<Logic>(logic));
+    template <class Variable1, class Variable2, class OutputVariable,
+              class Logic>
+    void from_join(const Variable1 &input1, const Variable2 &input2,
+                   OutputVariable &output, Logic &&logic) {
+        join::join_into(input1, input2, output, std::forward<Logic>(logic));
     }
 
-    template <typename K, typename V1, typename V2, typename Logic,
+    template <typename K, typename V1, typename V2 = V1, typename Logic,
               join::JoinInput<std::pair<K, V2>> I2>
-        requires std::totally_ordered<K> && std::totally_ordered<V1> &&
-                 std::totally_ordered<V2>
     void from_join_filtered(const Variable<std::pair<K, V1>> &input1,
                             const I2 &input2, Logic &&logic) {
         join::join_and_filter_into(input1, input2, *this,
@@ -153,13 +151,14 @@ template <std::totally_ordered Tuple> class Variable : public IVariable {
         requires std::totally_ordered<K> && std::totally_ordered<V>
     void from_antijoin(const Variable<std::pair<K, V>> &input1,
                        const Relation<K> &input2, Logic &&logic) {
-        this->insert(join::antijoin(input1.recent(), input2,
+        this->insert(join::antijoin(input1.recent_data, input2,
                                     std::forward<Logic>(logic)));
     }
 
-    template <typename SourceTuple, typename Val, typename LeaperList,
-              typename Logic>
-        requires std::totally_ordered<SourceTuple> && std::totally_ordered<Val>
+    template <typename SourceTuple, typename LeaperList, typename Logic>
+        requires std::totally_ordered<SourceTuple> &&
+                 std::totally_ordered<
+                     typename std::remove_cvref_t<LeaperList>::value_type>
     void from_leapjoin(const Variable<SourceTuple> &source,
                        LeaperList &&leapers, Logic &&logic) {
         this->insert(leapjoin(source.recent(),

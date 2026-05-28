@@ -31,7 +31,7 @@ target_sources(dartfrog_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/leapjoin_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/merge_unique_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/relation_tests.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/src/usage_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/usage_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/variable_tests.cpp
 )
 

@@ -44,7 +44,8 @@ TEST(GallopTest, SingleMatchingElement) {
 
 TEST(GallopTest, ExponentialGallopTriggered) {
     std::vector<int> v;
-    for (int i = 0; i < 1000; ++i) v.push_back(i);
+    for (int i = 0; i < 1000; ++i)
+        v.push_back(i);
     std::span<const int> s(v);
     auto result = join::gallop(s, [](const int &x) { return x < 500; });
     EXPECT_EQ(result.size(), 500);

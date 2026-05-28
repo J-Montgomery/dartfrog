@@ -25,6 +25,7 @@ size_t binary_search(const std::vector<T> &vec, Func &&cmp) {
 template <typename Tuple, typename Val, typename... LeaperTs>
     requires(Leaper<LeaperTs, Tuple, Val> && ...)
 struct LeaperCollection {
+    using value_type = Val;
     std::tuple<LeaperTs...> leapers;
 
     void for_each_count(const Tuple &tuple,
@@ -59,10 +60,18 @@ struct LeaperCollection {
     }
 };
 
-template <typename Tuple, typename Val, typename Result, typename Collection,
-          typename Logic>
-auto leapjoin(const std::vector<Tuple> &source, Collection &collection,
-              Logic &&logic) -> Relation<Result> {
+template <class Tuple, class Collection, class Logic>
+    requires(std::totally_ordered<Tuple>) &&
+            (std::totally_ordered<
+                typename std::remove_cvref<Collection>::type::value_type>)
+auto leapjoin(std::span<const Tuple> source, Collection &collection,
+              Logic &&logic) {
+    using Result = std::invoke_result_t<
+        Logic, const Tuple &,
+        const typename std::remove_cvref_t<Collection>::value_type &>;
+    using PointerType =
+        typename std::remove_cvref_t<decltype(collection)>::value_type;
+    using Val = std::remove_cv_t<std::remove_pointer_t<PointerType>>;
 
     std::vector<Result> result;
     std::vector<const Val *> values;
@@ -134,8 +143,7 @@ struct PrefixFilter {
     }
 };
 
-template <typename Tuple, typename Func>
-auto prefix_filter(Func pred) {
+template <typename Tuple, typename Func> auto prefix_filter(Func pred) {
     return PrefixFilter<Tuple, Func>{std::move(pred)};
 }
 
@@ -178,7 +186,8 @@ struct ValueFilter {
 
 template <typename Tuple, typename Val, typename Func>
 auto value_filter(Func pred) {
-    return ValueFilter<Tuple, Val, Func>{std::move(pred)};;
+    return ValueFilter<Tuple, Val, Func>{std::move(pred)};
+    ;
 }
 } // namespace filters
 
@@ -201,7 +210,8 @@ class ExtendWith {
                                   [&](const auto &x) { return x.first < key; });
             std::span s1{relation->elements.begin() + start,
                          relation->elements.end()};
-            auto s2 = join::gallop(s1, [&](const auto &x) { return x.first <= key; });
+            auto s2 =
+                join::gallop(s1, [&](const auto &x) { return x.first <= key; });
             end = relation->size() - s2.size();
             old_key = std::move(key);
         }
@@ -219,8 +229,8 @@ class ExtendWith {
 
         auto write_it = values.begin();
         for (const Val *v : values) {
-            slice =
-                join::gallop(slice, [&](const auto &kv) { return kv.second < *v; });
+            slice = join::gallop(
+                slice, [&](const auto &kv) { return kv.second < *v; });
             if (!slice.empty() && slice[0].second == *v) {
                 *write_it = v;
                 ++write_it;
@@ -273,7 +283,8 @@ class ExtendAnti {
             });
             std::span s1{relation->elements.begin() + s,
                          relation->elements.end()};
-            auto s2 = join::gallop(s1, [&](const auto &x) { return x.first <= key; });
+            auto s2 =
+                join::gallop(s1, [&](const auto &x) { return x.first <= key; });
             old_key = Cache{key, s, relation->elements.size() - s2.size()};
         }
 
@@ -283,8 +294,8 @@ class ExtendAnti {
             return;
 
         std::erase_if(values, [slice](const Val *v) mutable {
-            slice =
-                join::gallop(slice, [&](const auto &kv) { return kv.second < *v; });
+            slice = join::gallop(
+                slice, [&](const auto &kv) { return kv.second < *v; });
             return !slice.empty() && slice[0].second == *v;
         });
     }

@@ -13,15 +13,13 @@ TEST(UsageTest, TransitiveClosureOneStep) {
 
     while (iter.changed()) {
         // path(x, z) :- edge(x, z)
-        path->from_join(
-            *edge, *edge,
-            *path,
-            [](int x, int z, int _) { return std::pair{x, z}; }
-        );
+        path->from_join(*edge, *edge, *path,
+                        [](int x, int z, int _) { return std::pair{x, z}; });
     }
 
     auto result = std::move(*path).complete();
-    EXPECT_EQ(result.elements, (std::vector<std::pair<int, int>>{{1, 2}, {2, 3}}));
+    EXPECT_EQ(result.elements,
+              (std::vector<std::pair<int, int>>{{1, 2}, {2, 3}}));
 }
 
 TEST(UsageTest, JoinTwoRelations) {
@@ -29,47 +27,50 @@ TEST(UsageTest, JoinTwoRelations) {
     // grandparent(X, Z) :- parent(X, Y), parent(Y, Z)
     Iteration iter;
     auto parent = iter.variable<std::pair<std::string, std::string>>("parent");
-    auto grandparent = iter.variable<std::pair<std::string, std::string>>("grandparent");
+    auto grandparent =
+        iter.variable<std::pair<std::string, std::string>>("grandparent");
 
-    parent->insert(Relation<std::pair<std::string, std::string>>::from_vec({
-        {"john", "mary"},
-        {"mary", "ann"},
-        {"bob", "carol"}
-    }));
+    parent->insert(Relation<std::pair<std::string, std::string>>::from_vec(
+        {{"john", "mary"}, {"mary", "ann"}, {"bob", "carol"}}));
 
     while (iter.changed()) {
-        grandparent->from_join(
-            *parent, *parent,
-            *grandparent,
-            [](const std::string &x, const std::string &y, const std::string &z) {
-                return std::pair{x, z};
-            }
-        );
+        RelationLeaper<std::string, std::string> parent_rl{
+            &parent->recent_data};
+
+        auto ext = parent_rl.extend_with<std::pair<std::string, std::string>>(
+            [](const std::pair<std::string, std::string> &p) {
+                return p.second;
+            });
+
+        LeaperCollection<std::pair<std::string, std::string>, std::string,
+                         decltype(ext)>
+            leapers{std::tuple{std::move(ext)}};
+
+        grandparent->from_leapjoin(
+            *parent, leapers,
+            [](const std::pair<std::string, std::string> &p,
+               const std::string &z) { return std::pair{p.first, z}; });
     }
 
     auto result = std::move(*grandparent).complete();
-    EXPECT_EQ(result.elements, (std::vector<std::pair<std::string, std::string>>{
-        {"john", "ann"}}));
+    EXPECT_EQ(
+        result.elements,
+        (std::vector<std::pair<std::string, std::string>>{{"john", "ann"}}));
 }
 
 TEST(UsageTest, AntijoinExample) {
-    // student(1), student(2), student(3)
-    // graduated(2)
-    // active_student(X) :- student(X), not graduated(X)
     Iteration iter;
-    auto student = iter.variable<int>("student");
-    auto graduated = iter.variable<std::pair<int, Unit>>("graduated");
+    auto student = iter.variable<std::pair<int, Unit>>("student");
+    auto graduated = iter.variable<int>("graduated");
     auto active = iter.variable<int>("active");
 
-    student->insert(Relation<int>::from_vec({1, 2, 3}));
-    graduated->insert(Relation<std::pair<int, Unit>>::from_vec({{2, {}}}));
+    student->insert(
+        Relation<std::pair<int, Unit>>::from_vec({{1, {}}, {2, {}}, {3, {}}}));
+    graduated->insert(Relation<int>::from_vec({2}));
 
     while (iter.changed()) {
-        active->from_antijoin(
-            *student,
-            graduated->recent_data,
-            [](int x, Unit) { return x; }
-        );
+        active->from_antijoin(*student, graduated->recent_data,
+                              [](int x, Unit) { return x; });
     }
 
     auto result = std::move(*active).complete();
@@ -81,44 +82,35 @@ TEST(UsageTest, LeapjoinExample) {
     // grandparent(X, Z) :- parent(X, Y), parent(Y, Z)
     Iteration iter;
     auto parent = iter.variable<std::pair<std::string, std::string>>("parent");
-    auto grandparent = iter.variable<std::pair<std::string, std::string>>("grandparent");
+    auto grandparent =
+        iter.variable<std::pair<std::string, std::string>>("grandparent");
 
-    parent->insert(Relation<std::pair<std::string, std::string>>::from_vec({
-        {"john", "mary"},
-        {"mary", "ann"},
-        {"bob", "carol"}
-    }));
+    parent->insert(Relation<std::pair<std::string, std::string>>::from_vec(
+        {{"john", "mary"}, {"mary", "ann"}, {"bob", "carol"}}));
 
     while (iter.changed()) {
-        // Build leapers from the parent relation
-        // parent(Y, Z) extended by Y=key
-        RelationLeaper<std::string, std::string> parent_rl{&parent->recent_data};
+        RelationLeaper<std::string, std::string> parent_rl{
+            &parent->recent_data};
+
+        auto ew = parent_rl.extend_with<std::pair<std::string, std::string>>(
+            [](const std::pair<std::string, std::string> &p) {
+                return p.second;
+            });
+
+        LeaperCollection<std::pair<std::string, std::string>, std::string,
+                         decltype(ew)>
+            leapers{std::tuple{std::move(ew)}};
 
         grandparent->from_leapjoin(
-            *parent,
-            LeaperCollection<
-                std::pair<std::string, std::string>,
-                std::string,
-                extend_with::ExtendWith<std::string, std::string,
-                    std::pair<std::string, std::string>,
-                    decltype([](const std::pair<std::string, std::string> &p) {
-                        return p.second;
-                    })>
-            >{std::tuple{
-                parent_rl.extend_with<std::pair<std::string, std::string>>(
-                    [](const std::pair<std::string, std::string> &p) {
-                        return p.second;
-                    })
-            }},
-            [](const std::pair<std::string, std::string> &p, const std::string &z) {
-                return std::pair{p.first, z};
-            }
-        );
+            *parent, leapers,
+            [](const std::pair<std::string, std::string> &p,
+               const std::string &z) { return std::pair{p.first, z}; });
     }
 
     auto result = std::move(*grandparent).complete();
-    EXPECT_EQ(result.elements, (std::vector<std::pair<std::string, std::string>>{
-        {"john", "ann"}}));
+    EXPECT_EQ(
+        result.elements,
+        (std::vector<std::pair<std::string, std::string>>{{"john", "ann"}}));
 }
 
 TEST(UsageTest, MapInto) {
@@ -137,28 +129,24 @@ TEST(UsageTest, MapInto) {
 }
 
 TEST(UsageTest, MultipleRoundsOfFixedPoint) {
-    // Simulate: reachable from 0 in a graph
-    // edge(0,1), edge(1,2), edge(2,3)
     Iteration iter;
     auto edge = iter.variable<std::pair<int, int>>("edge");
-    auto reachable = iter.variable<int>("reachable");
+    auto reachable = iter.variable<std::pair<int, Unit>>("reachable");
 
-    edge->insert(Relation<std::pair<int, int>>::from_vec({
-        {0, 1}, {1, 2}, {2, 3}
-    }));
-    reachable->insert(Relation<int>::from_vec({0}));
+    edge->insert(
+        Relation<std::pair<int, int>>::from_vec({{0, 1}, {1, 2}, {2, 3}}));
+    reachable->insert(Relation<std::pair<int, Unit>>::from_vec({{0, {}}}));
 
     int round = 0;
     while (iter.changed() && round < 10) {
         round++;
-        // reachable(y) :- reachable(x), edge(x, y)
-        reachable->from_join(
-            *reachable, *edge,
-            *reachable,
-            [](int x, int y, int _) { return y; }
-        );
+        reachable->from_join(*reachable, *edge, *reachable,
+                             [](int x, std::monostate _, int y) {
+                                 return std::pair{y, std::monostate{}};
+                             });
     }
 
     auto result = std::move(*reachable).complete();
-    EXPECT_EQ(result.elements, (std::vector<int>{0, 1, 2, 3}));
+    EXPECT_EQ(result.elements, (std::vector<std::pair<int, Unit>>{
+                                   {0, {}}, {1, {}}, {2, {}}, {3, {}}}));
 }

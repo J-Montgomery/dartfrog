@@ -101,16 +101,15 @@ TEST(VariableTest, ForEachStableSetIteratesBatches) {
     EXPECT_EQ(count, 11);
 }
 
-
 TEST(VariableTest, NumStableAccumulatesAcrossBatches) {
     Variable<int> v("test");
     v.insert(Relation<int>::from_vec({1, 2}));
     v.changed();
     v.insert(Relation<int>::from_vec({3, 4, 5}));
     v.changed();
-    v.changed();  // promote {3,4,5} into stable (merged with {1,2} by heuristic)
+    v.changed(); // promote {3,4,5} into stable (merged with {1,2} by heuristic)
 
-    EXPECT_EQ(v.num_stable(), 5);  // one merged batch of size 5
+    EXPECT_EQ(v.num_stable(), 5); // one merged batch of size 5
 }
 
 TEST(VariableTest, NameIsSet) {

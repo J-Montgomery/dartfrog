@@ -58,6 +58,7 @@ TEST(IterationTest, RecordStatsTo) {
     iter.changed();
 
     std::string output = oss.str();
-    EXPECT_TRUE(output.find("Variable, Round, Stable Count, Recent Count") != std::string::npos);
+    EXPECT_TRUE(output.find("Variable, Round, Stable Count, Recent Count") !=
+                std::string::npos);
     EXPECT_TRUE(output.find("\"v\"") != std::string::npos);
 }

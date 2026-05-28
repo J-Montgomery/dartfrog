@@ -11,6 +11,22 @@ template <std::totally_ordered Tuple> struct Relation;
 
 namespace join {
 
+template <typename I> struct input_value_type;
+
+template <typename K, typename V>
+struct input_value_type<Variable<std::pair<K, V>>> {
+    using type = V;
+};
+
+template <typename K, typename V>
+struct input_value_type<Relation<std::pair<K, V>>> {
+    using type = V;
+};
+
+template <typename I>
+using input_value_type_t =
+    typename input_value_type<std::remove_cvref_t<I>>::type;
+
 template <typename I, typename Tuple>
 concept JoinInput = requires(I input) {
     { input.recent() } -> std::convertible_to<std::span<const Tuple>>;
@@ -44,10 +60,10 @@ std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
     return slice.subspan(std::distance(slice.begin(), it));
 }
 
-template <typename K, typename V1, typename V2, typename ResultCallback>
-void join_helper(std::span<std::pair<K, V1>> slice1,
-                 std::span<std::pair<K, V2>> slice2,
-                 ResultCallback &&result_cb) {
+template <typename Span1, typename Span2, class ResultCallback>
+void join_helper(Span1 slice1, Span2 slice2, ResultCallback &&result_cb) {
+    using K = typename decltype(slice1)::value_type::first_type;
+    using V1 = typename decltype(slice1)::value_type::second_type;
     while (!slice1.empty() && !slice2.empty()) {
         auto k1 = slice1[0].first;
         auto k2 = slice2[0].first;
@@ -81,10 +97,13 @@ void join_helper(std::span<std::pair<K, V1>> slice1,
     }
 }
 
-template <typename K, typename V1, typename V2, typename Callback,
-          JoinInput<std::pair<K, V2>> I2>
-void join_delta(const Variable<std::pair<K, V1>> &input1, const I2 &input2,
+template <typename Variable1, typename Input2, typename Callback>
+void join_delta(const Variable1 &input1, const Input2 &input2,
                 Callback &&result_cb) {
+    using K = typename Variable1::value_type::first_type;
+    using V1 = typename Variable1::value_type::second_type;
+    using V2 = typename Input2::value_type::second_type;
+
     auto recent1 = input1.recent();
     auto recent2 = input2.recent();
 
@@ -99,20 +118,28 @@ void join_delta(const Variable<std::pair<K, V1>> &input1, const I2 &input2,
     join_helper(recent1, recent2, result_cb);
 }
 
-template <typename K, typename V1, typename V2, typename Res, typename Logic,
-          JoinInput<std::pair<K, V2>> I2>
-void join_into(const Variable<std::pair<K, V1>> &input1, const I2 &input2,
+template <class Tuple1, class I2, class Res, class Logic>
+    requires JoinInput<I2, std::pair<typename Tuple1::first_type,
+                                     typename I2::value_type::second_type>>
+void join_into(const Variable<Tuple1> &input1, const I2 &input2,
                Variable<Res> &output, Logic &&logic) {
+
+    using K = typename Tuple1::first_type;
+    using V1 = typename Tuple1::second_type;
+    using V2 = typename I2::value_type::second_type;
+
     std::vector<Res> results;
-    join_delta(input1, input2, [&](const K &k, const V1 &v1, const V2 &v2) {
+    auto push_result = [&](const K &k, const V1 &v1, const V2 &v2) {
         results.push_back(logic(k, v1, v2));
-    });
+    };
+
+    join_delta(input1, input2, push_result);
 
     output.insert(Relation<Res>::from_vec(std::move(results)));
 }
 
-template <typename K, typename V1, typename V2, typename Res, typename Logic,
-          JoinInput<std::pair<K, V2>> I2>
+template <typename K, typename V1, typename V2 = V1, typename Res,
+          typename Logic, JoinInput<std::pair<K, V2>> I2>
 void join_and_filter_into(const Variable<std::pair<K, V1>> &input1,
                           const I2 &input2, Variable<Res> &output,
                           Logic &&logic) {
@@ -128,7 +155,7 @@ void join_and_filter_into(const Variable<std::pair<K, V1>> &input1,
 
 template <typename K, typename V, typename Logic>
 auto antijoin(const Relation<std::pair<K, V>> &input1,
-                       const Relation<K> &input2, Logic &&logic) {
+              const Relation<K> &input2, Logic &&logic) {
     using Res = std::invoke_result_t<Logic, K, V>;
     std::vector<Res> results;
     std::span<const K> tuples2 = input2.elements;

@@ -7,7 +7,8 @@
 // ExtendWith tests
 
 TEST(ExtendWithTest, CountReturnsMatchingRows) {
-    auto rel = Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 20}, {2, 30}});
+    auto rel =
+        Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 20}, {2, 30}});
     RelationLeaper<int, int> rl{&rel};
 
     auto ew = rl.extend_with<int>([](int x) { return x; });
@@ -18,7 +19,8 @@ TEST(ExtendWithTest, CountReturnsMatchingRows) {
 }
 
 TEST(ExtendWithTest, ProposeCollectsValues) {
-    auto rel = Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 20}, {2, 30}});
+    auto rel =
+        Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 20}, {2, 30}});
     RelationLeaper<int, int> rl{&rel};
 
     auto ew = rl.extend_with<int>([](int x) { return x; });
@@ -32,7 +34,8 @@ TEST(ExtendWithTest, ProposeCollectsValues) {
 }
 
 TEST(ExtendWithTest, IntersectFiltersValues) {
-    auto rel = Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 30}, {1, 50}});
+    auto rel =
+        Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 30}, {1, 50}});
     RelationLeaper<int, int> rl{&rel};
 
     auto ew = rl.extend_with<int>([](int x) { return x; });
