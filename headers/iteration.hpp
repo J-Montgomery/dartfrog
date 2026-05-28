@@ -1,33 +1,33 @@
 #pragma once
 
-#include <vector>
-#include <memory>
-#include <iostream>
-#include <string>
-#include <cstdint>
 #include "variable.hpp"
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "variable.hpp"
 
 class Iteration {
-private:
+  private:
     std::vector<std::shared_ptr<IVariable>> variables;
     uint32_t round = 0;
-    std::ostream* debug_stats = nullptr;
+    std::ostream *debug_stats = nullptr;
 
-public:
+  public:
     Iteration() = default;
 
     bool changed() {
         round += 1;
         bool result = false;
 
-        for (auto& variable: variables) {
-            if(variable->changed()) {
+        for (auto &variable : variables) {
+            if (variable->changed()) {
                 result = true;
             }
 
-            if(debug_stats) {
+            if (debug_stats) {
                 variable->dump_stats(round, *debug_stats);
             }
         }
@@ -52,7 +52,7 @@ public:
         return var;
     }
 
-    void record_stats_to(std::ostream& s) {
+    void record_stats_to(std::ostream &s) {
         s << "Variable, Round, Stable Count, Recent Count\n";
         debug_stats = &s;
     }
