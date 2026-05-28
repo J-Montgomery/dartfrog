@@ -94,7 +94,7 @@ auto leapjoin(const std::vector<Tuple> &source, Collection &collection,
         }
     }
 
-    return Relation<Result>::from_vec(result);
+    return Relation<Result>::from_vec(std::move(result));
 }
 
 using Unit = std::monostate;

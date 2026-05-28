@@ -21,7 +21,7 @@ concept JoinInput = requires(I input) {
 };
 
 template <typename T, typename Cmp>
-std::span<const T> gallop(std::span<const T> slice, Cmp &&cmp) {
+std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
     if (slice.empty() || !cmp(slice[0])) {
         return slice;
     }
@@ -45,12 +45,12 @@ std::span<const T> gallop(std::span<const T> slice, Cmp &&cmp) {
 }
 
 template <typename K, typename V1, typename V2, typename ResultCallback>
-void join_helper(std::span<const std::pair<K, V1>> slice1,
-                 std::span<const std::pair<K, V2>> slice2,
+void join_helper(std::span<std::pair<K, V1>> slice1,
+                 std::span<std::pair<K, V2>> slice2,
                  ResultCallback &&result_cb) {
     while (!slice1.empty() && !slice2.empty()) {
-        const K &k1 = slice1[0].first;
-        const K &k2 = slice2[0].first;
+        auto k1 = slice1[0].first;
+        auto k2 = slice2[0].first;
 
         if (k1 < k2) {
             slice1 =
@@ -126,9 +126,10 @@ void join_and_filter_into(const Variable<std::pair<K, V1>> &input1,
     output.insert(Relation<Res>::from_vec(std::move(results)));
 }
 
-template <typename K, typename V, typename Res, typename Logic>
-Relation<Res> antijoin(const Relation<std::pair<K, V>> &input1,
+template <typename K, typename V, typename Logic>
+auto antijoin(const Relation<std::pair<K, V>> &input1,
                        const Relation<K> &input2, Logic &&logic) {
+    using Res = std::invoke_result_t<Logic, K, V>;
     std::vector<Res> results;
     std::span<const K> tuples2 = input2.elements;
 

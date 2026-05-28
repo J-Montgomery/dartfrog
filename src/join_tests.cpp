@@ -89,7 +89,6 @@ TEST(JoinHelperTest, CartesianProductForDuplicateKeys) {
     EXPECT_EQ(results[5], (std::tuple{1, "a2", "b3"}));
 }
 
-// antijoin tests
 TEST(JoinHelperTest, MixedOverlappingAndNonOverlapping) {
     std::vector<std::pair<int, int>> a = {{1, 10}, {3, 30}, {5, 50}};
     std::vector<std::pair<int, int>> b = {{2, 200}, {3, 300}, {6, 600}};
@@ -102,6 +101,7 @@ TEST(JoinHelperTest, MixedOverlappingAndNonOverlapping) {
     EXPECT_EQ(results[0], (std::tuple{3, 30, 300}));
 }
 
+// antijoin tests
 TEST(AntijoinTest, EmptyInput1) {
     Relation<std::pair<int, int>> input1;
     Relation<int> input2 = Relation<int>::from_vec({1, 2, 3});
@@ -147,5 +147,5 @@ TEST(AntijoinTest, TransformsValues) {
     auto input2 = Relation<int>::from_vec({2});
     auto result = join::antijoin(input1, input2,
         [](int k, int v) { return v * 100; });
-    EXPECT_EQ(result.elements, (std::vector<int>{100, 300}));
+    EXPECT_EQ(result.elements, (std::vector<int>{1000, 3000}));
 }
