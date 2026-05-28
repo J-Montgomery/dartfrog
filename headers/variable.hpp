@@ -151,7 +151,7 @@ template <std::totally_ordered Tuple> class Variable : public IVariable {
         requires std::totally_ordered<K> && std::totally_ordered<V>
     void from_antijoin(const Variable<std::pair<K, V>> &input1,
                        const Relation<K> &input2, Logic &&logic) {
-        this->insert(join::antijoin(input1.recent_data, input2,
+        this->insert(join::antijoin(input1.recent(), input2,
                                     std::forward<Logic>(logic)));
     }
 

@@ -153,14 +153,19 @@ void join_and_filter_into(const Variable<std::pair<K, V1>> &input1,
     output.insert(Relation<Res>::from_vec(std::move(results)));
 }
 
-template <typename K, typename V, typename Logic>
-auto antijoin(const Relation<std::pair<K, V>> &input1,
-              const Relation<K> &input2, Logic &&logic) {
-    using Res = std::invoke_result_t<Logic, K, V>;
+template <typename InputRange, typename K, typename Logic>
+auto antijoin(const InputRange &input1, const Relation<K> &input2,
+              Logic &&logic) {
+    using ElementType =
+        typename std::remove_cvref_t<decltype(*std::begin(input1))>;
+    using KeyType = typename ElementType::first_type;
+    using ValType = typename ElementType::second_type;
+    using Res = std::invoke_result_t<Logic, const KeyType &, const ValType &>;
+
     std::vector<Res> results;
     std::span<const K> tuples2 = input2.elements;
 
-    for (const auto &[key, val] : input1.elements) {
+    for (const auto &[key, val] : input1) {
         tuples2 = gallop(tuples2, [&](const K &k) { return k < key; });
         if (tuples2.empty() || tuples2[0] != key) {
             results.push_back(logic(key, val));

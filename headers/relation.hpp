@@ -49,6 +49,10 @@ template <std::totally_ordered Tuple> struct Relation {
         return Relation{
             merge_unique(std::move(this->elements), std::move(other.elements))};
     }
+    auto begin() const { return elements.begin(); }
+    auto end() const { return elements.end(); }
+    auto begin() { return elements.begin(); }
+    auto end() { return elements.end(); }
 
     static Relation from_vec(std::vector<Tuple> &&elems) {
         std::sort(elems.begin(), elems.end());
