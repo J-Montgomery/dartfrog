@@ -125,23 +125,16 @@ struct PrefixFilter {
         requires(!std::is_same_v<Val2, Unit>)
     void intersect(const Tuple &, std::vector<const Val2 *> &) {}
 
-    template <typename Val2>
     void for_each_count(const Tuple &tuple, auto &&op) {
         size_t c = count(tuple);
-        if constexpr (std::is_same_v<Val2, Unit>) {
-            op(0, c == 0 ? 0 : 1);
-        } else {
-            op(0, c);
-        }
+        op(0, c == 0 ? 0 : 1);
     }
 
-    void propose(const Tuple &, std::vector<const Unit *> &values) {
-        values.push_back(&UNIT_INSTANCE);
+    void propose(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+        propose(t, v);
     }
-
-    void intersect(const Tuple &, std::vector<const Unit *> &values) {
-        if (values.size() != 1)
-            throw std::runtime_error("Logic error");
+    void intersect(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+        intersect(t, v);
     }
 };
 template <typename Tuple> struct Passthrough {
@@ -323,26 +316,22 @@ class FilterWith {
         return present ? std::numeric_limits<size_t>::max() : 0;
     }
 
-    template <typename Val2>
-        requires(!std::is_same_v<Val2, Unit>)
-    void propose(const Tuple &, std::vector<const Val2 *> &) {
-        throw std::runtime_error(
-            "FilterWith::propose(): variable apparently unbound.");
-    }
-
-    template <typename Val2>
-        requires(!std::is_same_v<Val2, Unit>)
-    void intersect(const Tuple &, std::vector<const Val2 *> &) {}
-
     void for_each_count(const Tuple &t, auto &&op) {
         size_t c = count(t);
-        op(0, c == 0 ? 0 : (std::is_same_v<Val, Unit> ? 1 : c));
+        op(0, c == 0 ? 0 : 1);
     }
 
-    void propose(const Tuple &, size_t, std::vector<const Unit *> &v) {
+    void propose(const Tuple &, std::vector<const Unit *> &v) {
         v.push_back(&UNIT_INSTANCE);
     }
-    void intersect(const Tuple &, size_t, std::vector<const Unit *> &) {}
+    void intersect(const Tuple &, std::vector<const Unit *> &) {}
+
+    void propose(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+        propose(t, v);
+    }
+    void intersect(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+        intersect(t, v);
+    }
 };
 } // namespace filter_with
 
@@ -370,28 +359,22 @@ class FilterAnti {
         return present ? 0 : std::numeric_limits<size_t>::max();
     }
 
-    template <typename Val2>
-        requires(!std::is_same_v<Val2, Unit>)
-    void propose(const Tuple &, std::vector<const Val2 *> &) {
-        throw std::runtime_error("FilterAnti::propose(): variable unbound.");
-    }
-
-    template <typename Val2>
-        requires(!std::is_same_v<Val2, Unit>)
-    void intersect(const Tuple &, std::vector<const Val2 *> &) {}
-
     void for_each_count(const Tuple &t, auto &&op) {
         size_t c = count(t);
-        op(0, c == 0 ? 0 : (std::is_same_v<Val, Unit> ? 1 : c));
+        op(0, c == 0 ? 0 : 1);
     }
 
-    void propose(const Tuple &, std::vector<const Unit *> &values) {
-        values.push_back(&UNIT_INSTANCE);
+    void propose(const Tuple &, std::vector<const Unit *> &v) {
+        v.push_back(&UNIT_INSTANCE);
     }
 
-    void intersect(const Tuple &, std::vector<const Unit *> &values) {
-        if (values.size() != 1)
-            throw std::logic_error("logic error");
+    void intersect(const Tuple &, std::vector<const Unit *> &) {}
+
+    void propose(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+        propose(t, v);
+    }
+    void intersect(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+        intersect(t, v);
     }
 };
 } // namespace filter_anti
