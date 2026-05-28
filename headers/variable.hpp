@@ -30,39 +30,96 @@ template <std::totally_ordered Tuple> class Variable : public IVariable {
     std::string name_;
 
     std::vector<Relation<Tuple>> stable;
-    Relation<Tuple> recent;
+    Relation<Tuple> recent_data;
     std::vector<Relation<Tuple>> to_add;
 
     Variable(std::string name) : distinct(true), name_(std::move(name)) {}
 
     const std::string &name() const { return name_; }
 
+    std::span<const Tuple> recent() const { return recent_data.elements; }
+
+    void for_each_stable_set(auto &&f) const {
+        for (const auto &batch : stable) {
+            f(std::span<const Tuple>(batch.elements));
+        }
+    }
+
     size_t num_stable() const {
         return std::accumulate(
-            stable->begin(), stable->end(), 0ULL,
+            stable.begin(), stable.end(), 0ULL,
             [](size_t sum, const auto &rel) { return sum + rel.size(); });
     }
 
-    bool is_stable() const { return recent->empty() && to_add->empty(); }
+    bool is_stable() const { return recent_data.empty() && to_add.empty(); }
 
     void dump_stats(uint32_t round, std::ostream &w) const override {
         w << "\"" << name_ << "\", " << round << ", " << num_stable() << ", "
-          << recent->size() << "\n";
+          << recent_data.size() << "\n";
     }
 
     Relation<Tuple> complete() && {
-        if (!stable->empty()) {
+        if (!is_stable()) {
             throw std::runtime_error("Variable is not stable");
         }
 
         Relation<Tuple> result;
-        while (!stable->empty()) {
-            Relation<Tuple> batch = std::move(stable->back());
-            stable->pop_back();
+        while (!stable.empty()) {
+            Relation<Tuple> batch = std::move(stable.back());
+            stable.pop_back();
             result = std::move(result).merge(std::move(batch));
         }
 
         return result;
+    }
+
+    bool changed() override {
+        if (!recent_data.empty()) {
+            Relation<Tuple> current_recent = std::move(recent_data);
+            recent_data = Relation<Tuple>{};
+
+            while (!stable.empty() &&
+                   stable.back().size() <= 2 * current_recent.size()) {
+                auto last = std::move(stable.back());
+                stable.pop_back();
+                current_recent =
+                    std::move(current_recent).merge(std::move(last));
+            }
+            stable.push_back(std::move(current_recent));
+        }
+
+        if (!to_add.empty()) {
+            Relation<Tuple> current_to_add = std::move(to_add.back());
+            to_add.pop_back();
+
+            while (!to_add.empty()) {
+                auto more = std::move(to_add.back());
+                to_add.pop_back();
+                current_to_add =
+                    std::move(current_to_add).merge(std::move(more));
+            }
+
+            if (distinct) {
+                for (const auto &batch : stable) {
+                    std::span<const Tuple> slice = batch.elements;
+
+                    std::erase_if(current_to_add.elements, [&](const Tuple &x) {
+                        if (slice.size() > 4 * current_to_add.size()) {
+                            slice = join::gallop(
+                                slice, [&](const Tuple &y) { return y < x; });
+                        } else {
+                            while (!slice.empty() && slice[0] < x) {
+                                slice = slice.subspan(1);
+                            }
+                        }
+                        return !slice.empty() && slice[0] == x;
+                    });
+                }
+            }
+            recent_data = std::move(current_to_add);
+        }
+
+        return !recent_data.empty();
     }
 
     void insert(Relation<Tuple> relation) {

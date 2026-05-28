@@ -230,7 +230,7 @@ class ExtendWith {
     void propose(const Tuple &t, size_t, std::vector<const Val *> &v) {
         propose(t, v);
     }
-    void intersect(const Tuple &, size_t, std::vector<const Val *> &v) {
+    void intersect(const Tuple &t, size_t, std::vector<const Val *> &v) {
         intersect(t, v);
     }
 };

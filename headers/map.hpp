@@ -11,11 +11,9 @@ namespace map {
 template <typename T1, typename T2, typename Logic>
 void map_into(const Variable<T1> &input, const Variable<T2> &output,
               Logic &&logic) {
-    const auto &recents = *input.recent;
-
     std::vector<T2> results;
-    results.reserve(recents.size());
-    for (const auto &item : recents) {
+    results.reserve(input.recent().size());
+    for (const auto &item : input.recent()) {
         results.push_back(logic(item));
     }
 

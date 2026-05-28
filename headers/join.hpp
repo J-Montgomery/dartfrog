@@ -128,5 +128,17 @@ void join_and_filter_into(const Variable<std::pair<K, V1>> &input1,
 
 template <typename K, typename V, typename Res, typename Logic>
 Relation<Res> antijoin(const Relation<std::pair<K, V>> &input1,
-                       const Relation<K> &input2, Logic &&logic) {}
+                       const Relation<K> &input2, Logic &&logic) {
+    std::vector<Res> results;
+    std::span<const K> tuples2 = input2.elements;
+
+    for (const auto &[key, val] : input1.elements) {
+        tuples2 = gallop(tuples2, [&](const K &k) { return k < key; });
+        if (tuples2.empty() || tuples2[0] != key) {
+            results.push_back(logic(key, val));
+        }
+    }
+
+    return Relation<Res>::from_vec(std::move(results));
+}
 } // namespace join
