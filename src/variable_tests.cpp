@@ -25,7 +25,7 @@ TEST(VariableTest, InsertAndChanged) {
 TEST(VariableTest, ChangedReturnsFalseWhenNoNewData) {
     Variable<int> v("test");
     v.insert(Relation<int>::from_vec({1, 2}));
-    v.changed(); // consume
+    v.changed();
 
     bool changed = v.changed();
     EXPECT_FALSE(changed);
@@ -38,17 +38,16 @@ TEST(VariableTest, MultipleInsertBatches) {
     v.insert(Relation<int>::from_vec({3, 4}));
     v.changed();
 
-    // After one changed(), both batches should be merged into recent
     EXPECT_EQ(v.recent().size(), 4);
 }
 
 TEST(VariableTest, DistinctDeduplicatesAgainstStable) {
     Variable<int> v("test");
     v.insert(Relation<int>::from_vec({1, 2, 3}));
-    v.changed(); // stable now contains {1, 2, 3}
+    v.changed();
 
     v.insert(Relation<int>::from_vec({2, 3, 4}));
-    v.changed(); // should dedup 2 and 3
+    v.changed();
 
     EXPECT_EQ(v.recent().size(), 1);
     EXPECT_EQ(v.recent()[0], 4);
@@ -63,13 +62,13 @@ TEST(VariableTest, IndistinctDoesNotDeduplicate) {
     v->insert(Relation<int>::from_vec({2, 3, 4}));
     v->changed();
 
-    // Indistinct: duplicates are not removed
     EXPECT_EQ(v->recent().size(), 3);
 }
 
 TEST(VariableTest, CompleteWhenStable) {
     Variable<int> v("test");
     v.insert(Relation<int>::from_vec({3, 1, 2}));
+    v.changed();
     v.changed();
 
     auto result = std::move(v).complete();
@@ -84,17 +83,24 @@ TEST(VariableTest, CompleteWhenNotStableThrows) {
 
 TEST(VariableTest, ForEachStableSetIteratesBatches) {
     Variable<int> v("test");
-    v.insert(Relation<int>::from_vec({1}));
+    std::vector<int> big(10);
+    std::iota(big.begin(), big.end(), 0);
+    v.insert(Relation<int>::from_vec(std::move(big)));
     v.changed();
-    v.insert(Relation<int>::from_vec({2}));
+    v.insert(Relation<int>::from_vec({100}));
+    v.changed();
     v.changed();
 
+    size_t batches = 0;
     size_t count = 0;
     v.for_each_stable_set([&](std::span<const int> batch) {
+        batches++;
         count += batch.size();
     });
-    EXPECT_EQ(count, 2);
+    EXPECT_EQ(batches, 2);
+    EXPECT_EQ(count, 11);
 }
+
 
 TEST(VariableTest, NumStableAccumulatesAcrossBatches) {
     Variable<int> v("test");
@@ -102,8 +108,9 @@ TEST(VariableTest, NumStableAccumulatesAcrossBatches) {
     v.changed();
     v.insert(Relation<int>::from_vec({3, 4, 5}));
     v.changed();
+    v.changed();  // promote {3,4,5} into stable (merged with {1,2} by heuristic)
 
-    EXPECT_EQ(v.num_stable(), 5);
+    EXPECT_EQ(v.num_stable(), 5);  // one merged batch of size 5
 }
 
 TEST(VariableTest, NameIsSet) {
