@@ -84,4 +84,7 @@ template <std::totally_ordered Tuple> struct Relation {
         }
         return std::nullopt;
     }
+
+    size_t size() const { return elements.size(); }
+    bool empty() const { return elements.empty(); }
 };

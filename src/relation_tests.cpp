@@ -41,3 +41,75 @@ TEST(RelationTest, FromIterMoveSemantics) {
     EXPECT_EQ(rel.elements[0], "apple");
     EXPECT_TRUE(sources[0].empty());
 }
+
+TEST(RelationTest, FromVecAlreadySorted) {
+    auto rel = Relation<int>::from_vec({1, 2, 3, 4});
+    EXPECT_EQ(rel.elements, (std::vector<int>{1, 2, 3, 4}));
+}
+
+TEST(RelationTest, FromVecEmpty) {
+    auto rel = Relation<int>::from_vec({});
+    EXPECT_TRUE(rel.elements.empty());
+}
+
+TEST(RelationTest, FromVecSingleElement) {
+    auto rel = Relation<int>::from_vec({42});
+    EXPECT_EQ(rel.elements, (std::vector<int>{42}));
+}
+
+TEST(RelationTest, MergeWithEmpty) {
+    auto r1 = Relation<int>::from_vec({1, 2, 3});
+    auto r2 = Relation<int>{};
+    auto r3 = std::move(r1).merge(std::move(r2));
+    EXPECT_EQ(r3.elements, (std::vector<int>{1, 2, 3}));
+}
+
+TEST(RelationTest, BinarySearchFound) {
+    auto rel = Relation<int>::from_vec({10, 20, 30, 40, 50});
+    auto idx = rel.binary_search(30);
+    ASSERT_TRUE(idx.has_value());
+    EXPECT_EQ(*idx, 2);
+}
+
+TEST(RelationTest, BinarySearchNotFound) {
+    auto rel = Relation<int>::from_vec({10, 20, 30, 40, 50});
+    auto idx = rel.binary_search(25);
+    EXPECT_FALSE(idx.has_value());
+}
+
+TEST(RelationTest, BinarySearchFirstElement) {
+    auto rel = Relation<int>::from_vec({10, 20, 30});
+    auto idx = rel.binary_search(10);
+    ASSERT_TRUE(idx.has_value());
+    EXPECT_EQ(*idx, 0);
+}
+
+TEST(RelationTest, BinarySearchLastElement) {
+    auto rel = Relation<int>::from_vec({10, 20, 30});
+    auto idx = rel.binary_search(30);
+    ASSERT_TRUE(idx.has_value());
+    EXPECT_EQ(*idx, 2);
+}
+
+TEST(RelationTest, BinarySearchEmpty) {
+    Relation<int> rel;
+    auto idx = rel.binary_search(5);
+    EXPECT_FALSE(idx.has_value());
+}
+
+TEST(RelationTest, FromMap) {
+    auto input = Relation<int>::from_vec({1, 2, 3});
+    auto output = Relation<int>::from_map(input, [](int x) { return x * 10; });
+    EXPECT_EQ(output.elements, (std::vector<int>{10, 20, 30}));
+}
+
+TEST(RelationTest, FromIter) {
+    std::vector<int> v = {3, 1, 2, 1};
+    auto rel = Relation<int>::from_iter(v);
+    EXPECT_EQ(rel.elements, (std::vector<int>{1, 2, 3}));
+}
+
+TEST(RelationTest, DefaultConstructedIsEmpty) {
+    Relation<int> rel;
+    EXPECT_TRUE(rel.elements.empty());
+}

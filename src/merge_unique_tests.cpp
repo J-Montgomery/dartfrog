@@ -49,3 +49,35 @@ TEST(MergeUniqueTest, MoveOnlyTypes) {
     EXPECT_EQ(*result[0], 1);
     EXPECT_EQ(*result[1], 2);
 }
+
+TEST(MergeUniqueTest, BothEmpty) {
+    std::vector<int> a = {};
+    std::vector<int> b = {};
+
+    auto result = merge_unique(std::move(a), std::move(b));
+    EXPECT_TRUE(result.empty());
+}
+
+TEST(MergeUniqueTest, IdenticalVectors) {
+    std::vector<int> a = {1, 2, 3};
+    std::vector<int> b = {1, 2, 3};
+
+    auto result = merge_unique(std::move(a), std::move(b));
+    EXPECT_EQ(result, (std::vector<int>{1, 2, 3}));
+}
+
+TEST(MergeUniqueTest, InterleavedElements) {
+    std::vector<int> a = {1, 3, 5, 7};
+    std::vector<int> b = {2, 4, 6, 8};
+
+    auto result = merge_unique(std::move(a), std::move(b));
+    EXPECT_EQ(result, (std::vector<int>{1, 2, 3, 4, 5, 6, 7, 8}));
+}
+
+TEST(MergeUniqueTest, SingleElementOverlap) {
+    std::vector<int> a = {5};
+    std::vector<int> b = {5};
+
+    auto result = merge_unique(std::move(a), std::move(b));
+    EXPECT_EQ(result, (std::vector<int>{5}));
+}

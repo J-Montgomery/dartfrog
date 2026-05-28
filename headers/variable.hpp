@@ -124,7 +124,7 @@ template <std::totally_ordered Tuple> class Variable : public IVariable {
 
     void insert(Relation<Tuple> relation) {
         if (!relation.empty()) {
-            to_add->push_back(std::move(relation));
+            to_add.push_back(std::move(relation));
         }
     }
 
