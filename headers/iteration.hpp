@@ -6,54 +6,78 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <concepts>
+#include <tuple>
+#include <cstdint>
 
-#include "variable.hpp"
-
+template <typename T>
+concept VariableConcept = requires(T v) {
+    { v.changed() } -> std::convertible_to<bool>;
+};
+template <typename... Variables>
 class Iteration {
-  private:
-    std::vector<std::shared_ptr<IVariable>> variables;
-    uint32_t round = 0;
-    std::ostream *debug_stats = nullptr;
+    std::tuple<Variables...> variables;
 
-  public:
-    Iteration() = default;
+    struct TupleConstructorTag {};
+    
+    template <typename Tuple, std::size_t... Is>
+    constexpr Iteration(TupleConstructorTag, Tuple&& t, std::index_sequence<Is...>)
+        : variables(std::get<Is>(std::forward<Tuple>(t))...) {}
 
-    bool changed() {
-        round += 1;
-        bool result = false;
+public:
+    constexpr Iteration(Variables... vars) : variables(std::move(vars)...) {}
 
-        for (auto &variable : variables) {
-            if (variable->changed()) {
-                result = true;
-            }
+    template <typename Tuple>
+    constexpr Iteration(Tuple&& t)
+        : Iteration(TupleConstructorTag{}, std::forward<Tuple>(t), 
+                    std::make_index_sequence<std::tuple_size_v<std::decay_t<Tuple>>>{}) {}
 
-            if (debug_stats) {
-                variable->dump_stats(round, *debug_stats);
-            }
-        }
-
-        return result;
+    constexpr bool changed() {
+        return std::apply([](auto&&... vars) {
+            return (vars.changed() || ...);
+        }, variables);
     }
 
-    template <std::totally_ordered Tuple>
-    std::shared_ptr<Variable<Tuple>> variable(std::string name) {
-        auto var = std::make_shared<Variable<Tuple>>(std::move(name));
-        variables.push_back(var);
+    template <std::totally_ordered Tuple, typename ConcreteVariable = Variable<Tuple>>
+    constexpr auto variable() && {
+        ConcreteVariable new_var;
+        auto updated_tuple = std::tuple_cat(std::move(variables), std::tuple{std::move(new_var)});
+        
+        using NewIterationType = Iteration<Variables..., ConcreteVariable>;
 
-        return var;
+        struct Result {
+            NewIterationType iter;
+            ConcreteVariable* var_ptr;
+        };
+
+        NewIterationType next_iter(std::move(updated_tuple));
+        
+        return Result{
+            .iter = std::move(next_iter),
+            .var_ptr = &std::get<sizeof...(Variables)>(next_iter.variables)
+        };
     }
 
-    template <std::totally_ordered Tuple>
-    std::shared_ptr<Variable<Tuple>> variable_indistinct(std::string name) {
-        auto var = std::make_shared<Variable<Tuple>>(std::move(name));
-        var->distinct = false;
-        variables.push_back(var);
+    template <std::totally_ordered Tuple, typename ConcreteVariable = Variable<Tuple>>
+    constexpr auto variable_indistinct() && {
+        ConcreteVariable new_var;
+        new_var.distinct = false;
+        auto updated_tuple = std::tuple_cat(std::move(variables), std::tuple{std::move(new_var)});
+        
+        using NewIterationType = Iteration<Variables..., ConcreteVariable>;
 
-        return var;
+        struct Result {
+            NewIterationType iter;
+            ConcreteVariable* var_ptr;
+        };
+
+        NewIterationType next_iter(std::move(updated_tuple));
+
+        return Result{
+            .iter = std::move(next_iter),
+            .var_ptr = &std::get<sizeof...(Variables)>(next_iter.variables)
+        };
     }
 
-    void record_stats_to(std::ostream &s) {
-        s << "Variable, Round, Stable Count, Recent Count\n";
-        debug_stats = &s;
-    }
+    template <typename... OtherVars> friend class Iteration;
 };

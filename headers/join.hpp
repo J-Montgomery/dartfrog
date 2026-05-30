@@ -123,7 +123,7 @@ constexpr void join_delta(const Input1 &input1, const Input2 &input2,
 }
 
 template <class Input1, class Input2, class OutputT, class Logic>
-    requires JoinInput<Input2, typename Input2::first_type>
+    requires JoinInput<Input2, typename Input2::value_type>
     && PairLike<typename Input1::value_type>
 constexpr void join_into(const Input1 &input1, const Input2 &input2,
                OutputT &output, Logic &&logic) {

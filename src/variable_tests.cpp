@@ -5,14 +5,14 @@
 #include <dartfrog.hpp>
 
 TEST(VariableTest, InitiallyStable) {
-    Variable<int> v("test");
+    Variable<int> v;
     EXPECT_TRUE(v.is_stable());
     EXPECT_TRUE(v.recent().empty());
     EXPECT_EQ(v.num_stable(), 0);
 }
 
 TEST(VariableTest, InsertAndChanged) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2, 3}));
     EXPECT_FALSE(v.is_stable());
 
@@ -23,7 +23,7 @@ TEST(VariableTest, InsertAndChanged) {
 }
 
 TEST(VariableTest, ChangedReturnsFalseWhenNoNewData) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2}));
     v.changed();
 
@@ -33,7 +33,7 @@ TEST(VariableTest, ChangedReturnsFalseWhenNoNewData) {
 }
 
 TEST(VariableTest, MultipleInsertBatches) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2}));
     v.insert(Relation<int>::from_vec({3, 4}));
     v.changed();
@@ -42,7 +42,7 @@ TEST(VariableTest, MultipleInsertBatches) {
 }
 
 TEST(VariableTest, DistinctDeduplicatesAgainstStable) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2, 3}));
     v.changed();
 
@@ -54,7 +54,7 @@ TEST(VariableTest, DistinctDeduplicatesAgainstStable) {
 }
 
 TEST(VariableTest, IndistinctDoesNotDeduplicate) {
-    auto v = std::make_shared<Variable<int>>("test");
+    auto v = std::make_shared<Variable<int>>();
     v->distinct = false;
     v->insert(Relation<int>::from_vec({1, 2, 3}));
     v->changed();
@@ -66,7 +66,7 @@ TEST(VariableTest, IndistinctDoesNotDeduplicate) {
 }
 
 TEST(VariableTest, CompleteWhenStable) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({3, 1, 2}));
     v.changed();
     v.changed();
@@ -76,13 +76,13 @@ TEST(VariableTest, CompleteWhenStable) {
 }
 
 TEST(VariableTest, CompleteWhenNotStableThrows) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2}));
     EXPECT_THROW(std::move(v).complete(), std::runtime_error);
 }
 
 TEST(VariableTest, ForEachStableSetIteratesBatches) {
-    Variable<int> v("test");
+    Variable<int> v;
     std::vector<int> big(10);
     std::iota(big.begin(), big.end(), 0);
     v.insert(Relation<int>::from_vec(std::move(big)));
@@ -102,17 +102,12 @@ TEST(VariableTest, ForEachStableSetIteratesBatches) {
 }
 
 TEST(VariableTest, NumStableAccumulatesAcrossBatches) {
-    Variable<int> v("test");
+    Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2}));
     v.changed();
     v.insert(Relation<int>::from_vec({3, 4, 5}));
     v.changed();
-    v.changed(); // promote {3,4,5} into stable (merged with {1,2} by heuristic)
+    v.changed();
 
-    EXPECT_EQ(v.num_stable(), 5); // one merged batch of size 5
-}
-
-TEST(VariableTest, NameIsSet) {
-    Variable<int> v("my_variable");
-    EXPECT_EQ(v.name(), "my_variable");
+    EXPECT_EQ(v.num_stable(), 5);
 }
