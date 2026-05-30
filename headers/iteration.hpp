@@ -16,16 +16,16 @@ concept VariableConcept = requires(T v) {
 };
 template <typename... Variables>
 class Iteration {
-    std::tuple<Variables...> variables;
+    std::tuple<std::unique_ptr<Variables>...> variables;
 
     struct TupleConstructorTag {};
-    
+
     template <typename Tuple, std::size_t... Is>
     constexpr Iteration(TupleConstructorTag, Tuple&& t, std::index_sequence<Is...>)
-        : variables(std::get<Is>(std::forward<Tuple>(t))...) {}
+        : variables(std::move(std::get<Is>(t))...) {}
 
 public:
-    constexpr Iteration(Variables... vars) : variables(std::move(vars)...) {}
+    constexpr Iteration() = default;
 
     template <typename Tuple>
     constexpr Iteration(Tuple&& t)
@@ -33,15 +33,27 @@ public:
                     std::make_index_sequence<std::tuple_size_v<std::decay_t<Tuple>>>{}) {}
 
     constexpr bool changed() {
+        // The more obvious fold expression short-circuits, which means
+        // queries with antijoins can fail
         return std::apply([](auto&&... vars) {
-            return (vars.changed() || ...);
+            bool results[] = { false, vars->changed()... };
+            bool any_changed = false;
+            for (bool r : results) {
+                any_changed |= r;
+            }
+            return any_changed;
         }, variables);
     }
 
     template <std::totally_ordered Tuple, typename ConcreteVariable = Variable<Tuple>>
     constexpr auto variable() && {
-        ConcreteVariable new_var;
-        auto updated_tuple = std::tuple_cat(std::move(variables), std::tuple{std::move(new_var)});
+        auto new_var = std::make_unique<ConcreteVariable>();
+
+        auto* stable_ptr = new_var.get();
+        auto updated_tuple = std::tuple_cat(
+            std::move(variables),
+            std::tuple<std::unique_ptr<ConcreteVariable>>{std::move(new_var)}
+        );
         
         using NewIterationType = Iteration<Variables..., ConcreteVariable>;
 
@@ -50,19 +62,22 @@ public:
             ConcreteVariable* var_ptr;
         };
 
-        NewIterationType next_iter(std::move(updated_tuple));
-        
         return Result{
-            .iter = std::move(next_iter),
-            .var_ptr = &std::get<sizeof...(Variables)>(next_iter.variables)
+            .iter = NewIterationType(std::move(updated_tuple)),
+            .var_ptr = stable_ptr
         };
     }
 
     template <std::totally_ordered Tuple, typename ConcreteVariable = Variable<Tuple>>
     constexpr auto variable_indistinct() && {
-        ConcreteVariable new_var;
-        new_var.distinct = false;
-        auto updated_tuple = std::tuple_cat(std::move(variables), std::tuple{std::move(new_var)});
+        auto new_var = std::make_unique<ConcreteVariable>();
+        new_var->distinct = false;
+
+        auto* stable_ptr = new_var.get();
+        auto updated_tuple = std::tuple_cat(
+            std::move(variables),
+            std::tuple<std::unique_ptr<ConcreteVariable>>{std::move(new_var)}
+        );
         
         using NewIterationType = Iteration<Variables..., ConcreteVariable>;
 
@@ -71,11 +86,9 @@ public:
             ConcreteVariable* var_ptr;
         };
 
-        NewIterationType next_iter(std::move(updated_tuple));
-
         return Result{
-            .iter = std::move(next_iter),
-            .var_ptr = &std::get<sizeof...(Variables)>(next_iter.variables)
+            .iter = NewIterationType(std::move(updated_tuple)),
+            .var_ptr = stable_ptr
         };
     }
 
