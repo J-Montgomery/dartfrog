@@ -7,7 +7,7 @@
 #include <vector>
 
 template <std::totally_ordered T>
-std::vector<T> merge_unique(std::vector<T> &&a, std::vector<T> &&b) {
+constexpr std::vector<T> merge_unique(std::vector<T> &&a, std::vector<T> &&b) {
     if (a.empty())
         return std::move(b);
     if (b.empty())
@@ -40,21 +40,21 @@ std::vector<T> merge_unique(std::vector<T> &&a, std::vector<T> &&b) {
 
 template <std::totally_ordered Tuple> struct Relation {
     std::vector<Tuple> elements;
-    Relation() = default;
+    constexpr Relation() = default;
 
-    explicit Relation(std::vector<Tuple> &&elems)
+    constexpr explicit Relation(std::vector<Tuple> &&elems)
         : elements(std::move(elems)) {}
 
-    Relation merge(Relation &&other) && {
+    constexpr Relation merge(Relation &&other) && {
         return Relation{
             merge_unique(std::move(this->elements), std::move(other.elements))};
     }
-    auto begin() const { return elements.begin(); }
-    auto end() const { return elements.end(); }
-    auto begin() { return elements.begin(); }
-    auto end() { return elements.end(); }
+    constexpr auto begin() const { return elements.begin(); }
+    constexpr auto end() const { return elements.end(); }
+    constexpr auto begin() { return elements.begin(); }
+    constexpr auto end() { return elements.end(); }
 
-    static Relation from_vec(std::vector<Tuple> &&elems) {
+    static constexpr Relation from_vec(std::vector<Tuple> &&elems) {
         std::sort(elems.begin(), elems.end());
         auto last = std::unique(elems.begin(), elems.end());
         elems.erase(last, elems.end());
@@ -63,14 +63,14 @@ template <std::totally_ordered Tuple> struct Relation {
 
     template <std::ranges::input_range R>
         requires std::convertible_to<std::ranges::range_value_t<R>, Tuple>
-    static Relation from_iter(R &&range) {
+    static constexpr Relation from_iter(R &&range) {
         return from_vec(std::vector<Tuple>(
             std::make_move_iterator(std::ranges::begin(range)),
             std::make_move_iterator(std::ranges::end(range))));
     }
 
     template <typename T2, typename Logic>
-    static Relation from_map(const Relation<T2> &input, Logic &&logic) {
+    static constexpr Relation from_map(const Relation<T2> &input, Logic &&logic) {
         std::vector<Tuple> result;
         result.reserve(input.elements.size());
         for (const auto &item : input.elements) {
@@ -79,7 +79,7 @@ template <std::totally_ordered Tuple> struct Relation {
         return from_vec(std::move(result));
     }
 
-    std::optional<size_t> binary_search(const Tuple &target) const {
+    constexpr std::optional<size_t> binary_search(const Tuple &target) const {
         auto it =
             std::partition_point(elements.begin(), elements.end(),
                                  [&](const Tuple &x) { return x < target; });
@@ -89,6 +89,6 @@ template <std::totally_ordered Tuple> struct Relation {
         return std::nullopt;
     }
 
-    size_t size() const { return elements.size(); }
-    bool empty() const { return elements.empty(); }
+    constexpr size_t size() const { return elements.size(); }
+    constexpr bool empty() const { return elements.empty(); }
 };
