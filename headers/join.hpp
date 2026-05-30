@@ -30,14 +30,20 @@ using input_value_type_t =
 template <typename I, typename Tuple>
 concept JoinInput = requires(I input) {
     { input.recent() } -> std::convertible_to<std::span<const Tuple>>;
-    {
-        input.for_each_stable_set(
-            std::declval<std::function<void(std::span<const Tuple>)>>())
-    };
+    { input.for_each_stable_set([](std::span<const Tuple>) {}) };
+};
+
+template <typename T>
+concept PairLike = requires {
+    typename T::first_type;
+    typename T::second_type;
+} && requires(const T &t) {
+    { t.first } -> std::convertible_to<const typename T::first_type &>;
+    { t.second } -> std::convertible_to<const typename T::second_type &>; 
 };
 
 template <typename T, typename Cmp>
-std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
+constexpr std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
     if (slice.empty() || !cmp(slice[0])) {
         return slice;
     }
@@ -61,9 +67,8 @@ std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
 }
 
 template <typename Span1, typename Span2, class ResultCallback>
-void join_helper(Span1 slice1, Span2 slice2, ResultCallback &&result_cb) {
+constexpr void join_helper(Span1 slice1, Span2 slice2, ResultCallback &&result_cb) {
     using K = typename decltype(slice1)::value_type::first_type;
-    using V1 = typename decltype(slice1)::value_type::second_type;
     while (!slice1.empty() && !slice2.empty()) {
         auto k1 = slice1[0].first;
         auto k2 = slice2[0].first;
@@ -97,81 +102,92 @@ void join_helper(Span1 slice1, Span2 slice2, ResultCallback &&result_cb) {
     }
 }
 
-template <typename Variable1, typename Input2, typename Callback>
-void join_delta(const Variable1 &input1, const Input2 &input2,
+template <typename Input1, typename Input2, typename Callback>
+constexpr void join_delta(const Input1 &input1, const Input2 &input2,
                 Callback &&result_cb) {
-    using K = typename Variable1::value_type::first_type;
-    using V1 = typename Variable1::value_type::second_type;
-    using V2 = typename Input2::value_type::second_type;
+    using Tuple1 = typename Input1::value_type;
+    using Tuple2 = typename Input2::value_type;
 
     auto recent1 = input1.recent();
     auto recent2 = input2.recent();
 
-    input2.for_each_stable_set([&](std::span<const std::pair<K, V2>> batch2) {
+    input2.for_each_stable_set([&](std::span<const Tuple2> batch2) {
         join_helper(recent1, batch2, result_cb);
     });
 
-    input1.for_each_stable_set([&](std::span<const std::pair<K, V1>> batch1) {
+    input1.for_each_stable_set([&](std::span<const Tuple1> batch1) {
         join_helper(batch1, recent2, result_cb);
     });
 
     join_helper(recent1, recent2, result_cb);
 }
 
-template <class Tuple1, class I2, class Res, class Logic>
-    requires JoinInput<I2, std::pair<typename Tuple1::first_type,
-                                     typename I2::value_type::second_type>>
-void join_into(const Variable<Tuple1> &input1, const I2 &input2,
-               Variable<Res> &output, Logic &&logic) {
+template <class Input1, class Input2, class OutputT, class Logic>
+    requires JoinInput<Input2, typename Input2::first_type>
+    && PairLike<typename Input1::value_type>
+constexpr void join_into(const Input1 &input1, const Input2 &input2,
+               OutputT &output, Logic &&logic) {
 
-    using K = typename Tuple1::first_type;
-    using V1 = typename Tuple1::second_type;
-    using V2 = typename I2::value_type::second_type;
+    using KVTuple = typename Input1::value_type;
+    using K = typename KVTuple::first_type;
+    using V1 = typename KVTuple::second_type;
+    using V2 = typename Input2::value_type::second_type;
+    using Result = std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
 
-    std::vector<Res> results;
+    std::vector<Result> results;
     auto push_result = [&](const K &k, const V1 &v1, const V2 &v2) {
         results.push_back(logic(k, v1, v2));
     };
 
     join_delta(input1, input2, push_result);
 
-    output.insert(Relation<Res>::from_vec(std::move(results)));
+    output.insert(Relation<Result>::from_vec(std::move(results)));
 }
 
-template <typename K, typename V1, typename V2 = V1, typename Res,
-          typename Logic, JoinInput<std::pair<K, V2>> I2>
-void join_and_filter_into(const Variable<std::pair<K, V1>> &input1,
-                          const I2 &input2, Variable<Res> &output,
+template <typename Input1, typename Input2, typename OutputT, typename Logic>
+          requires PairLike<typename Input1::value_type>
+          && JoinInput<Input2, typename Input2::value_type>
+constexpr void join_and_filter_into(const Input1 &input1,
+                          const Input2 &input2, OutputT &output,
                           Logic &&logic) {
-    std::vector<Res> results;
+    using KVTuple = typename Input1::value_type;
+    using K = typename KVTuple::first_type;
+    using V1 = typename KVTuple::second_type;
+    using V2 = typename Input2::value_type::second_type;
+    using OptResult = std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
+    using Result = typename OptResult::value_type;
+    
+    std::vector<Result> results;
     join_delta(input1, input2, [&](const K &k, const V1 &v1, const V2 &v2) {
         if (auto opt = logic(k, v1, v2)) {
             results.push_back(std::move(*opt));
         }
     });
 
-    output.insert(Relation<Res>::from_vec(std::move(results)));
+    output.insert(Relation<Result>::from_vec(std::move(results)));
 }
 
-template <typename InputRange, typename K, typename Logic>
-auto antijoin(const InputRange &input1, const Relation<K> &input2,
+template <typename InputRange, typename ExcludeKey, typename Logic>
+constexpr auto antijoin(const InputRange &input1, const Relation<ExcludeKey> &input2,
               Logic &&logic) {
     using ElementType =
         typename std::remove_cvref_t<decltype(*std::begin(input1))>;
     using KeyType = typename ElementType::first_type;
     using ValType = typename ElementType::second_type;
-    using Res = std::invoke_result_t<Logic, const KeyType &, const ValType &>;
+    using Result = std::invoke_result_t<Logic, const KeyType &, const ValType &>;
 
-    std::vector<Res> results;
-    std::span<const K> tuples2 = input2.elements;
+    std::vector<Result> results;
+    std::span<const ExcludeKey> tuples2 = input2.elements;
 
-    for (const auto &[key, val] : input1) {
-        tuples2 = gallop(tuples2, [&](const K &k) { return k < key; });
+    for (const auto &elem : input1) {
+        const auto &key = elem.first;
+        const auto &val = elem.second;
+        tuples2 = gallop(tuples2, [&](const ExcludeKey &k) { return k < key; });
         if (tuples2.empty() || tuples2[0] != key) {
             results.push_back(logic(key, val));
         }
     }
 
-    return Relation<Res>::from_vec(std::move(results));
+    return Relation<Result>::from_vec(std::move(results));
 }
 } // namespace join
