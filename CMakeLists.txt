@@ -33,6 +33,7 @@ target_sources(dartfrog_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/relation_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/usage_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/variable_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/query_tests.cpp
 )
 
 enable_testing()
