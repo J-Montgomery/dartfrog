@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <span>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -74,7 +75,7 @@ constexpr auto apply_step(Relation<RowT> rel,
     join::join_helper(
         std::span<const KVLeft>(left.elements),
         std::span<const std::pair<Key, Val>>(step.relation.elements),
-        [&](const Key &, const RowT &row, const Val &val) {
+        [&](const Key & /*key*/, const RowT &row, const Val &val) {
             results.emplace_back(row, val);
         });
 
@@ -92,7 +93,7 @@ constexpr Relation<RowT> apply_step(Relation<RowT> rel,
         });
 
     Relation<Key> exclusion_keys = Relation<Key>::from_map(
-        step.exclusion, [](const std::pair<Key, Val> &kv) { kv.first; });
+        step.exclusion, [](const std::pair<Key, Val> &kv) { return kv.first; });
 
     return join::antijoin(left.elements, exclusion_keys,
                           [](const Key &, const RowT &row) { return row; });
@@ -153,7 +154,7 @@ template <typename RowT, typename KeyFn> class GroupBy {
                 j++;
             }
 
-            results.emplace_back(std::move(key), j - 1);
+            results.emplace_back(std::move(key), j - i);
             i = j;
         }
 
@@ -161,7 +162,7 @@ template <typename RowT, typename KeyFn> class GroupBy {
     }
 
     template <typename Fn> constexpr auto aggregate(Fn &&fn) const {
-        using Agg = std::invoke_result<Fn, Key, std::span<const RowT>>;
+        using Agg = std::invoke_result_t<Fn, Key, std::span<const RowT>>;
         std::vector<std::pair<Key, Agg>> results;
         const std::vector<RowT> &elems = relation_.elements;
         size_t i = 0;
@@ -172,7 +173,7 @@ template <typename RowT, typename KeyFn> class GroupBy {
                 j++;
             }
 
-            std::span<const RowT> group(elems.data() + i, j - 1);
+            std::span<const RowT> group(elems.data() + i, j - i);
             results.emplace_back(key, fn(key, group));
             i = j;
         }
