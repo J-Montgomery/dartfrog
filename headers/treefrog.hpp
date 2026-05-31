@@ -29,14 +29,14 @@ struct LeaperCollection {
     std::tuple<LeaperTs...> leapers;
 
     constexpr void for_each_count(const Tuple &tuple,
-                        std::invocable<size_t, size_t> auto &&op) {
+                                  std::invocable<size_t, size_t> auto &&op) {
         [&]<size_t... Is>(std::index_sequence<Is...>) {
             (op(Is, std::get<Is>(leapers).count(tuple)), ...);
         }(std::index_sequence_for<LeaperTs...>{});
     }
 
     constexpr void propose(const Tuple &tuple, size_t min_index,
-                 std::vector<const Val *> &values) {
+                           std::vector<const Val *> &values) {
         bool found = [&]<size_t... Is>(std::index_sequence<Is...>) {
             bool handled = false;
             ((Is == min_index ? (std::get<Is>(leapers).propose(tuple, values),
@@ -51,7 +51,7 @@ struct LeaperCollection {
     }
 
     constexpr void intersect(const Tuple &tuple, size_t min_index,
-                   std::vector<const Val *> &values) {
+                             std::vector<const Val *> &values) {
         [&]<size_t... Is>(std::index_sequence<Is...>) {
             ((Is != min_index ? std::get<Is>(leapers).intersect(tuple, values)
                               : void()),
@@ -65,7 +65,7 @@ template <class Tuple, class Collection, class Logic>
             (std::totally_ordered<
                 typename std::remove_cvref<Collection>::type::value_type>)
 constexpr auto leapjoin(std::span<const Tuple> source, Collection &collection,
-              Logic &&logic) {
+                        Logic &&logic) {
     using Result = std::invoke_result_t<
         Logic, const Tuple &,
         const typename std::remove_cvref_t<Collection>::value_type &>;
@@ -137,15 +137,18 @@ struct PrefixFilter {
 
     // These are needed to Satisfy the LeaperCollection concept, but min_index
     // is always 0 for PrefixFilters
-    constexpr void propose(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+    constexpr void propose(const Tuple &t, size_t,
+                           std::vector<const Unit *> &v) {
         propose(t, v);
     }
-    constexpr void intersect(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+    constexpr void intersect(const Tuple &t, size_t,
+                             std::vector<const Unit *> &v) {
         intersect(t, v);
     }
 };
 
-template <typename Tuple, typename Func> constexpr auto prefix_filter(Func pred) {
+template <typename Tuple, typename Func>
+constexpr auto prefix_filter(Func pred) {
     return PrefixFilter<Tuple, Func>{std::move(pred)};
 }
 
@@ -159,29 +162,38 @@ template <typename Tuple> struct Passthrough {
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
 };
 
-template <typename Tuple> constexpr auto passthrough() { return Passthrough<Tuple>{}; }
+template <typename Tuple> constexpr auto passthrough() {
+    return Passthrough<Tuple>{};
+}
 template <typename Tuple, typename Val, typename Func>
     requires std::predicate<Func, const Tuple &, const Val &>
 struct ValueFilter {
     Func predicate;
 
-    constexpr size_t count(const Tuple &) { return std::numeric_limits<size_t>::max(); }
+    constexpr size_t count(const Tuple &) {
+        return std::numeric_limits<size_t>::max();
+    }
 
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
         throw std::runtime_error(
             "ValueFilter::propose(): variable apparently unbound");
     }
 
-    constexpr void intersect(const Tuple &prefix, std::vector<const Val *> &values) {
+    constexpr void intersect(const Tuple &prefix,
+                             std::vector<const Val *> &values) {
         std::erase_if(values,
                       [&](const Val *val) { return !predicate(prefix, *val); });
     }
 
-    constexpr void for_each_count(const Tuple &t, auto &&op) { op(0, count(t)); }
-    constexpr void propose(const Tuple &t, size_t, std::vector<const Val *> &v) {
+    constexpr void for_each_count(const Tuple &t, auto &&op) {
+        op(0, count(t));
+    }
+    constexpr void propose(const Tuple &t, size_t,
+                           std::vector<const Val *> &v) {
         propose(t, v);
     }
-    constexpr void intersect(const Tuple &t, size_t, std::vector<const Val *> &v) {
+    constexpr void intersect(const Tuple &t, size_t,
+                             std::vector<const Val *> &v) {
         intersect(t, v);
     }
 };
@@ -241,11 +253,15 @@ class ExtendWith {
         values.erase(write_it, values.end());
     }
 
-    constexpr void for_each_count(const Tuple &t, auto &&op) { op(0, count(t)); }
-    constexpr void propose(const Tuple &t, size_t, std::vector<const Val *> &v) {
+    constexpr void for_each_count(const Tuple &t, auto &&op) {
+        op(0, count(t));
+    }
+    constexpr void propose(const Tuple &t, size_t,
+                           std::vector<const Val *> &v) {
         propose(t, v);
     }
-    constexpr void intersect(const Tuple &t, size_t, std::vector<const Val *> &v) {
+    constexpr void intersect(const Tuple &t, size_t,
+                             std::vector<const Val *> &v) {
         intersect(t, v);
     }
 };
@@ -267,14 +283,16 @@ class ExtendAnti {
     constexpr ExtendAnti(const Relation<std::pair<Key, Val>> *rel, Func f)
         : relation(rel), key_func(std::move(f)) {}
 
-    constexpr size_t count(const Tuple &) { return std::numeric_limits<size_t>::max(); }
+    constexpr size_t count(const Tuple &) {
+        return std::numeric_limits<size_t>::max();
+    }
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
         throw std::runtime_error(
             "ExtendAnti::propose(): variable apparently unbound.");
     }
 
     constexpr void intersect(const Tuple &prefix,
-                   std::vector<const Val *> &values) const {
+                             std::vector<const Val *> &values) const {
         if (values.empty())
             return;
 
@@ -302,11 +320,15 @@ class ExtendAnti {
         });
     }
 
-    constexpr void for_each_count(const Tuple &t, auto &&op) { op(0, count(t)); }
-    constexpr void propose(const Tuple &t, size_t, std::vector<const Val *> &v) {
+    constexpr void for_each_count(const Tuple &t, auto &&op) {
+        op(0, count(t));
+    }
+    constexpr void propose(const Tuple &t, size_t,
+                           std::vector<const Val *> &v) {
         propose(t, v);
     }
-    constexpr void intersect(const Tuple &t, size_t, std::vector<const Val *> &v) {
+    constexpr void intersect(const Tuple &t, size_t,
+                             std::vector<const Val *> &v) {
         intersect(t, v);
     }
 };
@@ -342,10 +364,12 @@ class FilterWith {
     }
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
 
-    constexpr void propose(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+    constexpr void propose(const Tuple &t, size_t,
+                           std::vector<const Unit *> &v) {
         propose(t, v);
     }
-    constexpr void intersect(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+    constexpr void intersect(const Tuple &t, size_t,
+                             std::vector<const Unit *> &v) {
         intersect(t, v);
     }
 };
@@ -386,10 +410,12 @@ class FilterAnti {
 
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
 
-    constexpr void propose(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+    constexpr void propose(const Tuple &t, size_t,
+                           std::vector<const Unit *> &v) {
         propose(t, v);
     }
-    constexpr void intersect(const Tuple &t, size_t, std::vector<const Unit *> &v) {
+    constexpr void intersect(const Tuple &t, size_t,
+                             std::vector<const Unit *> &v) {
         intersect(t, v);
     }
 };
@@ -398,22 +424,26 @@ class FilterAnti {
 template <typename Key, typename Val> struct RelationLeaper {
     const Relation<std::pair<Key, Val>> *self;
 
-    template <typename Tuple, typename Func> constexpr auto extend_with(Func &&f) const {
+    template <typename Tuple, typename Func>
+    constexpr auto extend_with(Func &&f) const {
         return extend_with::ExtendWith<Key, Val, Tuple, Func>(
             self, std::forward<Func>(f));
     }
 
-    template <typename Tuple, typename Func> constexpr auto extend_anti(Func &&f) const {
+    template <typename Tuple, typename Func>
+    constexpr auto extend_anti(Func &&f) const {
         return extend_anti::ExtendAnti<Key, Val, Tuple, Func>(
             self, std::forward<Func>(f));
     }
 
-    template <typename Tuple, typename Func> constexpr auto filter_with(Func &&f) const {
+    template <typename Tuple, typename Func>
+    constexpr auto filter_with(Func &&f) const {
         return filter_with::FilterWith<Key, Val, Tuple, Func>(
             self, std::forward<Func>(f));
     }
 
-    template <typename Tuple, typename Func> constexpr auto filter_anti(Func &&f) const {
+    template <typename Tuple, typename Func>
+    constexpr auto filter_anti(Func &&f) const {
         return filter_anti::FilterAnti<Key, Val, Tuple, Func>(
             self, std::forward<Func>(f));
     }

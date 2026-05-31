@@ -11,7 +11,7 @@ TEST(IterationTest, ChangedReturnsFalseWhenAllStable) {
 
 TEST(IterationTest, ChangedReturnsTrueWhenVariableHasNewData) {
     auto [iter, v] = Iteration{}.variable<int>();
-    
+
     v->insert(Relation<int>::from_vec({1, 2}));
     EXPECT_TRUE(iter.changed());
 }
@@ -28,7 +28,7 @@ TEST(IterationTest, FixedPointConverges) {
 
 TEST(IterationTest, MultipleVariables) {
     auto [iter1, a] = Iteration{}.variable<int>();
-    auto [iter, b]  = std::move(iter1).variable<int>();
+    auto [iter, b] = std::move(iter1).variable<int>();
 
     a->insert(Relation<int>::from_vec({1}));
     EXPECT_TRUE(iter.changed());

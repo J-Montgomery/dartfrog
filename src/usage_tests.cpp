@@ -5,7 +5,7 @@
 TEST(UsageTest, TransitiveClosureOneStep) {
     // edge(1,2), edge(2,3) => path(1,2), path(2,3), path(1,3)
     auto [iter1, edge] = Iteration{}.variable<std::pair<int, int>>();
-    auto [iter, path]  = std::move(iter1).variable<std::pair<int, int>>();
+    auto [iter, path] = std::move(iter1).variable<std::pair<int, int>>();
 
     // Seed edges
     edge->insert(Relation<std::pair<int, int>>::from_vec({{1, 2}, {2, 3}}));
@@ -24,8 +24,10 @@ TEST(UsageTest, TransitiveClosureOneStep) {
 TEST(UsageTest, JoinTwoRelations) {
     // parent(john, mary), parent(mary, ann)
     // grandparent(X, Z) :- parent(X, Y), parent(Y, Z)
-    auto [iter1, parent]     = Iteration{}.variable<std::pair<std::string, std::string>>();
-    auto [iter, grandparent] = std::move(iter1).variable<std::pair<std::string, std::string>>();
+    auto [iter1, parent] =
+        Iteration{}.variable<std::pair<std::string, std::string>>();
+    auto [iter, grandparent] =
+        std::move(iter1).variable<std::pair<std::string, std::string>>();
 
     parent->insert(Relation<std::pair<std::string, std::string>>::from_vec(
         {{"john", "mary"}, {"mary", "ann"}, {"bob", "carol"}}));
@@ -56,9 +58,9 @@ TEST(UsageTest, JoinTwoRelations) {
 }
 
 TEST(UsageTest, AntijoinExample) {
-    auto [iter1, student]   = Iteration{}.variable<std::pair<int, Unit>>();
+    auto [iter1, student] = Iteration{}.variable<std::pair<int, Unit>>();
     auto [iter2, graduated] = std::move(iter1).variable<int>();
-    auto [iter, active]     = std::move(iter2).variable<int>();
+    auto [iter, active] = std::move(iter2).variable<int>();
 
     student->insert(
         Relation<std::pair<int, Unit>>::from_vec({{1, {}}, {2, {}}, {3, {}}}));
@@ -76,8 +78,10 @@ TEST(UsageTest, AntijoinExample) {
 TEST(UsageTest, LeapjoinExample) {
     // parent(john, mary), parent(mary, ann)
     // grandparent(X, Z) :- parent(X, Y), parent(Y, Z)
-    auto [iter1, parent]     = Iteration{}.variable<std::pair<std::string, std::string>>();
-    auto [iter, grandparent] = std::move(iter1).variable<std::pair<std::string, std::string>>();
+    auto [iter1, parent] =
+        Iteration{}.variable<std::pair<std::string, std::string>>();
+    auto [iter, grandparent] =
+        std::move(iter1).variable<std::pair<std::string, std::string>>();
 
     parent->insert(Relation<std::pair<std::string, std::string>>::from_vec(
         {{"john", "mary"}, {"mary", "ann"}, {"bob", "carol"}}));
@@ -122,7 +126,7 @@ TEST(UsageTest, MapInto) {
 }
 
 TEST(UsageTest, MultipleRoundsOfFixedPoint) {
-    auto [iter1, edge]     = Iteration{}.variable<std::pair<int, int>>();
+    auto [iter1, edge] = Iteration{}.variable<std::pair<int, int>>();
     auto [iter, reachable] = std::move(iter1).variable<std::pair<int, Unit>>();
 
     edge->insert(

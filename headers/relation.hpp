@@ -70,7 +70,8 @@ template <std::totally_ordered Tuple> struct Relation {
     }
 
     template <typename T2, typename Logic>
-    static constexpr Relation from_map(const Relation<T2> &input, Logic &&logic) {
+    static constexpr Relation from_map(const Relation<T2> &input,
+                                       Logic &&logic) {
         std::vector<Tuple> result;
         result.reserve(input.elements.size());
         for (const auto &item : input.elements) {

@@ -26,7 +26,9 @@ template <std::totally_ordered Tuple> class Variable {
 
     constexpr Variable() : distinct(true) {}
 
-    constexpr std::span<const Tuple> recent() const { return recent_data.elements; }
+    constexpr std::span<const Tuple> recent() const {
+        return recent_data.elements;
+    }
 
     constexpr void for_each_stable_set(auto &&f) const {
         for (const auto &batch : stable) {
@@ -40,7 +42,9 @@ template <std::totally_ordered Tuple> class Variable {
             [](size_t sum, const auto &rel) { return sum + rel.size(); });
     }
 
-    constexpr bool is_stable() const { return recent_data.empty() && to_add.empty(); }
+    constexpr bool is_stable() const {
+        return recent_data.empty() && to_add.empty();
+    }
 
     constexpr Relation<Tuple> complete() && {
         if (!is_stable()) {
@@ -116,27 +120,27 @@ template <std::totally_ordered Tuple> class Variable {
         insert(Relation<Tuple>::from_iter(std::forward<R>(range)));
     }
 
-    template <class Input1, class Input2, class OutputVariable,
-              class Logic>
+    template <class Input1, class Input2, class OutputVariable, class Logic>
     constexpr void from_join(const Input1 &input1, const Input2 &input2,
-                   OutputVariable &output, Logic &&logic) {
+                             OutputVariable &output, Logic &&logic) {
         join::join_into(input1, input2, output, std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Input2, typename Logic>
-        requires join::PairLike<KVTuple>
-        && join::JoinInput<Input2, typename Input2::value_type>
+        requires join::PairLike<KVTuple> &&
+                 join::JoinInput<Input2, typename Input2::value_type>
     constexpr void from_join_filtered(const Variable<KVTuple> &input1,
-                            const Input2 &input2, Logic &&logic) {
+                                      const Input2 &input2, Logic &&logic) {
         join::join_and_filter_into(input1, input2, *this,
                                    std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Logic>
         requires join::PairLike<KVTuple>
-    constexpr void from_antijoin(const Variable<KVTuple> &input1,
-                       const Relation<typename KVTuple::first_type> &input2,
-                       Logic &&logic) {
+    constexpr void
+    from_antijoin(const Variable<KVTuple> &input1,
+                  const Relation<typename KVTuple::first_type> &input2,
+                  Logic &&logic) {
         this->insert(join::antijoin(input1.recent(), input2,
                                     std::forward<Logic>(logic)));
     }
@@ -145,8 +149,8 @@ template <std::totally_ordered Tuple> class Variable {
         requires std::totally_ordered<typename Input1::value_type> &&
                  std::totally_ordered<
                      typename std::remove_cvref_t<Collection>::value_type>
-    constexpr void from_leapjoin(const Input1 &source,
-                       Collection &&leapers, Logic &&logic) {
+    constexpr void from_leapjoin(const Input1 &source, Collection &&leapers,
+                                 Logic &&logic) {
         this->insert(leapjoin(source.recent(),
                               std::forward<Collection>(leapers),
                               std::forward<Logic>(logic)));

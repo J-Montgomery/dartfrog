@@ -30,7 +30,9 @@ using input_value_type_t =
 template <typename I, typename Tuple>
 concept JoinInput = requires(I input) {
     { input.recent() } -> std::convertible_to<std::span<const Tuple>>;
-    { input.for_each_stable_set([](std::span<const Tuple>) {}) };
+    {
+        input.for_each_stable_set([](std::span<const Tuple>) {})
+    };
 };
 
 template <typename T>
@@ -39,7 +41,7 @@ concept PairLike = requires {
     typename T::second_type;
 } && requires(const T &t) {
     { t.first } -> std::convertible_to<const typename T::first_type &>;
-    { t.second } -> std::convertible_to<const typename T::second_type &>; 
+    { t.second } -> std::convertible_to<const typename T::second_type &>;
 };
 
 template <typename T, typename Cmp>
@@ -67,7 +69,8 @@ constexpr std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
 }
 
 template <typename Span1, typename Span2, class ResultCallback>
-constexpr void join_helper(Span1 slice1, Span2 slice2, ResultCallback &&result_cb) {
+constexpr void join_helper(Span1 slice1, Span2 slice2,
+                           ResultCallback &&result_cb) {
     using K = typename decltype(slice1)::value_type::first_type;
     while (!slice1.empty() && !slice2.empty()) {
         auto k1 = slice1[0].first;
@@ -104,7 +107,7 @@ constexpr void join_helper(Span1 slice1, Span2 slice2, ResultCallback &&result_c
 
 template <typename Input1, typename Input2, typename Callback>
 constexpr void join_delta(const Input1 &input1, const Input2 &input2,
-                Callback &&result_cb) {
+                          Callback &&result_cb) {
     using Tuple1 = typename Input1::value_type;
     using Tuple2 = typename Input2::value_type;
 
@@ -123,16 +126,17 @@ constexpr void join_delta(const Input1 &input1, const Input2 &input2,
 }
 
 template <class Input1, class Input2, class OutputT, class Logic>
-    requires JoinInput<Input2, typename Input2::value_type>
-    && PairLike<typename Input1::value_type>
+    requires JoinInput<Input2, typename Input2::value_type> &&
+             PairLike<typename Input1::value_type>
 constexpr void join_into(const Input1 &input1, const Input2 &input2,
-               OutputT &output, Logic &&logic) {
+                         OutputT &output, Logic &&logic) {
 
     using KVTuple = typename Input1::value_type;
     using K = typename KVTuple::first_type;
     using V1 = typename KVTuple::second_type;
     using V2 = typename Input2::value_type::second_type;
-    using Result = std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
+    using Result =
+        std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
 
     std::vector<Result> results;
     auto push_result = [&](const K &k, const V1 &v1, const V2 &v2) {
@@ -145,18 +149,18 @@ constexpr void join_into(const Input1 &input1, const Input2 &input2,
 }
 
 template <typename Input1, typename Input2, typename OutputT, typename Logic>
-          requires PairLike<typename Input1::value_type>
-          && JoinInput<Input2, typename Input2::value_type>
-constexpr void join_and_filter_into(const Input1 &input1,
-                          const Input2 &input2, OutputT &output,
-                          Logic &&logic) {
+    requires PairLike<typename Input1::value_type> &&
+             JoinInput<Input2, typename Input2::value_type>
+constexpr void join_and_filter_into(const Input1 &input1, const Input2 &input2,
+                                    OutputT &output, Logic &&logic) {
     using KVTuple = typename Input1::value_type;
     using K = typename KVTuple::first_type;
     using V1 = typename KVTuple::second_type;
     using V2 = typename Input2::value_type::second_type;
-    using OptResult = std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
+    using OptResult =
+        std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
     using Result = typename OptResult::value_type;
-    
+
     std::vector<Result> results;
     join_delta(input1, input2, [&](const K &k, const V1 &v1, const V2 &v2) {
         if (auto opt = logic(k, v1, v2)) {
@@ -168,13 +172,14 @@ constexpr void join_and_filter_into(const Input1 &input1,
 }
 
 template <typename InputRange, typename ExcludeKey, typename Logic>
-constexpr auto antijoin(const InputRange &input1, const Relation<ExcludeKey> &input2,
-              Logic &&logic) {
+constexpr auto antijoin(const InputRange &input1,
+                        const Relation<ExcludeKey> &input2, Logic &&logic) {
     using ElementType =
         typename std::remove_cvref_t<decltype(*std::begin(input1))>;
     using KeyType = typename ElementType::first_type;
     using ValType = typename ElementType::second_type;
-    using Result = std::invoke_result_t<Logic, const KeyType &, const ValType &>;
+    using Result =
+        std::invoke_result_t<Logic, const KeyType &, const ValType &>;
 
     std::vector<Result> results;
     std::span<const ExcludeKey> tuples2 = input2.elements;
