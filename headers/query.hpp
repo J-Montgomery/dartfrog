@@ -199,6 +199,14 @@ template <typename SourceT, typename RowT, typename... Steps> class Query {
             std::move(source_), std::move(steps));
     }
 
+    template <typename Proj> constexpr auto select(Proj &&proj) && {
+        using NewRow = std::invoke_result_t<Proj, const RowT &>;
+        auto step = SelectStep<std::decay_t<Proj>>{std::forward<Proj>(proj)};
+        auto steps = std::tuple_cat(std::move(steps_), std::make_tuple(std::move(step)));
+        return Query<SourceT, NewRow, Steps..., SelectStep<std::decay_t<Proj>>>(
+            std::move(source_), std::move(steps));
+    }
+
     template <typename Key, typename Val, typename KeyFn>
     constexpr auto join(Relation<std::pair<Key, Val>> relation,
                         KeyFn &&key_fn) && {
@@ -206,7 +214,7 @@ template <typename SourceT, typename RowT, typename... Steps> class Query {
         auto step = JoinStep<Key, Val, std::decay_t<KeyFn>>{
             std::move(relation), std::forward<KeyFn>(key_fn)};
         auto steps = std::tuple_cat(std::move(steps_),
-                                    std::make_tuple(std::move(steps)));
+                                    std::make_tuple(std::move(step)));
         return Query<SourceT, OutRow, Steps...,
                      JoinStep<Key, Val, std::decay_t<KeyFn>>>(
             std::move(source_), std::move(steps));
@@ -216,7 +224,7 @@ template <typename SourceT, typename RowT, typename... Steps> class Query {
     constexpr auto antijoin(Relation<std::pair<Key, Val>> exclusion,
                             KeyFn &&key_fn) && {
         auto step = AntiJoinStep<Key, Val, std::decay_t<KeyFn>>{
-            std::move(exclusion), std::forward<KeyFn(key_fn)>};
+            std::move(exclusion), std::forward<KeyFn>(key_fn)};
         auto steps =
             std::tuple_cat(std::move(steps_), std::make_tuple(std::move(step)));
         return Query<SourceT, RowT, Steps...,
