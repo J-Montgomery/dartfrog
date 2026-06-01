@@ -144,7 +144,7 @@ TEST(QueryTest, GroupByCount) {
             .group_by([](const KV &kv) { return kv.first; })
             .count();
 
-    ASSERT_EQ(result.elements.size(), 2u);
+    EXPECT_EQ(result.elements.size(), 2u);
     EXPECT_EQ(result.elements[0], (std::pair<int, size_t>{1, 2}));
     EXPECT_EQ(result.elements[1], (std::pair<int, size_t>{2, 1}));
 }

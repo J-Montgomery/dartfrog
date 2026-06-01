@@ -150,7 +150,7 @@ template <typename RowT, typename KeyFn> class GroupBy {
         while (i < elems.size()) {
             Key key = key_fn_(elems[i]);
             size_t j = i + 1;
-            while (j < elems.size() && key_fn_(elems[j] == key)) {
+            while (j < elems.size() && key_fn_(elems[j]) == key) {
                 j++;
             }
 
