@@ -4,8 +4,9 @@
 
 #include <dartfrog.hpp>
 
-// Prefix Filter tests
+using namespace df;
 
+// Prefix Filter tests
 TEST(PrefixFilterTest, PredicateTrueReturnsMax) {
     auto pf = filters::prefix_filter<int>([](int x) { return x > 5; });
     EXPECT_EQ(pf.count(10), std::numeric_limits<size_t>::max());
@@ -43,7 +44,7 @@ TEST(ValueFilterTest, IntersectRemovesNonMatching) {
 
     int a = 3, b = 7, c = 10;
     std::vector<const int *> values = {&a, &b, &c};
-    vf.intersect(5, values); // keep only values > 5
+    vf.intersect(5, values);
 
     ASSERT_EQ(values.size(), 2);
     EXPECT_EQ(*values[0], 7);

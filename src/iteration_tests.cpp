@@ -4,6 +4,8 @@
 
 #include <dartfrog.hpp>
 
+using namespace df;
+
 TEST(IterationTest, ChangedReturnsFalseWhenAllStable) {
     auto [iter, v] = Iteration{}.variable<int>();
     EXPECT_FALSE(iter.changed());

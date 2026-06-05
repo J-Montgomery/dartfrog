@@ -4,6 +4,8 @@
 
 #include <dartfrog.hpp>
 
+using namespace df;
+
 TEST(RelationTest, FromVecHandlesDuplicatesAndSorting) {
     std::vector<int> input = {5, 1, 3, 3, 1, 5};
     auto rel = Relation<int>::from_vec(std::move(input));

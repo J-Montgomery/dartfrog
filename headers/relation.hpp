@@ -6,6 +6,8 @@
 #include <ranges>
 #include <vector>
 
+namespace df {
+
 template <std::totally_ordered T>
 constexpr std::vector<T> merge_unique(std::vector<T> &&a, std::vector<T> &&b) {
     if (a.empty())
@@ -93,3 +95,5 @@ template <std::totally_ordered Tuple> struct Relation {
     constexpr size_t size() const { return elements.size(); }
     constexpr bool empty() const { return elements.empty(); }
 };
+
+} // namespace df

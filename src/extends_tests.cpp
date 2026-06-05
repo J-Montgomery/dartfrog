@@ -4,8 +4,9 @@
 
 #include <dartfrog.hpp>
 
-// ExtendWith tests
+using namespace df;
 
+// ExtendWith tests
 TEST(ExtendWithTest, CountReturnsMatchingRows) {
     auto rel =
         Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 20}, {2, 30}});
@@ -74,7 +75,7 @@ TEST(ExtendAntiTest, IntersectRemovesMatchingValues) {
     ea.intersect(1, values);
 
     ASSERT_EQ(values.size(), 1);
-    EXPECT_EQ(*values[0], 20); // only 20 is NOT in the relation
+    EXPECT_EQ(*values[0], 20);
 }
 
 TEST(ExtendAntiTest, IntersectKeepsAllWhenNoMatch) {

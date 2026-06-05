@@ -7,7 +7,7 @@
 #include "relation.hpp"
 #include "variable.hpp"
 
-namespace map {
+namespace df::map {
 template <typename T1, typename T2, typename Logic>
 void map_into(const Variable<T1> &input, Variable<T2> &output, Logic &&logic) {
     std::vector<T2> results;
@@ -18,4 +18,4 @@ void map_into(const Variable<T1> &input, Variable<T2> &output, Logic &&logic) {
 
     output.insert(Relation<T2>::from_vec(std::move(results)));
 }
-} // namespace map
+} // namespace df::map

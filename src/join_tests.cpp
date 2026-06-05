@@ -4,6 +4,8 @@
 
 #include <dartfrog.hpp>
 
+using namespace df;
+
 TEST(JoinHelperTest, BothEmpty) {
     std::vector<std::pair<int, int>> a, b;
     std::vector<std::tuple<int, int, int>> results;

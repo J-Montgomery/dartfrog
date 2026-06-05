@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <vector>
 
+namespace df {
+
 template <typename T, typename Tuple, typename Val>
 concept Leaper = requires(T l, const Tuple &t, std::vector<const Val *> &v) {
     { l.count(t) } -> std::same_as<size_t>;
@@ -448,3 +450,5 @@ template <typename Key, typename Val> struct RelationLeaper {
             self, std::forward<Func>(f));
     }
 };
+
+} // namespace df

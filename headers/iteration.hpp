@@ -9,6 +9,8 @@
 #include <tuple>
 #include <vector>
 
+namespace df {
+
 template <typename T>
 concept VariableConcept = requires(T v) {
     { v.changed() } -> std::convertible_to<bool>;
@@ -92,3 +94,5 @@ template <typename... Variables> class Iteration {
 
     template <typename... OtherVars> friend class Iteration;
 };
+
+} // namespace df

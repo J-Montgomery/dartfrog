@@ -9,6 +9,8 @@
 #include "join.hpp"
 #include "relation.hpp"
 
+namespace df {
+
 template <typename T>
 concept VariableTrait = requires(T v, uint32_t r) {
     { v.changed() } -> std::convertible_to<bool>;
@@ -156,3 +158,5 @@ template <std::totally_ordered Tuple> class Variable {
                               std::forward<Logic>(logic)));
     }
 };
+
+} // namespace df

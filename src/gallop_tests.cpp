@@ -4,6 +4,8 @@
 
 #include <dartfrog.hpp>
 
+using namespace df;
+
 TEST(GallopTest, EmptySlice) {
     std::vector<int> v = {};
     std::span<const int> s(v);

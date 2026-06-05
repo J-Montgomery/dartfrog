@@ -4,6 +4,8 @@
 
 #include <dartfrog.hpp>
 
+using namespace df;
+
 TEST(LeapjoinTest, SingleExtendWith) {
     auto rel =
         Relation<std::pair<int, int>>::from_vec({{1, 10}, {1, 20}, {2, 30}});

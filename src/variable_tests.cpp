@@ -4,6 +4,8 @@
 
 #include <dartfrog.hpp>
 
+using namespace df;
+
 TEST(VariableTest, InitiallyStable) {
     Variable<int> v;
     EXPECT_TRUE(v.is_stable());

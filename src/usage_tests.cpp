@@ -2,6 +2,8 @@
 
 #include "dartfrog.hpp"
 
+using namespace df;
+
 TEST(UsageTest, TransitiveClosureOneStep) {
     // edge(1,2), edge(2,3) => path(1,2), path(2,3), path(1,3)
     auto [iter1, edge] = Iteration{}.variable<std::pair<int, int>>();

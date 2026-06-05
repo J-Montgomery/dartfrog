@@ -6,6 +6,8 @@
 #include <span>
 #include <vector>
 
+namespace df {
+
 template <std::totally_ordered Tuple> class Variable;
 template <std::totally_ordered Tuple> struct Relation;
 
@@ -196,3 +198,4 @@ constexpr auto antijoin(const InputRange &input1,
     return Relation<Result>::from_vec(std::move(results));
 }
 } // namespace join
+} // namespace df
