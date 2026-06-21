@@ -14,8 +14,6 @@ namespace df {
 template <std::totally_ordered Tuple> class Variable;
 template <std::totally_ordered Tuple> struct Relation;
 
-namespace join {
-
 template <typename I> struct input_value_type;
 
 template <typename K, typename V>
@@ -174,8 +172,6 @@ constexpr auto antijoin(const InputRange &input1,
 
     return Relation<Result>::from_vec(std::move(results));
 }
-
-} // namespace join
 
 template <class Tuple, class Collection, class Logic>
     requires(std::totally_ordered<Tuple>) &&

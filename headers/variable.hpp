@@ -125,25 +125,25 @@ template <std::totally_ordered Tuple> class Variable {
     template <class Input1, class Input2, class OutputVariable, class Logic>
     constexpr void from_join(const Input1 &input1, const Input2 &input2,
                              OutputVariable &output, Logic &&logic) {
-        join::join_into(input1, input2, output, std::forward<Logic>(logic));
+        df::join_into(input1, input2, output, std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Input2, typename Logic>
-        requires join::PairLike<KVTuple> &&
-                 join::JoinInput<Input2, typename Input2::value_type>
+        requires df::PairLike<KVTuple> &&
+                 df::JoinInput<Input2, typename Input2::value_type>
     constexpr void from_join_filtered(const Variable<KVTuple> &input1,
                                       const Input2 &input2, Logic &&logic) {
-        join::join_and_filter_into(input1, input2, *this,
+        df::join_and_filter_into(input1, input2, *this,
                                    std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Logic>
-        requires join::PairLike<KVTuple>
+        requires df::PairLike<KVTuple>
     constexpr void
     from_antijoin(const Variable<KVTuple> &input1,
                   const Relation<typename KVTuple::first_type> &input2,
                   Logic &&logic) {
-        this->insert(join::antijoin(input1.recent(), input2,
+        this->insert(df::antijoin(input1.recent(), input2,
                                     std::forward<Logic>(logic)));
     }
 
