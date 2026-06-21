@@ -48,37 +48,6 @@ concept PairLike = requires {
     { t.second } -> std::convertible_to<const typename T::second_type &>;
 };
 
-template <typename T, typename Cmp>
-constexpr std::span<T> seek(std::span<T> slice, Cmp &&cmp) {
-    if (slice.empty() || !cmp(slice[0])) {
-        return slice;
-    }
-
-    size_t len = slice.size();
-    size_t lower = 0;
-    size_t step = 1;
-
-    while (lower + step < len && cmp(slice[lower + step])) {
-        lower += step;
-        step <<= 1;
-    }
-
-    size_t upper = std::min(len, lower + step + 1);
-
-    auto first = slice.begin() + lower;
-    auto last = slice.begin() + upper;
-
-    auto it = std::partition_point(first, last, std::forward<Cmp>(cmp));
-    return slice.subspan(std::distance(slice.begin(), it));
-}
-
-template <typename T, typename Key, typename Proj>
-constexpr std::span<T> key_range(std::span<T> s, const Key& key, Proj proj) {
-    s = seek(s, [&](const auto& x){ return proj(x) <  key; });
-    auto end = seek(s, [&](const auto& x){ return proj(x) <= key; });
-    return s.subspan(0, s.size() - end.size());
-}
-
 template <typename Span1, typename Span2, class ResultCallback>
 constexpr void join_helper(Span1 slice1, Span2 slice2,
                            ResultCallback &&result_cb) {

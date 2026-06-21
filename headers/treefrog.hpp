@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "join.hpp"
+#include "relation.hpp"
 
 namespace df {
 
@@ -207,7 +208,7 @@ class ExtendWith {
         Key key = key_func(prefix);
         if (!old_key || *old_key != key) {
             std::span all{relation->elements};
-            auto range = join::key_range(all, key, [](const auto& kv){ return kv.first; });
+            auto range = df::key_range(all, key, [](const auto& kv){ return kv.first; });
             start = range.data() - all.data();
             end   = start + range.size();
             old_key = std::move(key);
@@ -226,7 +227,7 @@ class ExtendWith {
 
         auto write_it = values.begin();
         for (const Val *v : values) {
-            slice = join::seek(
+            slice = df::seek(
                 slice, [&](const auto &kv) { return kv.second < *v; });
             if (!slice.empty() && slice[0].second == *v) {
                 *write_it = v;
@@ -271,7 +272,7 @@ class ExtendAnti {
         Key key = key_func(prefix);
         if (!old_key || old_key->key != key) {
             std::span all{relation->elements};
-            auto range = join::key_range(all, key, [](const auto& kv){ return kv.first; });
+            auto range = df::key_range(all, key, [](const auto& kv){ return kv.first; });
             size_t s = range.data() - all.data();
             old_key = Cache{key, s, s + range.size()};
         }
@@ -282,7 +283,7 @@ class ExtendAnti {
             return;
 
         std::erase_if(values, [slice](const Val *v) mutable {
-            slice = join::seek(
+            slice = df::seek(
                 slice, [&](const auto &kv) { return kv.second < *v; });
             return !slice.empty() && slice[0].second == *v;
         });
