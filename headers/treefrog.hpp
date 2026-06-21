@@ -186,14 +186,6 @@ struct ValueFilter {
     constexpr void for_each_count(const Tuple &t, auto &&op) {
         op(0, count(t));
     }
-    constexpr void propose(const Tuple &t, size_t,
-                           std::vector<const Val *> &v) {
-        propose(t, v);
-    }
-    constexpr void intersect(const Tuple &t, size_t,
-                             std::vector<const Val *> &v) {
-        intersect(t, v);
-    }
 };
 
 template <typename Tuple, typename Val, typename Func>
@@ -252,14 +244,6 @@ class ExtendWith {
     constexpr void for_each_count(const Tuple &t, auto &&op) {
         op(0, count(t));
     }
-    constexpr void propose(const Tuple &t, size_t,
-                           std::vector<const Val *> &v) {
-        propose(t, v);
-    }
-    constexpr void intersect(const Tuple &t, size_t,
-                             std::vector<const Val *> &v) {
-        intersect(t, v);
-    }
 };
 } // namespace extend_with
 
@@ -316,14 +300,6 @@ class ExtendAnti {
     constexpr void for_each_count(const Tuple &t, auto &&op) {
         op(0, count(t));
     }
-    constexpr void propose(const Tuple &t, size_t,
-                           std::vector<const Val *> &v) {
-        propose(t, v);
-    }
-    constexpr void intersect(const Tuple &t, size_t,
-                             std::vector<const Val *> &v) {
-        intersect(t, v);
-    }
 };
 } // namespace extend_anti
 
@@ -356,15 +332,6 @@ class FilterWith {
         v.push_back(&UNIT_INSTANCE);
     }
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
-
-    constexpr void propose(const Tuple &t, size_t,
-                           std::vector<const Unit *> &v) {
-        propose(t, v);
-    }
-    constexpr void intersect(const Tuple &t, size_t,
-                             std::vector<const Unit *> &v) {
-        intersect(t, v);
-    }
 };
 } // namespace filter_with
 
@@ -402,15 +369,6 @@ class FilterAnti {
     }
 
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
-
-    constexpr void propose(const Tuple &t, size_t,
-                           std::vector<const Unit *> &v) {
-        propose(t, v);
-    }
-    constexpr void intersect(const Tuple &t, size_t,
-                             std::vector<const Unit *> &v) {
-        intersect(t, v);
-    }
 };
 } // namespace filter_anti
 
