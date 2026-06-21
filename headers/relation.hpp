@@ -82,6 +82,16 @@ template <std::totally_ordered Tuple> struct Relation {
         return from_vec(std::move(result));
     }
 
+    constexpr std::optional<size_t> binary_search(const Tuple &target) const {
+        auto it =
+            std::partition_point(elements.begin(), elements.end(),
+                                 [&](const Tuple &x) { return x < target; });
+        if (it != elements.end() && *it == target) {
+            return std::distance(elements.begin(), it);
+        }
+        return std::nullopt;
+    }
+
     constexpr size_t size() const { return elements.size(); }
     constexpr bool empty() const { return elements.empty(); }
 };

@@ -66,6 +66,39 @@ TEST(RelationTest, MergeWithEmpty) {
     EXPECT_EQ(r3.elements, (std::vector<int>{1, 2, 3}));
 }
 
+TEST(RelationTest, BinarySearchFound) {
+    auto rel = Relation<int>::from_vec({10, 20, 30, 40, 50});
+    auto idx = rel.binary_search(30);
+    ASSERT_TRUE(idx.has_value());
+    EXPECT_EQ(*idx, 2);
+}
+
+TEST(RelationTest, BinarySearchNotFound) {
+    auto rel = Relation<int>::from_vec({10, 20, 30, 40, 50});
+    auto idx = rel.binary_search(25);
+    EXPECT_FALSE(idx.has_value());
+}
+
+TEST(RelationTest, BinarySearchFirstElement) {
+    auto rel = Relation<int>::from_vec({10, 20, 30});
+    auto idx = rel.binary_search(10);
+    ASSERT_TRUE(idx.has_value());
+    EXPECT_EQ(*idx, 0);
+}
+
+TEST(RelationTest, BinarySearchLastElement) {
+    auto rel = Relation<int>::from_vec({10, 20, 30});
+    auto idx = rel.binary_search(30);
+    ASSERT_TRUE(idx.has_value());
+    EXPECT_EQ(*idx, 2);
+}
+
+TEST(RelationTest, BinarySearchEmpty) {
+    Relation<int> rel;
+    auto idx = rel.binary_search(5);
+    EXPECT_FALSE(idx.has_value());
+}
+
 TEST(RelationTest, FromMap) {
     auto input = Relation<int>::from_vec({1, 2, 3});
     auto output = Relation<int>::from_map(input, [](int x) { return x * 10; });
