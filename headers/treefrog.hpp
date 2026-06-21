@@ -351,7 +351,7 @@ class FilterWith {
         auto kv = key_func(prefix);
         if (old_kv && old_kv->first == kv)
             return old_kv->second ? std::numeric_limits<size_t>::max() : 0;
-        bool present = relation->binary_search(kv).has_value();
+        bool present = binary_search(kv);
         old_kv = {kv, present};
         return present ? std::numeric_limits<size_t>::max() : 0;
     }
@@ -395,7 +395,7 @@ class FilterAnti {
             return old_kv->second ? 0 : std::numeric_limits<size_t>::max();
         }
 
-        bool present = relation->binary_search(kv).has_value();
+        bool present = binary_search(kv);
         old_kv = {kv, present};
 
         return present ? 0 : std::numeric_limits<size_t>::max();
