@@ -12,7 +12,7 @@
 namespace df {
 
 template <typename T>
-concept VariableTrait = requires(T v, uint32_t r) {
+concept IterationVariable = requires(T v) {
     { v.changed() } -> std::convertible_to<bool>;
 };
 

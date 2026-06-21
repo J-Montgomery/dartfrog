@@ -11,10 +11,6 @@
 
 namespace df {
 
-template <typename T>
-concept VariableConcept = requires(T v) {
-    { v.changed() } -> std::convertible_to<bool>;
-};
 template <typename... Variables> class Iteration {
     std::tuple<std::unique_ptr<Variables>...> variables;
 

@@ -6,6 +6,9 @@
 #include <span>
 #include <vector>
 
+#include "relation.hpp"
+#include "variable.hpp"
+
 namespace df {
 
 template <std::totally_ordered Tuple> class Variable;
