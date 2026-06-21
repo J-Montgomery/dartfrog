@@ -65,9 +65,9 @@ constexpr std::span<T> seek(std::span<T> slice, Cmp &&cmp) {
 }
 
 template <typename T, typename Key, typename Proj>
-constexpr std::span<T> key_range(std::span<T> s, const Key& key, Proj proj) {
-    s = seek(s, [&](const auto& x){ return proj(x) <  key; });
-    auto end = seek(s, [&](const auto& x){ return proj(x) <= key; });
+constexpr std::span<T> key_range(std::span<T> s, const Key &key, Proj proj) {
+    s = seek(s, [&](const auto &x) { return proj(x) < key; });
+    auto end = seek(s, [&](const auto &x) { return proj(x) <= key; });
     return s.subspan(0, s.size() - end.size());
 }
 

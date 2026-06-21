@@ -4,8 +4,8 @@
 #include <functional>
 #include <ranges>
 #include <span>
-#include <vector>
 #include <variant>
+#include <vector>
 
 #include "relation.hpp"
 
@@ -58,11 +58,9 @@ constexpr void join_helper(Span1 slice1, Span2 slice2,
         auto k2 = slice2[0].first;
 
         if (k1 < k2) {
-            slice1 =
-                seek(slice1, [&](const auto &x) { return x.first < k2; });
+            slice1 = seek(slice1, [&](const auto &x) { return x.first < k2; });
         } else if (k2 < k1) {
-            slice2 =
-                seek(slice2, [&](const auto &x) { return x.first < k1; });
+            slice2 = seek(slice2, [&](const auto &x) { return x.first < k1; });
         } else {
             const K &match_key = k1;
 
@@ -323,13 +321,14 @@ class ExtendWith {
     constexpr ExtendWith(const Relation<std::pair<Key, Val>> *rel, Func f)
         : relation(rel), key_func(std::move(f)) {}
 
-    constexpr size_t count(const Tuple& prefix) {
+    constexpr size_t count(const Tuple &prefix) {
         Key key = key_func(prefix);
         if (!old_key || *old_key != key) {
             std::span all{relation->elements};
-            auto range = df::key_range(all, key, [](const auto& kv){ return kv.first; });
+            auto range = df::key_range(all, key,
+                                       [](const auto &kv) { return kv.first; });
             start = range.data() - all.data();
-            end   = start + range.size();
+            end = start + range.size();
             old_key = std::move(key);
         }
         return end - start;
@@ -346,8 +345,8 @@ class ExtendWith {
 
         auto write_it = values.begin();
         for (const Val *v : values) {
-            slice = df::seek(
-                slice, [&](const auto &kv) { return kv.second < *v; });
+            slice =
+                df::seek(slice, [&](const auto &kv) { return kv.second < *v; });
             if (!slice.empty() && slice[0].second == *v) {
                 *write_it = v;
                 ++write_it;
@@ -389,7 +388,8 @@ class ExtendAnti {
         Key key = key_func(prefix);
         if (!old_key || old_key->key != key) {
             std::span all{relation->elements};
-            auto range = df::key_range(all, key, [](const auto& kv){ return kv.first; });
+            auto range = df::key_range(all, key,
+                                       [](const auto &kv) { return kv.first; });
             size_t s = range.data() - all.data();
             old_key = Cache{key, s, s + range.size()};
         }
@@ -400,8 +400,8 @@ class ExtendAnti {
             return;
 
         std::erase_if(values, [slice](const Val *v) mutable {
-            slice = df::seek(
-                slice, [&](const auto &kv) { return kv.second < *v; });
+            slice =
+                df::seek(slice, [&](const auto &kv) { return kv.second < *v; });
             return !slice.empty() && slice[0].second == *v;
         });
     }
@@ -512,30 +512,25 @@ template <typename Key, typename Val> struct RelationLeaper {
 
     template <typename Tuple, typename Func>
     constexpr auto extend_with(Func &&f) const {
-        return ExtendWith<Key, Val, Tuple,
-                                       std::remove_cvref_t<Func>>(
+        return ExtendWith<Key, Val, Tuple, std::remove_cvref_t<Func>>(
             self, std::forward<Func>(f));
     }
 
     template <typename Tuple, typename Func>
     constexpr auto extend_anti(Func &&f) const {
-        return ExtendAnti<Key, Val, Tuple, Func>(
-            self, std::forward<Func>(f));
+        return ExtendAnti<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
 
     template <typename Tuple, typename Func>
     constexpr auto filter_with(Func &&f) const {
-        return FilterWith<Key, Val, Tuple, Func>(
-            self, std::forward<Func>(f));
+        return FilterWith<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
 
     template <typename Tuple, typename Func>
     constexpr auto filter_anti(Func &&f) const {
-        return FilterAnti<Key, Val, Tuple, Func>(
-            self, std::forward<Func>(f));
+        return FilterAnti<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
 };
-
 
 template <typename SrcTuple, typename RelKey, typename RelVal, typename KeyFunc,
           typename Logic>
