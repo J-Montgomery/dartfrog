@@ -182,10 +182,6 @@ struct ValueFilter {
         std::erase_if(values,
                       [&](const Val *val) { return !predicate(prefix, *val); });
     }
-
-    constexpr void for_each_count(const Tuple &t, auto &&op) {
-        op(0, count(t));
-    }
 };
 
 template <typename Tuple, typename Val, typename Func>
@@ -240,10 +236,6 @@ class ExtendWith {
         }
         values.erase(write_it, values.end());
     }
-
-    constexpr void for_each_count(const Tuple &t, auto &&op) {
-        op(0, count(t));
-    }
 };
 } // namespace extend_with
 
@@ -296,10 +288,6 @@ class ExtendAnti {
             return !slice.empty() && slice[0].second == *v;
         });
     }
-
-    constexpr void for_each_count(const Tuple &t, auto &&op) {
-        op(0, count(t));
-    }
 };
 } // namespace extend_anti
 
@@ -321,11 +309,6 @@ class FilterWith {
         bool present = relation->binary_search(kv).has_value();
         old_kv = {kv, present};
         return present ? std::numeric_limits<size_t>::max() : 0;
-    }
-
-    constexpr void for_each_count(const Tuple &t, auto &&op) {
-        size_t c = count(t);
-        op(0, c == 0 ? 0 : 1);
     }
 
     constexpr void propose(const Tuple &, std::vector<const Unit *> &v) {
@@ -357,11 +340,6 @@ class FilterAnti {
         old_kv = {kv, present};
 
         return present ? 0 : std::numeric_limits<size_t>::max();
-    }
-
-    constexpr void for_each_count(const Tuple &t, auto &&op) {
-        size_t c = count(t);
-        op(0, c == 0 ? 0 : 1);
     }
 
     constexpr void propose(const Tuple &, std::vector<const Unit *> &v) {
