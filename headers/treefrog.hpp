@@ -226,7 +226,7 @@ class ExtendWith {
 
         auto write_it = values.begin();
         for (const Val *v : values) {
-            slice = join::gallop(
+            slice = join::seek(
                 slice, [&](const auto &kv) { return kv.second < *v; });
             if (!slice.empty() && slice[0].second == *v) {
                 *write_it = v;
@@ -282,7 +282,7 @@ class ExtendAnti {
             return;
 
         std::erase_if(values, [slice](const Val *v) mutable {
-            slice = join::gallop(
+            slice = join::seek(
                 slice, [&](const auto &kv) { return kv.second < *v; });
             return !slice.empty() && slice[0].second == *v;
         });

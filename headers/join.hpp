@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "relation.hpp"
-#include "variable.hpp"
 
 namespace df {
 
@@ -50,7 +49,7 @@ concept PairLike = requires {
 };
 
 template <typename T, typename Cmp>
-constexpr std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
+constexpr std::span<T> seek(std::span<T> slice, Cmp &&cmp) {
     if (slice.empty() || !cmp(slice[0])) {
         return slice;
     }
@@ -73,15 +72,10 @@ constexpr std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
     return slice.subspan(std::distance(slice.begin(), it));
 }
 
-template <typename T, typename Cmp>
-constexpr std::span<T> seek(std::span<T> slice, Cmp&& cmp) {
-    return gallop(slice, std::forward<Cmp>(cmp));
-}
-
 template <typename T, typename Key, typename Proj>
 constexpr std::span<T> key_range(std::span<T> s, const Key& key, Proj proj) {
-    s = gallop(s, [&](const auto& x){ return proj(x) <  key; });
-    auto end = gallop(s, [&](const auto& x){ return proj(x) <= key; });
+    s = seek(s, [&](const auto& x){ return proj(x) <  key; });
+    auto end = seek(s, [&](const auto& x){ return proj(x) <= key; });
     return s.subspan(0, s.size() - end.size());
 }
 
@@ -95,10 +89,10 @@ constexpr void join_helper(Span1 slice1, Span2 slice2,
 
         if (k1 < k2) {
             slice1 =
-                gallop(slice1, [&](const auto &x) { return x.first < k2; });
+                seek(slice1, [&](const auto &x) { return x.first < k2; });
         } else if (k2 < k1) {
             slice2 =
-                gallop(slice2, [&](const auto &x) { return x.first < k1; });
+                seek(slice2, [&](const auto &x) { return x.first < k1; });
         } else {
             const K &match_key = k1;
 
@@ -204,7 +198,7 @@ constexpr auto antijoin(const InputRange &input1,
     for (const auto &elem : input1) {
         const auto &key = elem.first;
         const auto &val = elem.second;
-        tuples2 = gallop(tuples2, [&](const ExcludeKey &k) { return k < key; });
+        tuples2 = seek(tuples2, [&](const ExcludeKey &k) { return k < key; });
         if (tuples2.empty() || tuples2[0] != key) {
             results.push_back(logic(key, val));
         }

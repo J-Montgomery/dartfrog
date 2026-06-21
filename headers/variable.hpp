@@ -95,7 +95,7 @@ template <std::totally_ordered Tuple> class Variable {
 
                     std::erase_if(current_to_add.elements, [&](const Tuple &x) {
                         if (slice.size() > 4 * current_to_add.size()) {
-                            slice = join::gallop(
+                            slice = join::seek(
                                 slice, [&](const Tuple &y) { return y < x; });
                         } else {
                             while (!slice.empty() && slice[0] < x) {
