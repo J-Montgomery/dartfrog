@@ -197,5 +197,6 @@ constexpr auto antijoin(const InputRange &input1,
 
     return Relation<Result>::from_vec(std::move(results));
 }
+
 } // namespace join
 } // namespace df

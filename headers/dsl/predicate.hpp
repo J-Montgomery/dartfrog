@@ -62,23 +62,20 @@ public:
         static_assert(head_L_R || head_R_L, "Head variables must match unbound body variables");
 
         evaluators.push_back([=]() {
-            const auto& left_input  = left_join_v1 ? rule.body.left.pred->var  : rule.body.left.pred->rev_var;
-            const auto& right_input = std::is_same_v<KeyType, RV1> ? rule.body.right.pred->var : rule.body.right.pred->rev_var;
+            auto& left_input  = left_join_v1 ? rule.body.left.pred->var  : rule.body.left.pred->rev_var;
+            auto& right_input = std::is_same_v<KeyType, RV1> ? rule.body.right.pred->var : rule.body.right.pred->rev_var;
 
-            auto logic = [](const auto& key, const auto& l_val, const auto& r_val) {
-                if constexpr (head_L_R) return std::pair{l_val, r_val};
-                else return std::pair{r_val, l_val};
+            auto kf_left = [](const auto& left_tuple) { return left_tuple.first; };
+            auto kf_right = [](const auto& right_tuple) { return right_tuple.first; };
+
+            auto logic = [](const auto& left_tuple, const auto& r_val) {
+                if constexpr (head_L_R) return std::pair{left_tuple.second, r_val};
+                else return std::pair{r_val, left_tuple.second};
             };
 
-            std::vector<typename HPred::TupleT> raw_out;
-
-            df::join::join_delta(left_input, right_input, [&](const auto& k, const auto& l, const auto& r) {
-                raw_out.push_back(logic(k, l, r));
-            });
-
-            if (!raw_out.empty()) {
-                rule.head.pred->insert(df::Relation<typename HPred::TupleT>::from_vec(std::move(raw_out)));
-            }
+            df::leapjoin_delta(left_input, right_input,
+                   kf_left, kf_right,
+                   logic, *rule.head.pred);
         });
     }
 };
