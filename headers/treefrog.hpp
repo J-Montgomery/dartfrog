@@ -9,6 +9,8 @@
 #include <variant>
 #include <vector>
 
+#include "join.hpp"
+
 namespace df {
 
 template <typename T, typename Tuple, typename Val>
@@ -17,13 +19,6 @@ concept Leaper = requires(T l, const Tuple &t, std::vector<const Val *> &v) {
     { l.propose(t, v) } -> std::same_as<void>;
     { l.intersect(t, v) } -> std::same_as<void>;
 };
-
-template <typename T, typename Func>
-    requires std::invocable<Func, const T &> && (sizeof(T) > 0)
-constexpr size_t binary_search(const std::vector<T> &vec, Func &&cmp) {
-    auto it = std::partition_point(vec.begin(), vec.end(), cmp);
-    return std::distance(vec.begin(), it);
-}
 
 template <typename Tuple, typename Val, typename... LeaperTs>
     requires(Leaper<LeaperTs, Tuple, Val> && ...)
@@ -221,16 +216,13 @@ class ExtendWith {
     constexpr ExtendWith(const Relation<std::pair<Key, Val>> *rel, Func f)
         : relation(rel), key_func(std::move(f)) {}
 
-    constexpr size_t count(const Tuple &prefix) {
+    constexpr size_t count(const Tuple& prefix) {
         Key key = key_func(prefix);
         if (!old_key || *old_key != key) {
-            start = binary_search(relation->elements,
-                                  [&](const auto &x) { return x.first < key; });
-            std::span s1{relation->elements.begin() + start,
-                         relation->elements.end()};
-            auto s2 =
-                join::gallop(s1, [&](const auto &x) { return x.first <= key; });
-            end = relation->size() - s2.size();
+            std::span all{relation->elements};
+            auto range = join::key_range(all, key, [](const auto& kv){ return kv.first; });
+            start = range.data() - all.data();
+            end   = start + range.size();
             old_key = std::move(key);
         }
         return end - start;
@@ -303,14 +295,10 @@ class ExtendAnti {
 
         Key key = key_func(prefix);
         if (!old_key || old_key->key != key) {
-            size_t s = binary_search(relation->elements, [&](const auto &x) {
-                return x.first < key;
-            });
-            std::span s1{relation->elements.begin() + s,
-                         relation->elements.end()};
-            auto s2 =
-                join::gallop(s1, [&](const auto &x) { return x.first <= key; });
-            old_key = Cache{key, s, relation->elements.size() - s2.size()};
+            std::span all{relation->elements};
+            auto range = join::key_range(all, key, [](const auto& kv){ return kv.first; });
+            size_t s = range.data() - all.data();
+            old_key = Cache{key, s, s + range.size()};
         }
 
         std::span slice{relation->elements.begin() + old_key->start,

@@ -70,6 +70,18 @@ constexpr std::span<T> gallop(std::span<T> slice, Cmp &&cmp) {
     return slice.subspan(std::distance(slice.begin(), it));
 }
 
+template <typename T, typename Cmp>
+constexpr std::span<T> seek(std::span<T> slice, Cmp&& cmp) {
+    return gallop(slice, std::forward<Cmp>(cmp));
+}
+
+template <typename T, typename Key, typename Proj>
+constexpr std::span<T> key_range(std::span<T> s, const Key& key, Proj proj) {
+    s = gallop(s, [&](const auto& x){ return proj(x) <  key; });
+    auto end = gallop(s, [&](const auto& x){ return proj(x) <= key; });
+    return s.subspan(0, s.size() - end.size());
+}
+
 template <typename Span1, typename Span2, class ResultCallback>
 constexpr void join_helper(Span1 slice1, Span2 slice2,
                            ResultCallback &&result_cb) {
