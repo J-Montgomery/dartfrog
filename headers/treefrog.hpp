@@ -105,7 +105,7 @@ constexpr auto leapjoin(std::span<const Tuple> source, Collection &collection,
 }
 
 using Unit = std::monostate;
-const Unit UNIT_INSTANCE = std::monostate{};
+inline constexpr Unit UNIT_INSTANCE{};
 
 namespace filters {
 template <typename Tuple, typename Func>
@@ -187,7 +187,6 @@ struct ValueFilter {
 template <typename Tuple, typename Val, typename Func>
 auto value_filter(Func pred) {
     return ValueFilter<Tuple, Val, Func>{std::move(pred)};
-    ;
 }
 } // namespace filters
 
