@@ -431,7 +431,8 @@ template <typename Key, typename Val> struct RelationLeaper {
 
     template <typename Tuple, typename Func>
     constexpr auto extend_with(Func &&f) const {
-        return extend_with::ExtendWith<Key, Val, Tuple, std::remove_cvref_t<Func>>(
+        return extend_with::ExtendWith<Key, Val, Tuple,
+                                       std::remove_cvref_t<Func>>(
             self, std::forward<Func>(f));
     }
 
@@ -454,27 +455,29 @@ template <typename Key, typename Val> struct RelationLeaper {
     }
 };
 
-template <typename SrcTuple, typename RelKey, typename RelVal, typename KeyFunc, typename Logic>
+template <typename SrcTuple, typename RelKey, typename RelVal, typename KeyFunc,
+          typename Logic>
 void leap(std::span<const SrcTuple> src_span,
-             const df::Relation<std::pair<RelKey, RelVal>>& rel,
-             KeyFunc&& kf, Logic&& logic, auto& output) {
+          const df::Relation<std::pair<RelKey, RelVal>> &rel, KeyFunc &&kf,
+          Logic &&logic, auto &output) {
 
     RelationLeaper<RelKey, RelVal> leaper_wrapper{&rel};
     auto ext = leaper_wrapper.template extend_with<SrcTuple>(kf);
-    LeaperCollection<SrcTuple, typename decltype(ext)::value_type, decltype(ext)>
+    LeaperCollection<SrcTuple, typename decltype(ext)::value_type,
+                     decltype(ext)>
         coll{std::make_tuple(ext)};
 
     auto result_rel = leapjoin(src_span, coll, logic);
     output.insert(result_rel);
 }
 
-template <typename Var1, typename Var2, typename KFunc1, typename KFunc2, typename Logic>
-void leapjoin_delta(const Var1& var1, const Var2& var2,
-                    KFunc1&& kf1, KFunc2&& kf2,
-                    Logic&& logic, auto& output) {
+template <typename Var1, typename Var2, typename KFunc1, typename KFunc2,
+          typename Logic>
+void leapjoin_delta(const Var1 &var1, const Var2 &var2, KFunc1 &&kf1,
+                    KFunc2 &&kf2, Logic &&logic, auto &output) {
     auto src_span1 = var1.recent();
     if (!src_span1.empty()) {
-        for (const auto& rel2 : var2.stable) {
+        for (const auto &rel2 : var2.stable) {
             leap(src_span1, rel2, kf1, logic, output);
         }
         if (!var2.recent_data.empty()) {
@@ -484,8 +487,8 @@ void leapjoin_delta(const Var1& var1, const Var2& var2,
 
     auto src_span2 = var2.recent();
     if (!src_span2.empty()) {
-        for (const auto& rel1 : var1.stable) {
-            auto reverse_logic = [&](const auto& t2, const auto& val1) {
+        for (const auto &rel1 : var1.stable) {
+            auto reverse_logic = [&](const auto &t2, const auto &val1) {
                 return logic(std::pair{t2.first, val1}, t2.second);
             };
             leap(src_span2, rel1, kf2, reverse_logic, output);
