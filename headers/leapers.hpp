@@ -64,27 +64,23 @@ template <typename Key, typename Val> struct RelationLeaper {
 
     template <typename Tuple, typename Func>
     constexpr auto extend_with(Func &&f) const {
-        return ExtendWith<Key, Val, Tuple,
-                                       std::remove_cvref_t<Func>>(
+        return ExtendWith<Key, Val, Tuple, std::remove_cvref_t<Func>>(
             self, std::forward<Func>(f));
     }
 
     template <typename Tuple, typename Func>
     constexpr auto extend_anti(Func &&f) const {
-        return ExtendAnti<Key, Val, Tuple, Func>(
-            self, std::forward<Func>(f));
+        return ExtendAnti<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
 
     template <typename Tuple, typename Func>
     constexpr auto filter_with(Func &&f) const {
-        return FilterWith<Key, Val, Tuple, Func>(
-            self, std::forward<Func>(f));
+        return FilterWith<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
 
     template <typename Tuple, typename Func>
     constexpr auto filter_anti(Func &&f) const {
-        return FilterAnti<Key, Val, Tuple, Func>(
-            self, std::forward<Func>(f));
+        return FilterAnti<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
 };
 

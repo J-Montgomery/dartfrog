@@ -42,8 +42,11 @@ template <class T> struct is_var : std::false_type {};
 template <detail::StringLiteral N> struct is_var<Var<N>> : std::true_type {};
 template <class T> inline constexpr bool is_var_v = is_var<T>::value;
 
-template <typename Pred, typename V1, typename V2>
-struct NegatedTerm { Pred *pred; V1 v1; V2 v2; };
+template <typename Pred, typename V1, typename V2> struct NegatedTerm {
+    Pred *pred;
+    V1 v1;
+    V2 v2;
+};
 
 template <typename Pred, typename V1, typename V2>
 auto operator!(const Term<Pred, V1, V2> &t) {
@@ -51,38 +54,49 @@ auto operator!(const Term<Pred, V1, V2> &t) {
 }
 
 enum class Cmp { Lt, Le, Gt, Ge, Ne, Eq };
-template <Cmp Op, typename A, typename B> struct Compare { A a; B b; };
+template <Cmp Op, typename A, typename B> struct Compare {
+    A a;
+    B b;
+};
 
 template <detail::StringLiteral A, detail::StringLiteral B>
-auto operator<(Var<A> a, Var<B> b){ return Compare<Cmp::Lt,Var<A>,Var<B>>{a,b}; }
+auto operator<(Var<A> a, Var<B> b) {
+    return Compare<Cmp::Lt, Var<A>, Var<B>>{a, b};
+}
 
 template <detail::StringLiteral A, detail::StringLiteral B>
-auto operator>(Var<A> a, Var<B> b){ return Compare<Cmp::Gt,Var<A>,Var<B>>{a,b}; }
+auto operator>(Var<A> a, Var<B> b) {
+    return Compare<Cmp::Gt, Var<A>, Var<B>>{a, b};
+}
 
 template <detail::StringLiteral A, detail::StringLiteral B>
-auto operator>=(Var<A> a, Var<B> b){ return Compare<Cmp::Ge,Var<A>,Var<B>>{a,b}; }
+auto operator>=(Var<A> a, Var<B> b) {
+    return Compare<Cmp::Ge, Var<A>, Var<B>>{a, b};
+}
 
 template <detail::StringLiteral A, detail::StringLiteral B>
-auto operator<=(Var<A> a, Var<B> b){ return Compare<Cmp::Le,Var<A>,Var<B>>{a,b}; }
+auto operator<=(Var<A> a, Var<B> b) {
+    return Compare<Cmp::Le, Var<A>, Var<B>>{a, b};
+}
 
 template <detail::StringLiteral A, detail::StringLiteral B>
-auto operator!=(Var<A> a, Var<B> b){ return Compare<Cmp::Ne,Var<A>,Var<B>>{a,b}; }
+auto operator!=(Var<A> a, Var<B> b) {
+    return Compare<Cmp::Ne, Var<A>, Var<B>>{a, b};
+}
 
 template <detail::StringLiteral A, detail::StringLiteral B>
-auto operator==(Var<A> a, Var<B> b){ return Compare<Cmp::Eq,Var<A>,Var<B>>{a,b}; }
+auto operator==(Var<A> a, Var<B> b) {
+    return Compare<Cmp::Eq, Var<A>, Var<B>>{a, b};
+}
 
-
-template <typename PosTuple, typename FilterTuple>
-struct Conjunction {
+template <typename PosTuple, typename FilterTuple> struct Conjunction {
     PosTuple pos;
     FilterTuple filt;
 };
 
-
 template <class T> struct is_filter_atom : std::true_type {};
 template <class P, class A, class B>
 struct is_filter_atom<Term<P, A, B>> : std::false_type {};
-
 
 template <class P1, class A1, class B1, class P2, class A2, class B2>
 auto operator&&(const Term<P1, A1, B1> &l, const Term<P2, A2, B2> &r) {
@@ -99,14 +113,15 @@ auto operator&&(const Term<P, A, B> &l, const F &f) {
 
 template <class Pos, class Filt, class P, class A, class B>
 auto operator&&(const Conjunction<Pos, Filt> &c, const Term<P, A, B> &r) {
-    return Conjunction<decltype(std::tuple_cat(c.pos, std::make_tuple(r))), Filt>{
-        std::tuple_cat(c.pos, std::make_tuple(r)), c.filt};
+    return Conjunction<decltype(std::tuple_cat(c.pos, std::make_tuple(r))),
+                       Filt>{std::tuple_cat(c.pos, std::make_tuple(r)), c.filt};
 }
 
 template <class Pos, class Filt, class F>
     requires is_filter_atom<F>::value
 auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
-    return Conjunction<Pos, decltype(std::tuple_cat(c.filt, std::make_tuple(f)))>{
+    return Conjunction<Pos,
+                       decltype(std::tuple_cat(c.filt, std::make_tuple(f)))>{
         c.pos, std::tuple_cat(c.filt, std::make_tuple(f))};
 }
 } // namespace df::datalog

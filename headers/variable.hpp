@@ -134,7 +134,7 @@ template <std::totally_ordered Tuple> class Variable {
     constexpr void from_join_filtered(const Variable<KVTuple> &input1,
                                       const Input2 &input2, Logic &&logic) {
         df::join_and_filter_into(input1, input2, *this,
-                                   std::forward<Logic>(logic));
+                                 std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Logic>
@@ -143,8 +143,8 @@ template <std::totally_ordered Tuple> class Variable {
     from_antijoin(const Variable<KVTuple> &input1,
                   const Relation<typename KVTuple::first_type> &input2,
                   Logic &&logic) {
-        this->insert(df::antijoin(input1.recent(), input2,
-                                    std::forward<Logic>(logic)));
+        this->insert(
+            df::antijoin(input1.recent(), input2, std::forward<Logic>(logic)));
     }
 
     template <typename Input1, typename Collection, typename Logic>

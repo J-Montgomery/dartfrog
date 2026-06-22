@@ -4,8 +4,8 @@
 #include <utility>
 #include <vector>
 
-#include <gtest/gtest.h>
 #include <datalog/predicate.hpp>
+#include <gtest/gtest.h>
 
 using namespace df::datalog;
 namespace {
@@ -15,8 +15,7 @@ df::Relation<std::pair<T1, T2>> rel(std::vector<std::pair<T1, T2>> v) {
     return df::Relation<std::pair<T1, T2>>::from_vec(std::move(v));
 }
 
-template <class T>
-std::vector<T> sorted(std::vector<T> v) {
+template <class T> std::vector<T> sorted(std::vector<T> v) {
     std::sort(v.begin(), v.end());
     return v;
 }
@@ -35,7 +34,7 @@ transitive_closure(const std::vector<std::pair<int, int>> &edges) {
     }
     return {tc.begin(), tc.end()};
 }
-}
+} // namespace
 
 TEST(DatalogTests, BasicEdges) {
     auto x = Var<"x">();
@@ -173,8 +172,8 @@ TEST(DslRecursion, TransitiveClosureLineGraph) {
     Predicate<int, int> Edge(dl);
     Predicate<int, int> Path(dl);
 
-    std::vector<std::pair<int, int>> edges = {{1, 2}, {2, 3}, {3, 4},
-                                              {4, 5}, {5, 6}};
+    std::vector<std::pair<int, int>> edges = {
+        {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}};
     Edge.insert(rel<int, int>(edges));
 
     dl.add_rule(Path(x, y) <<= Edge(x, y));
@@ -250,17 +249,20 @@ TEST(DslTypes, StringNodes) {
     Datalog dl;
     Predicate<std::string, std::string> Edge(dl);
     Predicate<std::string, std::string> Path(dl);
-    Edge.insert(rel<std::string, std::string>(
-        {{"a", "b"}, {"b", "c"}, {"c", "d"}}));
+    Edge.insert(
+        rel<std::string, std::string>({{"a", "b"}, {"b", "c"}, {"c", "d"}}));
 
     dl.add_rule(Path(x, y) <<= Edge(x, y));
     dl.add_rule(Path(x, z) <<= Edge(x, y) && Path(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(Path.extract()),
-              (std::vector<std::pair<std::string, std::string>>{
-                  {"a", "b"}, {"a", "c"}, {"a", "d"},
-                  {"b", "c"}, {"b", "d"}, {"c", "d"}}));
+              (std::vector<std::pair<std::string, std::string>>{{"a", "b"},
+                                                                {"a", "c"},
+                                                                {"a", "d"},
+                                                                {"b", "c"},
+                                                                {"b", "d"},
+                                                                {"c", "d"}}));
 }
 
 TEST(DslTypes, HeterogeneousColumns) {
@@ -275,8 +277,8 @@ TEST(DslTypes, HeterogeneousColumns) {
     dl.add_rule(Copy(x, y) <<= Label(x, y));
     dl.solve();
 
-    EXPECT_EQ(sorted(Copy.extract()),
-              (std::vector<std::pair<int, std::string>>{{1, "one"}, {2, "two"}}));
+    EXPECT_EQ(sorted(Copy.extract()), (std::vector<std::pair<int, std::string>>{
+                                          {1, "one"}, {2, "two"}}));
 }
 
 TEST(DslInvariants, InsertDeduplicates) {
@@ -370,44 +372,55 @@ TEST(DslEdgeCases, SolveIsIdempotent) {
 }
 
 TEST(DslWcoj, Triangle) {
-    auto x = Var<"x">(); auto y = Var<"y">(); auto z = Var<"z">();
+    auto x = Var<"x">();
+    auto y = Var<"y">();
+    auto z = Var<"z">();
     Datalog dl;
     Predicate<int, int> Edge(dl);
     Predicate<int, int> Tri(dl);
-    Edge.insert(rel<int,int>({{1,2},{2,3},{3,1}, {2,4},{4,5},{5,2}}));
+    Edge.insert(
+        rel<int, int>({{1, 2}, {2, 3}, {3, 1}, {2, 4}, {4, 5}, {5, 2}}));
     dl.add_rule(Tri(x, z) <<= Edge(x, y) && Edge(y, z) && Edge(z, x));
     dl.solve();
     EXPECT_EQ(sorted(Tri.extract()).size(), 6u);
 }
 
 TEST(DslWcoj, ThreeHopChain) {
-    auto x=Var<"x">(); auto y=Var<"y">(); auto z=Var<"z">(); auto w=Var<"w">();
-    Datalog dl; Predicate<int,int> Edge(dl), Hop3(dl);
-    Edge.insert(rel<int,int>({{1,2},{2,3},{3,4},{4,5}}));
+    auto x = Var<"x">();
+    auto y = Var<"y">();
+    auto z = Var<"z">();
+    auto w = Var<"w">();
+    Datalog dl;
+    Predicate<int, int> Edge(dl), Hop3(dl);
+    Edge.insert(rel<int, int>({{1, 2}, {2, 3}, {3, 4}, {4, 5}}));
     dl.add_rule(Hop3(x, w) <<= Edge(x, y) && Edge(y, z) && Edge(z, w));
     dl.solve();
     EXPECT_EQ(sorted(Hop3.extract()),
-              (std::vector<std::pair<int,int>>{{1,4},{2,5}}));
+              (std::vector<std::pair<int, int>>{{1, 4}, {2, 5}}));
 }
 
 TEST(DslWcoj, TwoSharedKeysIsIntersection) {
-    auto x=Var<"x">(); auto y=Var<"y">();
-    Datalog dl; Predicate<int,int> A(dl), B(dl), C(dl);
-    A.insert(rel<int,int>({{1,2},{2,3},{3,4}}));
-    B.insert(rel<int,int>({{2,3},{3,4},{9,9}}));
+    auto x = Var<"x">();
+    auto y = Var<"y">();
+    Datalog dl;
+    Predicate<int, int> A(dl), B(dl), C(dl);
+    A.insert(rel<int, int>({{1, 2}, {2, 3}, {3, 4}}));
+    B.insert(rel<int, int>({{2, 3}, {3, 4}, {9, 9}}));
     dl.add_rule(C(x, y) <<= A(x, y) && B(x, y));
     dl.solve();
     EXPECT_EQ(sorted(C.extract()),
-              (std::vector<std::pair<int,int>>{{2,3},{3,4}}));
+              (std::vector<std::pair<int, int>>{{2, 3}, {3, 4}}));
 }
 
 TEST(DslWcoj, NegationEdb) {
-    auto x=Var<"x">(); auto y=Var<"y">();
-    Datalog dl; Predicate<int,int> Edge(dl), Blocked(dl), Open(dl);
-    Edge.insert(rel<int,int>({{1,2},{2,3},{3,4}}));
-    Blocked.insert(rel<int,int>({{2,3}}));
+    auto x = Var<"x">();
+    auto y = Var<"y">();
+    Datalog dl;
+    Predicate<int, int> Edge(dl), Blocked(dl), Open(dl);
+    Edge.insert(rel<int, int>({{1, 2}, {2, 3}, {3, 4}}));
+    Blocked.insert(rel<int, int>({{2, 3}}));
     dl.add_rule(Open(x, y) <<= Edge(x, y) && !Blocked(x, y));
     dl.solve();
     EXPECT_EQ(sorted(Open.extract()),
-              (std::vector<std::pair<int,int>>{{1,2},{3,4}}));
+              (std::vector<std::pair<int, int>>{{1, 2}, {3, 4}}));
 }
