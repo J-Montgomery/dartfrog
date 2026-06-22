@@ -4,4 +4,5 @@
 #include "join.hpp"
 #include "map.hpp"
 #include "relation.hpp"
+#include "leapers.hpp"
 #include "variable.hpp"
