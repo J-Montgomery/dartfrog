@@ -1,6 +1,8 @@
 #pragma once
 
 #include <concepts>
+
+#include <cassert>
 #include <functional>
 #include <ranges>
 #include <span>
@@ -200,10 +202,6 @@ constexpr auto leapjoin(std::span<const Tuple> source, Collection &collection,
             }
         });
 
-        if (!(min_count < std::numeric_limits<size_t>::max())) {
-            throw std::runtime_error("leapjoin: Unbounded relations");
-        }
-
         if (min_count > 0) {
             collection.propose(tuple, min_index, values);
             collection.intersect(tuple, min_index, values);
@@ -235,8 +233,7 @@ struct PrefixFilter {
     template <typename Val2>
         requires(!std::is_same_v<Val2, Unit>)
     constexpr void propose(const Tuple &, std::vector<const Val2 *> &) {
-        throw std::runtime_error(
-            "PrefixFilter::propose(): variable apparently unbound");
+        assert("PrefixFilter::propose(): variable apparently unbound");
     }
 
     template <typename Val2>
@@ -277,8 +274,7 @@ struct ValueFilter {
     }
 
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
-        throw std::runtime_error(
-            "ValueFilter::propose(): variable apparently unbound");
+        assert("ValueFilter::propose(): variable apparently unbound");
     }
 
     constexpr void intersect(const Tuple &prefix,
@@ -361,8 +357,7 @@ class ExtendAnti {
         return std::numeric_limits<size_t>::max();
     }
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
-        throw std::runtime_error(
-            "ExtendAnti::propose(): variable apparently unbound.");
+        assert("ExtendAnti::propose(): variable apparently unbound.");
     }
 
     constexpr void intersect(const Tuple &prefix,
