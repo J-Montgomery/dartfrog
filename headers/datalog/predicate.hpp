@@ -133,16 +133,13 @@ class Datalog {
     }
 
     void solve() {
-        bool changed = true;
-        while (changed) {
+        while (true) {
+            bool changed = false;
             for (auto *p : predicates)
-                p->snapshot();
-            for (auto &e : evaluators)
-                e();
-            changed = false;
-            for (auto *p : predicates)
-                if (p->step())
-                    changed = true;
+                if (p->step()) changed = true;
+            if (!changed) break;
+            for (auto *p : predicates) p->snapshot();
+            for (auto &e : evaluators) e();
         }
     }
 };
@@ -168,21 +165,15 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
     }
 
     template <class Tup>
-    static df::Relation<Tup> merge_all(const df::Variable<Tup> &v) {
-        df::Relation<Tup> out;
-        for (const auto &b : v.stable) {
-            std::vector<Tup> c = b.elements;
-            out = std::move(out).merge(df::Relation<Tup>(std::move(c)));
-        }
-        if (!v.recent_data.empty()) {
-            std::vector<Tup> c = v.recent_data.elements;
-            out = std::move(out).merge(df::Relation<Tup>(std::move(c)));
-        }
-        return out;
+    static void fold_delta(df::Relation<Tup> &snap, const df::Variable<Tup> &v) {
+        if (v.recent_data.empty()) return;
+        snap = std::move(snap).merge(
+            df::Relation<Tup>(std::vector<Tup>(v.recent_data.elements)));
     }
+
     void snapshot() override {
-        snap_fwd = merge_all(var);
-        snap_rev = merge_all(rev_var);
+        fold_delta(snap_fwd, var);
+        fold_delta(snap_rev, rev_var);
     }
 
     bool step() override {
