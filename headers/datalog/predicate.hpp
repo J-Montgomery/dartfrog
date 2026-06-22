@@ -53,45 +53,119 @@ template <class HeadTerm, class PosTuple, class FilterTuple> struct WcojRunner {
                 index_of<typename atom_traits<HeadTerm>::v1_t, UV>::value;
             constexpr int h2 =
                 index_of<typename atom_traits<HeadTerm>::v2_t, UV>::value;
-
             static_assert(h1 >= 0 && h2 >= 0,
                           "head variable not bound in body");
-            std::vector<std::pair<V, V>> out;
-            for (auto &arr : full.elements)
-                if (keep<S>(arr, pos))
-                    out.push_back({arr[pos[h1]], arr[pos[h2]]});
-            head.pred->insert(
-                df::Relation<std::pair<V, V>>::from_vec(std::move(out)));
+
+            auto project = [&](const std::array<V, NV> &a) {
+                return std::pair<V, V>{a[pos[h1]], a[pos[h2]]};
+            };
+
+            if constexpr (!has_residual_filters<S, PosTuple, FilterTuple>()) {
+                head.pred->insert(
+                    df::Relation<std::pair<V, V>>::from_map(full, project));
+            } else {
+                auto coll = make_filter_collection<S>(pos);
+                head.pred->insert(df::leapjoin(
+                    std::span<const std::array<V, NV>>(full.elements), coll,
+                    [&](const std::array<V, NV> &a, const df::Unit &) {
+                        return project(a);
+                    }));
+            }
         }
     }
 
     template <int S>
-    bool keep(const std::array<V, NV> &arr,
-              const std::array<int, NV> &pos) const {
-        bool ok = true;
+    auto make_filter_collection(const std::array<int, NV> &pos) const {
+        using Tup = std::array<V, NV>;
+        return to_unit_coll<Tup>(std::tuple_cat(
+            std::make_tuple(df::filters::passthrough<Tup>()),
+            make_semijoin_leapers<S>(pos, std::make_index_sequence<NA>{}),
+            make_filter_leapers(
+                pos,
+                std::make_index_sequence<std::tuple_size_v<FilterTuple>>{})));
+    }
+
+    template <class Tup, class... E>
+    static auto to_unit_coll(std::tuple<E...> &&t) {
+        return df::LeaperCollection<Tup, df::Unit, E...>{std::move(t)};
+    }
+
+    template <int S, size_t... I>
+    auto make_semijoin_leapers(const std::array<int, NV> &pos,
+                               std::index_sequence<I...>) const {
+        return std::tuple_cat(make_one_semijoin<S, I>(pos)...);
+    }
+
+    template <int S, size_t I>
+    auto make_one_semijoin(const std::array<int, NV> &pos) const {
+        using Tup = std::array<V, NV>;
         constexpr auto ids = atom_ids<PosTuple>();
-        [&]<size_t... I>(std::index_sequence<I...>) {
-            (
-                [&] {
-                    if constexpr ((int)I != S) {
-                        constexpr int i1 = ids[I][0], i2 = ids[I][1];
-                        if constexpr (i1 >= 0 && i2 >= 0) {
-                            int p1 = pos[i1], p2 = pos[i2];
-                            bool semijoin =
-                                (i1 == i2) || (std::max(p1, p2) <= 1);
-                            if (semijoin && !std::get<I>(atoms)
-                                                 .pred->snap_fwd.binary_search(
-                                                     {arr[p1], arr[p2]}))
-                                ok = false;
-                        }
-                    }
-                }(),
-                ...);
-        }(std::make_index_sequence<NA>{});
-        [&]<size_t... F>(std::index_sequence<F...>) {
-            (handle_filter<PosTuple>(std::get<F>(filters), arr, pos, ok), ...);
-        }(std::make_index_sequence<std::tuple_size_v<FilterTuple>>{});
-        return ok;
+        constexpr int i1 = ids[I][0], i2 = ids[I][1];
+        if constexpr ((int)I == S || i1 < 0 || i2 < 0) {
+            return std::tuple<>{};
+        } else {
+            constexpr auto cpos = invert<NV>(make_order<PosTuple>(S));
+            constexpr bool repeated = (i1 == i2);
+            constexpr bool seedbound =
+                !repeated && (std::max(cpos[i1], cpos[i2]) <= 1);
+            if constexpr (repeated || seedbound) {
+                auto *pred = std::get<I>(atoms).pred;
+                int p1 = pos[i1], p2 = pos[i2];
+                df::RelationLeaper<V, V> rl{&pred->snap_fwd};
+                return std::make_tuple(
+                    rl.template filter_with<Tup>([p1, p2](const Tup &a) {
+                        return std::pair<V, V>{a[p1], a[p2]};
+                    }));
+            } else {
+                return std::tuple<>{};
+            }
+        }
+    }
+
+    template <size_t... F>
+    auto make_filter_leapers(const std::array<int, NV> &pos,
+                             std::index_sequence<F...>) const {
+        return std::tuple_cat(make_one_filter<F>(pos)...);
+    }
+
+    template <size_t F>
+    auto make_one_filter(const std::array<int, NV> &pos) const {
+        using Tup = std::array<V, NV>;
+        using Filt = std::tuple_element_t<F, FilterTuple>;
+        using A = typename filter_vars<Filt>::a_t;
+        using B = typename filter_vars<Filt>::b_t;
+        constexpr int ia = index_of<A, UV>::value;
+        constexpr int ib = index_of<B, UV>::value;
+        static_assert(ia >= 0 && ib >= 0,
+                      "filter variable not bound by a positive body atom");
+        int pa = pos[ia], pb = pos[ib];
+        if constexpr (is_negated<Filt>::value) {
+            auto *pred = std::get<F>(filters).pred;
+            df::RelationLeaper<V, V> rl{&pred->snap_fwd};
+            return std::make_tuple(
+                rl.template filter_anti<Tup>([pa, pb](const Tup &a) {
+                    return std::pair<V, V>{a[pa], a[pb]};
+                }));
+        } else {
+            constexpr Cmp op = filter_vars<Filt>::op;
+            return std::make_tuple(
+                df::filters::prefix_filter<Tup>([pa, pb](const Tup &a) -> bool {
+                    const V &x = a[pa];
+                    const V &y = a[pb];
+                    if constexpr (op == Cmp::Lt)
+                        return x < y;
+                    else if constexpr (op == Cmp::Le)
+                        return x <= y;
+                    else if constexpr (op == Cmp::Gt)
+                        return x > y;
+                    else if constexpr (op == Cmp::Ge)
+                        return x >= y;
+                    else if constexpr (op == Cmp::Ne)
+                        return x != y;
+                    else
+                        return x == y;
+                }));
+        }
     }
 };
 
@@ -136,10 +210,14 @@ class Datalog {
         while (true) {
             bool changed = false;
             for (auto *p : predicates)
-                if (p->step()) changed = true;
-            if (!changed) break;
-            for (auto *p : predicates) p->snapshot();
-            for (auto &e : evaluators) e();
+                if (p->step())
+                    changed = true;
+            if (!changed)
+                break;
+            for (auto *p : predicates)
+                p->snapshot();
+            for (auto &e : evaluators)
+                e();
         }
     }
 };
@@ -165,8 +243,10 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
     }
 
     template <class Tup>
-    static void fold_delta(df::Relation<Tup> &snap, const df::Variable<Tup> &v) {
-        if (v.recent_data.empty()) return;
+    static void fold_delta(df::Relation<Tup> &snap,
+                           const df::Variable<Tup> &v) {
+        if (v.recent_data.empty())
+            return;
         snap = std::move(snap).merge(
             df::Relation<Tup>(std::vector<Tup>(v.recent_data.elements)));
     }
@@ -184,8 +264,6 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
     template <class V1, class V2> auto operator()(V1 v1, V2 v2) {
         return Term<Predicate, V1, V2>{this, v1, v2};
     }
-    std::vector<TupleT> extract() {
-        return std::move(var).complete().elements;
-    }
+    std::vector<TupleT> extract() { return std::move(var).complete().elements; }
 };
 } // namespace df::datalog

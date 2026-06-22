@@ -202,40 +202,46 @@ df::Relation<std::array<V, NV>> extend(df::Relation<std::array<V, K>> prefix,
     }
 }
 
-template <class PosTuple, class V, size_t NV, class P, class A, class B>
-void handle_filter(const NegatedTerm<P, A, B> &f, const std::array<V, NV> &arr,
-                   const std::array<int, NV> &pos, bool &ok) {
-    using UV = uvars_t<PosTuple>;
-    constexpr int ia = index_of<A, UV>::value, ib = index_of<B, UV>::value;
+template <class T> struct is_negated : std::false_type {};
+template <class P, class A, class B>
+struct is_negated<NegatedTerm<P, A, B>> : std::true_type {};
 
-    if constexpr (ia >= 0 && ib >= 0)
-        if (f.pred->snap_fwd.binary_search({arr[pos[ia]], arr[pos[ib]]}))
-            ok = false;
-        else
-            static_assert("unbound var");
-}
-template <class PosTuple, class V, size_t NV, Cmp Op, class A, class B>
-void handle_filter(const Compare<Op, A, B> &, const std::array<V, NV> &arr,
-                   const std::array<int, NV> &pos, bool &ok) {
-    using UV = uvars_t<PosTuple>;
-    constexpr int ia = index_of<A, UV>::value, ib = index_of<B, UV>::value;
-    if constexpr (ia >= 0 && ib >= 0) {
-        const V &x = arr[pos[ia]], &y = arr[pos[ib]];
-        bool r = true;
-        if constexpr (Op == Cmp::Lt)
-            r = x < y;
-        else if constexpr (Op == Cmp::Le)
-            r = x <= y;
-        else if constexpr (Op == Cmp::Gt)
-            r = x > y;
-        else if constexpr (Op == Cmp::Ge)
-            r = x >= y;
-        else if constexpr (Op == Cmp::Ne)
-            r = x != y;
-        else
-            r = x == y;
-        if (!r)
-            ok = false;
+template <class T> struct is_compare : std::false_type {};
+template <Cmp Op, class A, class B>
+struct is_compare<Compare<Op, A, B>> : std::true_type {};
+
+template <class T> struct filter_vars;
+template <class P, class A, class B> struct filter_vars<NegatedTerm<P, A, B>> {
+    using a_t = A;
+    using b_t = B;
+};
+template <Cmp Op, class A, class B> struct filter_vars<Compare<Op, A, B>> {
+    using a_t = A;
+    using b_t = B;
+    static constexpr Cmp op = Op;
+};
+
+template <int S, class PosTuple, class FilterTuple>
+constexpr bool has_residual_filters() {
+    if constexpr (std::tuple_size_v<FilterTuple> > 0) {
+        return true;
+    } else {
+        constexpr size_t NA = std::tuple_size_v<PosTuple>;
+        constexpr size_t NV = list_size<uvars_t<PosTuple>>::value;
+        constexpr auto ids = atom_ids<PosTuple>();
+        constexpr auto pos = invert<NV>(make_order<PosTuple>(S));
+        for (size_t a = 0; a < NA; ++a) {
+            if ((int)a == S)
+                continue;
+            int i1 = ids[a][0], i2 = ids[a][1];
+            if (i1 < 0 || i2 < 0)
+                continue;
+            if (i1 == i2)
+                return true;
+            if (std::max(pos[i1], pos[i2]) <= 1)
+                return true;
+        }
+        return false;
     }
 }
 

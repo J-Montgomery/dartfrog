@@ -73,13 +73,11 @@ struct PrefixFilter {
     }
 
     template <typename Val2>
-        requires(!std::is_same_v<Val2, Unit>)
     constexpr void propose(const Tuple &, std::vector<const Val2 *> &) {
-        assert("PrefixFilter::propose(): variable apparently unbound");
+        assert(!"PrefixFilter::propose(): variable apparently unbound");
     }
 
     template <typename Val2>
-        requires(!std::is_same_v<Val2, Unit>)
     constexpr void intersect(const Tuple &, std::vector<const Val2 *> &) {}
 
     constexpr void for_each_count(const Tuple &tuple, auto &&op) {
@@ -248,10 +246,13 @@ class FilterWith {
         return present ? std::numeric_limits<size_t>::max() : 0;
     }
 
-    constexpr void propose(const Tuple &, std::vector<const Unit *> &v) {
-        v.push_back(&UNIT_INSTANCE);
+    template <typename Val2>
+    constexpr void propose(const Tuple &, std::vector<const Val2 *> &) {
+        assert(!"FilterWith::propose(): variable apparently unbound");
     }
-    constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
+
+    template <typename Val2>
+    constexpr void intersect(const Tuple &, std::vector<const Val2 *> &) {}
 };
 
 template <typename Key, typename Val, typename Tuple, typename Func>

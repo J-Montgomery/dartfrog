@@ -110,18 +110,6 @@ TEST(FilterWithTest, CountReturnsZeroWhenAbsent) {
     EXPECT_EQ(fw.count(1), 0);
 }
 
-TEST(FilterWithTest, ProposePushesUnit) {
-    auto rel = Relation<std::pair<int, int>>::from_vec({{1, 10}});
-    RelationLeaper<int, int> rl{&rel};
-
-    auto fw = rl.filter_with<int>([](int x) { return std::pair{x, x * 10}; });
-
-    std::vector<const Unit *> values;
-    fw.propose(1, values);
-    ASSERT_EQ(values.size(), 1);
-    EXPECT_EQ(values[0], &UNIT_INSTANCE);
-}
-
 // FilterAnti Tests
 
 TEST(FilterAntiTest, CountReturnsZeroWhenPresent) {
