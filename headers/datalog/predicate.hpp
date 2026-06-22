@@ -1,8 +1,11 @@
 #pragma once
+#include <array>
+
 #include "../dartfrog.hpp"
 #include "var.hpp"
 #include "wcoj.hpp"
-#include <array>
+
+namespace df::datalog {
 
 struct IPredicate {
     virtual bool step() = 0;
@@ -16,10 +19,10 @@ struct WcojRunner {
     PosTuple atoms;
     FilterTuple filters;
 
-    using V = typename df::dsl::atom_traits<
+    using V = typename atom_traits<
         std::tuple_element_t<0, PosTuple>>::pred_t::TupleT::first_type;
-    using UV = df::dsl::uvars_t<PosTuple>;
-    static constexpr size_t NV = df::dsl::list_size<UV>::value;
+    using UV = uvars_t<PosTuple>;
+    static constexpr size_t NV = list_size<UV>::value;
     static constexpr size_t NA = std::tuple_size_v<PosTuple>;
 
     void operator()() const {
@@ -29,7 +32,7 @@ struct WcojRunner {
     }
 
     template <int S> void do_source() const {
-        constexpr auto ids = df::dsl::atom_ids<PosTuple>();
+        constexpr auto ids = atom_ids<PosTuple>();
         if constexpr (ids[S][0] >= 0 && ids[S][1] >= 0 && ids[S][0] != ids[S][1]) {
             auto *sp = std::get<S>(atoms).pred;
             auto src = sp->var.recent();
@@ -39,14 +42,14 @@ struct WcojRunner {
             init.reserve(src.size());
             for (auto &kv : src) init.push_back({kv.first, kv.second});
 
-            auto full = df::dsl::extend<V, NV, S, 2>(
+            auto full = extend<V, NV, S, 2>(
                 df::Relation<std::array<V, 2>>::from_vec(std::move(init)), atoms);
 
-            constexpr auto pos = df::dsl::invert<NV>(df::dsl::make_order<PosTuple>(S));
-            constexpr int h1 = df::dsl::index_of<
-                typename df::dsl::atom_traits<HeadTerm>::v1_t, UV>::value;
-            constexpr int h2 = df::dsl::index_of<
-                typename df::dsl::atom_traits<HeadTerm>::v2_t, UV>::value;
+            constexpr auto pos = invert<NV>(make_order<PosTuple>(S));
+            constexpr int h1 = index_of<
+                typename atom_traits<HeadTerm>::v1_t, UV>::value;
+            constexpr int h2 = index_of<
+                typename atom_traits<HeadTerm>::v2_t, UV>::value;
 
             std::vector<std::pair<V, V>> out;
             for (auto &arr : full.elements)
@@ -59,7 +62,7 @@ struct WcojRunner {
     template <int S>
     bool keep(const std::array<V, NV> &arr, const std::array<int, NV> &pos) const {
         bool ok = true;
-        constexpr auto ids = df::dsl::atom_ids<PosTuple>();
+        constexpr auto ids = atom_ids<PosTuple>();
         [&]<size_t... I>(std::index_sequence<I...>) {
             ([&] {
                 if constexpr ((int)I != S) {
@@ -76,7 +79,7 @@ struct WcojRunner {
             }(), ...);
         }(std::make_index_sequence<NA>{});
         [&]<size_t... F>(std::index_sequence<F...>) {
-            (df::dsl::handle_filter<PosTuple>(std::get<F>(filters), arr, pos, ok), ...);
+            (handle_filter<PosTuple>(std::get<F>(filters), arr, pos, ok), ...);
         }(std::make_index_sequence<std::tuple_size_v<FilterTuple>>{});
         return ok;
     }
@@ -174,3 +177,4 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
         return std::move(std::move(var).complete().elements);
     }
 };
+} // namespace df::datalog

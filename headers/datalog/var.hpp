@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <tuple>
 
+namespace df::datalog {
 namespace detail {
 
 template <size_t N> struct StringLiteral {
@@ -108,3 +109,4 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
     return Conjunction<Pos, decltype(std::tuple_cat(c.filt, std::make_tuple(f)))>{
         c.pos, std::tuple_cat(c.filt, std::make_tuple(f))};
 }
+} // namespace df::datalog

@@ -5,8 +5,9 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <dsl/predicate.hpp>
+#include <datalog/predicate.hpp>
 
+using namespace df::datalog;
 namespace {
 
 template <class T1, class T2>
@@ -46,8 +47,7 @@ TEST(DatalogTests, BasicEdges) {
     Predicate<int, int> Edge(dl);
     Predicate<int, int> Path(dl);
 
-    Edge.insert(
-        df::Relation<std::pair<int, int>>::from_vec({{1, 2}, {2, 3}, {3, 4}}));
+    Edge.insert(rel<int, int>({{1, 2}, {2, 3}, {3, 4}}));
 
     dl.add_rule(Path(x, y) <<= Edge(x, y));
     dl.add_rule(Path(x, z) <<= Edge(x, y) && Path(y, z));

@@ -1,15 +1,15 @@
 #pragma once
-#include "../dartfrog.hpp"
-#include "var.hpp"
 #include <array>
 #include <span>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
-template <typename T1, typename T2> struct Predicate; // fwd
+#include "../dartfrog.hpp"
+#include "var.hpp"
 
-namespace df::dsl {
+namespace df::datalog {
+
 
 template <class...> struct type_list {};
 template <class T, class L> struct contains : std::false_type {};
@@ -28,7 +28,7 @@ using add_var_t =
     std::conditional_t<is_var_v<T>, typename add_var_impl<T, L>::type, L>;
 
 template <class T> struct atom_traits;
-template <class P, class A, class B> struct atom_traits<::Term<P, A, B>> {
+template <class P, class A, class B> struct atom_traits<Term<P, A, B>> {
     using pred_t = P; using v1_t = A; using v2_t = B;
 };
 
@@ -170,7 +170,7 @@ extend(df::Relation<std::array<V, K>> prefix, const AtomsT &atoms) {
 }
 
 template <class PosTuple, class V, size_t NV, class P, class A, class B>
-void handle_filter(const ::NegatedTerm<P, A, B> &f, const std::array<V, NV> &arr,
+void handle_filter(const NegatedTerm<P, A, B> &f, const std::array<V, NV> &arr,
                    const std::array<int, NV> &pos, bool &ok) {
     using UV = uvars_t<PosTuple>;
     constexpr int ia = index_of<A, UV>::value, ib = index_of<B, UV>::value;
@@ -178,19 +178,19 @@ void handle_filter(const ::NegatedTerm<P, A, B> &f, const std::array<V, NV> &arr
         if (f.pred->snap_fwd.binary_search({arr[pos[ia]], arr[pos[ib]]}))
             ok = false;
 }
-template <class PosTuple, class V, size_t NV, ::Cmp Op, class A, class B>
-void handle_filter(const ::Compare<Op, A, B> &, const std::array<V, NV> &arr,
+template <class PosTuple, class V, size_t NV, Cmp Op, class A, class B>
+void handle_filter(const Compare<Op, A, B> &, const std::array<V, NV> &arr,
                    const std::array<int, NV> &pos, bool &ok) {
     using UV = uvars_t<PosTuple>;
     constexpr int ia = index_of<A, UV>::value, ib = index_of<B, UV>::value;
     if constexpr (ia >= 0 && ib >= 0) {
         const V &x = arr[pos[ia]], &y = arr[pos[ib]];
         bool r = true;
-        if constexpr (Op == ::Cmp::Lt) r = x < y;
-        else if constexpr (Op == ::Cmp::Le) r = x <= y;
-        else if constexpr (Op == ::Cmp::Gt) r = x > y;
-        else if constexpr (Op == ::Cmp::Ge) r = x >= y;
-        else if constexpr (Op == ::Cmp::Ne) r = x != y;
+        if constexpr (Op == Cmp::Lt) r = x < y;
+        else if constexpr (Op == Cmp::Le) r = x <= y;
+        else if constexpr (Op == Cmp::Gt) r = x > y;
+        else if constexpr (Op == Cmp::Ge) r = x >= y;
+        else if constexpr (Op == Cmp::Ne) r = x != y;
         else r = x == y;
         if (!r) ok = false;
     }
