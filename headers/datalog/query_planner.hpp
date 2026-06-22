@@ -206,10 +206,6 @@ template <class T> struct is_negated : std::false_type {};
 template <class P, class A, class B>
 struct is_negated<NegatedTerm<P, A, B>> : std::true_type {};
 
-template <class T> struct is_compare : std::false_type {};
-template <Cmp Op, class A, class B>
-struct is_compare<Compare<Op, A, B>> : std::true_type {};
-
 template <class T> struct filter_vars;
 template <class P, class A, class B> struct filter_vars<NegatedTerm<P, A, B>> {
     using a_t = A;
@@ -220,6 +216,21 @@ template <Cmp Op, class A, class B> struct filter_vars<Compare<Op, A, B>> {
     using b_t = B;
     static constexpr Cmp op = Op;
 };
+
+template <Cmp op, class T> constexpr bool cmp_apply(const T &x, const T &y) {
+    if constexpr (op == Cmp::Lt)
+        return x < y;
+    else if constexpr (op == Cmp::Le)
+        return x <= y;
+    else if constexpr (op == Cmp::Gt)
+        return x > y;
+    else if constexpr (op == Cmp::Ge)
+        return x >= y;
+    else if constexpr (op == Cmp::Ne)
+        return x != y;
+    else
+        return x == y;
+}
 
 template <int S, class PosTuple, class FilterTuple>
 constexpr bool has_residual_filters() {
