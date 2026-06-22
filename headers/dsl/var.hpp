@@ -19,7 +19,6 @@ template <detail::StringLiteral Name> struct Var {
 };
 
 template <typename Pred, typename V1, typename V2> struct Term;
-template <typename Left, typename Right> struct JoinExpr;
 template <typename Head, typename Body> struct Rule;
 
 template <typename Pred, typename V1, typename V2> struct Term {
@@ -30,12 +29,6 @@ template <typename Pred, typename V1, typename V2> struct Term {
     template <typename BodyT> auto operator<<=(const BodyT &body) const {
         return Rule<Term, BodyT>{*this, body};
     }
-};
-
-// Left && Right
-template <typename LeftT, typename RightT> struct JoinExpr {
-    LeftT left;
-    RightT right;
 };
 
 // Head <<= Body
