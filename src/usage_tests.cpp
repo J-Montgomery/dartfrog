@@ -120,7 +120,7 @@ TEST(UsageTest, MapInto) {
     input->insert(Relation<int>::from_vec({1, 2, 3}));
 
     while (iter.changed()) {
-        map::map_into(*input, *output, [](int x) { return x * 10; });
+        map_into(*input, *output, [](int x) { return x * 10; });
     }
 
     auto result = std::move(*output).complete();

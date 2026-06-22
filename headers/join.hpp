@@ -247,17 +247,6 @@ struct PrefixFilter {
         size_t c = count(tuple);
         op(0, c == 0 ? 0 : 1);
     }
-
-    // These are needed to Satisfy the LeaperCollection concept, but min_index
-    // is always 0 for PrefixFilters
-    constexpr void propose(const Tuple &t, size_t,
-                           std::vector<const Unit *> &v) {
-        propose(t, v);
-    }
-    constexpr void intersect(const Tuple &t, size_t,
-                             std::vector<const Unit *> &v) {
-        intersect(t, v);
-    }
 };
 
 template <typename Tuple, typename Func>
