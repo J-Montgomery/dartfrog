@@ -21,7 +21,6 @@ concept Leaper = requires(T l, const Tuple &t, std::vector<const Val *> &v) {
     { l.intersect(t, v) } -> std::same_as<void>;
 };
 
-
 using Unit = std::monostate;
 inline constexpr Unit UNIT_INSTANCE{};
 

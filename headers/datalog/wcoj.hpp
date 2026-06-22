@@ -207,9 +207,12 @@ void handle_filter(const NegatedTerm<P, A, B> &f, const std::array<V, NV> &arr,
                    const std::array<int, NV> &pos, bool &ok) {
     using UV = uvars_t<PosTuple>;
     constexpr int ia = index_of<A, UV>::value, ib = index_of<B, UV>::value;
+
     if constexpr (ia >= 0 && ib >= 0)
         if (f.pred->snap_fwd.binary_search({arr[pos[ia]], arr[pos[ib]]}))
             ok = false;
+        else
+            static_assert("unbound var");
 }
 template <class PosTuple, class V, size_t NV, Cmp Op, class A, class B>
 void handle_filter(const Compare<Op, A, B> &, const std::array<V, NV> &arr,

@@ -54,6 +54,8 @@ template <class HeadTerm, class PosTuple, class FilterTuple> struct WcojRunner {
             constexpr int h2 =
                 index_of<typename atom_traits<HeadTerm>::v2_t, UV>::value;
 
+            static_assert(h1 >= 0 && h2 >= 0,
+                          "head variable not bound in body");
             std::vector<std::pair<V, V>> out;
             for (auto &arr : full.elements)
                 if (keep<S>(arr, pos))
