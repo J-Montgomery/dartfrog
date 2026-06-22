@@ -368,3 +368,46 @@ TEST(DslEdgeCases, SolveIsIdempotent) {
 
     EXPECT_EQ(sorted(Path.extract()), transitive_closure(edges));
 }
+
+TEST(DslWcoj, Triangle) {
+    auto x = Var<"x">(); auto y = Var<"y">(); auto z = Var<"z">();
+    Datalog dl;
+    Predicate<int, int> Edge(dl);
+    Predicate<int, int> Tri(dl);
+    Edge.insert(rel<int,int>({{1,2},{2,3},{3,1}, {2,4},{4,5},{5,2}}));
+    dl.add_rule(Tri(x, z) <<= Edge(x, y) && Edge(y, z) && Edge(z, x));
+    dl.solve();
+    EXPECT_EQ(sorted(Tri.extract()).size(), 6u);
+}
+
+TEST(DslWcoj, ThreeHopChain) {
+    auto x=Var<"x">(); auto y=Var<"y">(); auto z=Var<"z">(); auto w=Var<"w">();
+    Datalog dl; Predicate<int,int> Edge(dl), Hop3(dl);
+    Edge.insert(rel<int,int>({{1,2},{2,3},{3,4},{4,5}}));
+    dl.add_rule(Hop3(x, w) <<= Edge(x, y) && Edge(y, z) && Edge(z, w));
+    dl.solve();
+    EXPECT_EQ(sorted(Hop3.extract()),
+              (std::vector<std::pair<int,int>>{{1,4},{2,5}}));
+}
+
+TEST(DslWcoj, TwoSharedKeysIsIntersection) {
+    auto x=Var<"x">(); auto y=Var<"y">();
+    Datalog dl; Predicate<int,int> A(dl), B(dl), C(dl);
+    A.insert(rel<int,int>({{1,2},{2,3},{3,4}}));
+    B.insert(rel<int,int>({{2,3},{3,4},{9,9}}));
+    dl.add_rule(C(x, y) <<= A(x, y) && B(x, y));
+    dl.solve();
+    EXPECT_EQ(sorted(C.extract()),
+              (std::vector<std::pair<int,int>>{{2,3},{3,4}}));
+}
+
+TEST(DslWcoj, NegationEdb) {
+    auto x=Var<"x">(); auto y=Var<"y">();
+    Datalog dl; Predicate<int,int> Edge(dl), Blocked(dl), Open(dl);
+    Edge.insert(rel<int,int>({{1,2},{2,3},{3,4}}));
+    Blocked.insert(rel<int,int>({{2,3}}));
+    dl.add_rule(Open(x, y) <<= Edge(x, y) && !Blocked(x, y));
+    dl.solve();
+    EXPECT_EQ(sorted(Open.extract()),
+              (std::vector<std::pair<int,int>>{{1,2},{3,4}}));
+}

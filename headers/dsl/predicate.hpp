@@ -1,11 +1,85 @@
 #pragma once
-
 #include "../dartfrog.hpp"
 #include "var.hpp"
+#include "wcoj.hpp"
+#include <array>
 
 struct IPredicate {
     virtual bool step() = 0;
+    virtual void snapshot() = 0;
     virtual ~IPredicate() = default;
+};
+
+template <class HeadTerm, class PosTuple, class FilterTuple>
+struct WcojRunner {
+    HeadTerm head;
+    PosTuple atoms;
+    FilterTuple filters;
+
+    using V = typename df::dsl::atom_traits<
+        std::tuple_element_t<0, PosTuple>>::pred_t::TupleT::first_type;
+    using UV = df::dsl::uvars_t<PosTuple>;
+    static constexpr size_t NV = df::dsl::list_size<UV>::value;
+    static constexpr size_t NA = std::tuple_size_v<PosTuple>;
+
+    void operator()() const {
+        [&]<size_t... S>(std::index_sequence<S...>) {
+            (do_source<(int)S>(), ...);
+        }(std::make_index_sequence<NA>{});
+    }
+
+    template <int S> void do_source() const {
+        constexpr auto ids = df::dsl::atom_ids<PosTuple>();
+        if constexpr (ids[S][0] >= 0 && ids[S][1] >= 0 && ids[S][0] != ids[S][1]) {
+            auto *sp = std::get<S>(atoms).pred;
+            auto src = sp->var.recent();
+            if (src.empty()) return;
+
+            std::vector<std::array<V, 2>> init;
+            init.reserve(src.size());
+            for (auto &kv : src) init.push_back({kv.first, kv.second});
+
+            auto full = df::dsl::extend<V, NV, S, 2>(
+                df::Relation<std::array<V, 2>>::from_vec(std::move(init)), atoms);
+
+            constexpr auto pos = df::dsl::invert<NV>(df::dsl::make_order<PosTuple>(S));
+            constexpr int h1 = df::dsl::index_of<
+                typename df::dsl::atom_traits<HeadTerm>::v1_t, UV>::value;
+            constexpr int h2 = df::dsl::index_of<
+                typename df::dsl::atom_traits<HeadTerm>::v2_t, UV>::value;
+
+            std::vector<std::pair<V, V>> out;
+            for (auto &arr : full.elements)
+                if (keep<S>(arr, pos))
+                    out.push_back({arr[pos[h1]], arr[pos[h2]]});
+            head.pred->insert(df::Relation<std::pair<V, V>>::from_vec(std::move(out)));
+        }
+    }
+
+    template <int S>
+    bool keep(const std::array<V, NV> &arr, const std::array<int, NV> &pos) const {
+        bool ok = true;
+        constexpr auto ids = df::dsl::atom_ids<PosTuple>();
+        [&]<size_t... I>(std::index_sequence<I...>) {
+            ([&] {
+                if constexpr ((int)I != S) {
+                    constexpr int i1 = ids[I][0], i2 = ids[I][1];
+                    if constexpr (i1 >= 0 && i2 >= 0) {
+                        int p1 = pos[i1], p2 = pos[i2];
+                        bool semijoin = (i1 == i2) || (std::max(p1, p2) <= 1);
+                        if (semijoin &&
+                            !std::get<I>(atoms).pred->snap_fwd.binary_search(
+                                {arr[p1], arr[p2]}))
+                            ok = false;
+                    }
+                }
+            }(), ...);
+        }(std::make_index_sequence<NA>{});
+        [&]<size_t... F>(std::index_sequence<F...>) {
+            (df::dsl::handle_filter<PosTuple>(std::get<F>(filters), arr, pos, ok), ...);
+        }(std::make_index_sequence<std::tuple_size_v<FilterTuple>>{});
+        return ok;
+    }
 };
 
 class Datalog {
@@ -15,94 +89,39 @@ class Datalog {
   public:
     void register_predicate(IPredicate *p) { predicates.push_back(p); }
 
-    void solve() {
-        bool changed = true;
-        while (changed) {
-            for (auto &rule_closure : evaluators) {
-                rule_closure();
-            }
-
-            changed = false;
-            for (auto *p : predicates) {
-                if (p->step())
-                    changed = true;
-            }
-        }
-    }
-
-    template <typename HPred, typename HV1, typename HV2, typename BPred,
-              typename BV1, typename BV2>
-    void
-    add_rule(const Rule<Term<HPred, HV1, HV2>, Term<BPred, BV1, BV2>> &rule) {
+    template <class HPred, class HV1, class HV2, class BPred, class BV1, class BV2>
+    void add_rule(const Rule<Term<HPred, HV1, HV2>, Term<BPred, BV1, BV2>> &rule) {
         static constexpr bool direct =
             std::is_same_v<HV1, BV1> && std::is_same_v<HV2, BV2>;
         static constexpr bool swap =
             std::is_same_v<HV1, BV2> && std::is_same_v<HV2, BV1>;
-        static_assert(direct || swap,
-                      "Rule variables mismatch between Head and Body");
-
+        static_assert(direct || swap, "Rule variables mismatch between Head and Body");
         evaluators.push_back([=]() {
-            if constexpr (direct) {
-                rule.head.pred->insert(
-                    df::Relation<typename HPred::TupleT>::from_iter(
-                        rule.body.pred->var.recent()));
-            } else if constexpr (swap) {
-                rule.head.pred->insert(
-                    df::Relation<typename HPred::TupleT>::from_iter(
-                        rule.body.pred->rev_var.recent()));
-            }
+            if constexpr (direct)
+                rule.head.pred->insert(df::Relation<typename HPred::TupleT>::from_iter(
+                    rule.body.pred->var.recent()));
+            else
+                rule.head.pred->insert(df::Relation<typename HPred::TupleT>::from_iter(
+                    rule.body.pred->rev_var.recent()));
         });
     }
 
-    template <typename HPred, typename HV1, typename HV2, typename LPred,
-              typename LV1, typename LV2, typename RPred, typename RV1,
-              typename RV2>
-    void
-    add_rule(const Rule<Term<HPred, HV1, HV2>,
-                        JoinExpr<Term<LPred, LV1, LV2>, Term<RPred, RV1, RV2>>>
-                 &rule) {
-        static constexpr bool left_join_v1 =
-            std::is_same_v<LV1, RV1> || std::is_same_v<LV1, RV2>;
-        static constexpr bool left_join_v2 =
-            std::is_same_v<LV2, RV1> || std::is_same_v<LV2, RV2>;
-        static_assert(left_join_v1 != left_join_v2,
-                      "Terms must share exactly one join key");
 
-        using KeyType = std::conditional_t<left_join_v1, LV1, LV2>;
-        using LVal = std::conditional_t<left_join_v1, LV2, LV1>;
-        using RVal = std::conditional_t<std::is_same_v<KeyType, RV1>, RV2, RV1>;
+    template <class HPred, class HV1, class HV2, class Pos, class Filt>
+    void add_rule(const Rule<Term<HPred, HV1, HV2>, Conjunction<Pos, Filt>> &rule) {
+        WcojRunner<Term<HPred, HV1, HV2>, Pos, Filt> runner{
+            rule.head, rule.body.pos, rule.body.filt};
+        evaluators.push_back([runner = std::move(runner)]() { runner(); });
+    }
 
-        static constexpr bool head_L_R =
-            std::is_same_v<HV1, LVal> && std::is_same_v<HV2, RVal>;
-        static constexpr bool head_R_L =
-            std::is_same_v<HV1, RVal> && std::is_same_v<HV2, LVal>;
-        static_assert(head_L_R || head_R_L,
-                      "Head variables must match unbound body variables");
-
-        evaluators.push_back([=]() {
-            auto &left_input = left_join_v1 ? rule.body.left.pred->var
-                                            : rule.body.left.pred->rev_var;
-            auto &right_input = std::is_same_v<KeyType, RV1>
-                                    ? rule.body.right.pred->var
-                                    : rule.body.right.pred->rev_var;
-
-            auto kf_left = [](const auto &left_tuple) {
-                return left_tuple.first;
-            };
-            auto kf_right = [](const auto &right_tuple) {
-                return right_tuple.first;
-            };
-
-            auto logic = [](const auto &left_tuple, const auto &r_val) {
-                if constexpr (head_L_R)
-                    return std::pair{left_tuple.second, r_val};
-                else
-                    return std::pair{r_val, left_tuple.second};
-            };
-
-            df::leapjoin_delta(left_input, right_input, kf_left, kf_right,
-                               logic, *rule.head.pred);
-        });
+    void solve() {
+        bool changed = true;
+        while (changed) {
+            for (auto *p : predicates) p->snapshot();
+            for (auto &e : evaluators) e();
+            changed = false;
+            for (auto *p : predicates) if (p->step()) changed = true;
+        }
     }
 };
 
@@ -112,16 +131,35 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
 
     df::Variable<TupleT> var;
     df::Variable<RevTupleT> rev_var;
+    df::Relation<TupleT> snap_fwd;
+    df::Relation<RevTupleT> snap_rev;
 
     Predicate(Datalog &dl) { dl.register_predicate(this); }
 
     void insert(const df::Relation<TupleT> &rel) {
         var.insert(rel);
-        std::vector<RevTupleT> rev_vec;
-        rev_vec.reserve(rel.size());
-        for (const auto &p : rel)
-            rev_vec.push_back({p.second, p.first});
-        rev_var.insert(df::Relation<RevTupleT>::from_vec(std::move(rev_vec)));
+        std::vector<RevTupleT> rv;
+        rv.reserve(rel.size());
+        for (const auto &p : rel) rv.push_back({p.second, p.first});
+        rev_var.insert(df::Relation<RevTupleT>::from_vec(std::move(rv)));
+    }
+
+    template <class Tup>
+    static df::Relation<Tup> merge_all(const df::Variable<Tup> &v) {
+        df::Relation<Tup> out;
+        for (const auto &b : v.stable) {
+            std::vector<Tup> c = b.elements;
+            out = std::move(out).merge(df::Relation<Tup>(std::move(c)));
+        }
+        if (!v.recent_data.empty()) {
+            std::vector<Tup> c = v.recent_data.elements;
+            out = std::move(out).merge(df::Relation<Tup>(std::move(c)));
+        }
+        return out;
+    }
+    void snapshot() override {
+        snap_fwd = merge_all(var);
+        snap_rev = merge_all(rev_var);
     }
 
     bool step() override {
@@ -129,14 +167,10 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
         bool c2 = rev_var.changed();
         return c1 || c2;
     }
-
-    // Generate a Term
-    template <typename V1, typename V2> auto operator()(V1 v1, V2 v2) {
+    template <class V1, class V2> auto operator()(V1 v1, V2 v2) {
         return Term<Predicate, V1, V2>{this, v1, v2};
     }
-
     std::vector<TupleT> extract() {
-        df::Relation<TupleT> final_relation = std::move(var).complete();
-        return std::move(final_relation.elements);
+        return std::move(std::move(var).complete().elements);
     }
 };

@@ -30,11 +30,6 @@ template <typename Pred, typename V1, typename V2> struct Term {
     template <typename BodyT> auto operator<<=(const BodyT &body) const {
         return Rule<Term, BodyT>{*this, body};
     }
-
-    template <typename OtherTerm>
-    auto operator&&(const OtherTerm &other) const {
-        return JoinExpr<Term, OtherTerm>{*this, other};
-    }
 };
 
 // Left && Right
@@ -82,3 +77,41 @@ auto operator!=(Var<A> a, Var<B> b){ return Compare<Cmp::Ne,Var<A>,Var<B>>{a,b};
 template <detail::StringLiteral A, detail::StringLiteral B>
 auto operator==(Var<A> a, Var<B> b){ return Compare<Cmp::Eq,Var<A>,Var<B>>{a,b}; }
 
+
+template <typename PosTuple, typename FilterTuple>
+struct Conjunction {
+    PosTuple pos;
+    FilterTuple filt;
+};
+
+
+template <class T> struct is_filter_atom : std::true_type {};
+template <class P, class A, class B>
+struct is_filter_atom<Term<P, A, B>> : std::false_type {};
+
+
+template <class P1, class A1, class B1, class P2, class A2, class B2>
+auto operator&&(const Term<P1, A1, B1> &l, const Term<P2, A2, B2> &r) {
+    return Conjunction<std::tuple<Term<P1, A1, B1>, Term<P2, A2, B2>>,
+                       std::tuple<>>{std::make_tuple(l, r), {}};
+}
+
+template <class P, class A, class B, class F>
+    requires is_filter_atom<F>::value
+auto operator&&(const Term<P, A, B> &l, const F &f) {
+    return Conjunction<std::tuple<Term<P, A, B>>, std::tuple<F>>{
+        std::make_tuple(l), std::make_tuple(f)};
+}
+
+template <class Pos, class Filt, class P, class A, class B>
+auto operator&&(const Conjunction<Pos, Filt> &c, const Term<P, A, B> &r) {
+    return Conjunction<decltype(std::tuple_cat(c.pos, std::make_tuple(r))), Filt>{
+        std::tuple_cat(c.pos, std::make_tuple(r)), c.filt};
+}
+
+template <class Pos, class Filt, class F>
+    requires is_filter_atom<F>::value
+auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
+    return Conjunction<Pos, decltype(std::tuple_cat(c.filt, std::make_tuple(f)))>{
+        c.pos, std::tuple_cat(c.filt, std::make_tuple(f))};
+}
