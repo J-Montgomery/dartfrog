@@ -194,7 +194,7 @@ template <typename T1, typename T2> struct Predicate : IPredicate {
         return Term<Predicate, V1, V2>{this, v1, v2};
     }
     std::vector<TupleT> extract() {
-        return std::move(std::move(var).complete().elements);
+        return std::move(var).complete().elements;
     }
 };
 } // namespace df::datalog
