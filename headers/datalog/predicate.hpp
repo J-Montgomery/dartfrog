@@ -3,7 +3,7 @@
 
 #include "../dartfrog.hpp"
 #include "var.hpp"
-#include "wcoj.hpp"
+#include "query_planner.hpp"
 
 namespace df::datalog {
 
@@ -13,7 +13,7 @@ struct IPredicate {
     virtual ~IPredicate() = default;
 };
 
-template <class HeadTerm, class PosTuple, class FilterTuple> struct WcojRunner {
+template <class HeadTerm, class PosTuple, class FilterTuple> struct QueryPlanner {
     HeadTerm head;
     PosTuple atoms;
     FilterTuple filters;
@@ -201,7 +201,7 @@ class Datalog {
     template <class HPred, class HV1, class HV2, class Pos, class Filt>
     void
     add_rule(const Rule<Term<HPred, HV1, HV2>, Conjunction<Pos, Filt>> &rule) {
-        WcojRunner<Term<HPred, HV1, HV2>, Pos, Filt> runner{
+        QueryPlanner<Term<HPred, HV1, HV2>, Pos, Filt> runner{
             rule.head, rule.body.pos, rule.body.filt};
         evaluators.push_back([runner = std::move(runner)]() { runner(); });
     }
