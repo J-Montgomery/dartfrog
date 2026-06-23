@@ -17,9 +17,9 @@ concept IsPredicate = requires(P &p) {
 };
 
 struct PredHandle {
-    void *ptr;
+    void *instance;
     bool (*step)(void *);
-    void (*snap)(void *);
+    void (*snapshot)(void *);
 };
 
 struct EvalHandle {
@@ -88,10 +88,10 @@ class Datalog {
         for (size_t round = 0; round < N + 1; ++round) {
             bool changed = false;
             for (size_t from = 0; from < N; ++from) {
-                for (const auto &e : dep_edges[from]) {
-                    int ns = strata[from] + (e.negative ? 1 : 0);
-                    if (ns > strata[e.to]) {
-                        strata[e.to] = ns;
+                for (const auto &edge : dep_edges[from]) {
+                    int new_stratum = strata[from] + (edge.negative ? 1 : 0);
+                    if (new_stratum > strata[edge.to]) {
+                        strata[edge.to] = new_stratum;
                         changed = true;
                     }
                 }
@@ -110,8 +110,8 @@ class Datalog {
                         : *std::max_element(strata.begin(), strata.end());
         std::vector<std::vector<size_t>> result(max_s + 1);
         for (size_t i = 0; i < evaluators.size(); ++i) {
-            size_t hi = eval_head_idx[i];
-            result[hi < N ? strata[hi] : 0].push_back(i);
+            size_t head_pred_idx = eval_head_idx[i];
+            result[head_pred_idx < N ? strata[head_pred_idx] : 0].push_back(i);
         }
         return result;
     }
@@ -120,7 +120,7 @@ class Datalog {
     template <IsPredicate P> void register_predicate(P *p) {
         predicates.push_back(
             {p, +[](void *x) { return static_cast<P *>(x)->step(); },
-             +[](void *x) { static_cast<P *>(x)->snapshot(); }});
+                +[](void *x) { static_cast<P *>(x)->snapshot(); }});
     }
 
     template <typename V> void make_symmetric(Predicate<V, 2> &pred);
@@ -174,9 +174,9 @@ class Datalog {
         auto stratum_evals = compute_strata();
         for (const auto &evals : stratum_evals) {
             for (auto &h : predicates)
-                h.step(h.ptr);
+                h.step(h.instance);
             for (auto &h : predicates)
-                h.snap(h.ptr);
+                h.snapshot(h.instance);
             for (size_t i : evals)
                 evaluators[i].eval_full();
             solve_stratum(evals);
@@ -188,12 +188,12 @@ class Datalog {
         while (true) {
             bool changed = false;
             for (auto &h : predicates)
-                if (h.step(h.ptr))
+                if (h.step(h.instance))
                     changed = true;
             if (!changed)
                 break;
             for (auto &h : predicates)
-                h.snap(h.ptr);
+                h.snapshot(h.instance);
             for (size_t i : evals)
                 evaluators[i]();
         }

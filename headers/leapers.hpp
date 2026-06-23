@@ -133,7 +133,7 @@ class ExtendWith {
     const Relation<std::pair<Key, Val>> *relation;
     size_t start = 0, end = 0;
     Func key_func;
-    std::optional<Key> old_key;
+    std::optional<Key> cached_key;
 
   public:
     using value_type = Val;
@@ -142,13 +142,13 @@ class ExtendWith {
 
     constexpr size_t count(const Tuple &prefix) {
         Key key = key_func(prefix);
-        if (!old_key || *old_key != key) {
+        if (!cached_key || *cached_key != key) {
             std::span all{relation->elements};
             auto range = df::key_range(all, key,
                                        [](const auto &kv) { return kv.first; });
             start = range.data() - all.data();
             end = start + range.size();
-            old_key = std::move(key);
+            cached_key = std::move(key);
         }
         return end - start;
     }
@@ -184,7 +184,7 @@ class ExtendAnti {
         size_t start;
         size_t end;
     };
-    mutable std::optional<Cache> old_key;
+    mutable std::optional<Cache> cached_range;
 
   public:
     using value_type = Val;
@@ -204,16 +204,16 @@ class ExtendAnti {
             return;
 
         Key key = key_func(prefix);
-        if (!old_key || old_key->key != key) {
+        if (!cached_range || cached_range->key != key) {
             std::span all{relation->elements};
             auto range = df::key_range(all, key,
                                        [](const auto &kv) { return kv.first; });
-            size_t s = range.data() - all.data();
-            old_key = Cache{key, s, s + range.size()};
+            size_t range_start = range.data() - all.data();
+            cached_range = Cache{key, range_start, range_start + range.size()};
         }
 
-        std::span slice{relation->elements.begin() + old_key->start,
-                        relation->elements.begin() + old_key->end};
+        std::span slice{relation->elements.begin() + cached_range->start,
+                        relation->elements.begin() + cached_range->end};
         if (slice.empty())
             return;
 
@@ -229,7 +229,7 @@ template <typename Key, typename Val, typename Tuple, typename Func>
 class FilterWith {
     const Relation<std::pair<Key, Val>> *relation;
     Func key_func;
-    std::optional<std::pair<std::pair<Key, Val>, bool>> old_kv;
+    std::optional<std::pair<std::pair<Key, Val>, bool>> cached_key_value;
 
   public:
     constexpr FilterWith(const Relation<std::pair<Key, Val>> *rel, Func f)
@@ -237,10 +237,10 @@ class FilterWith {
 
     constexpr size_t count(const Tuple &prefix) {
         auto kv = key_func(prefix);
-        if (old_kv && old_kv->first == kv)
-            return old_kv->second ? std::numeric_limits<size_t>::max() : 0;
+        if (cached_key_value && cached_key_value->first == kv)
+            return cached_key_value->second ? std::numeric_limits<size_t>::max() : 0;
         bool present = relation->binary_search(kv).has_value();
-        old_kv = {kv, present};
+        cached_key_value = {kv, present};
         return present ? std::numeric_limits<size_t>::max() : 0;
     }
 
@@ -257,7 +257,7 @@ template <typename Key, typename Val, typename Tuple, typename Func>
 class FilterAnti {
     const Relation<std::pair<Key, Val>> *relation;
     Func key_func;
-    std::optional<std::pair<std::pair<Key, Val>, bool>> old_kv;
+    std::optional<std::pair<std::pair<Key, Val>, bool>> cached_key_value;
     [[no_unique_address]] Unit unit;
 
   public:
@@ -267,12 +267,12 @@ class FilterAnti {
     constexpr size_t count(const Tuple &prefix) {
         auto kv = key_func(prefix);
 
-        if (old_kv && old_kv->first == kv) {
-            return old_kv->second ? 0 : std::numeric_limits<size_t>::max();
+        if (cached_key_value && cached_key_value->first == kv) {
+            return cached_key_value->second ? 0 : std::numeric_limits<size_t>::max();
         }
 
         bool present = relation->binary_search(kv).has_value();
-        old_kv = {kv, present};
+        cached_key_value = {kv, present};
 
         return present ? 0 : std::numeric_limits<size_t>::max();
     }
@@ -321,7 +321,7 @@ class TupleLeaper {
     static constexpr size_t MAX_BATCHES = 32;
 
     const std::vector<Relation<std::array<V, N>>> *batches;
-    std::optional<std::array<V, ProposeCol>> old_prefix;
+    std::optional<std::array<V, ProposeCol>> cached_prefix;
 
     // [start, end)
     using batch_range = std::pair<size_t, size_t>;
@@ -333,28 +333,28 @@ class TupleLeaper {
     void update_ranges(const std::array<V, ProposeCol> &prefix) {
         num_batches = batches->size();
         total_count = 0;
-        for (size_t b = 0; b < num_batches; ++b) {
-            std::span all{(*batches)[b].elements};
+        for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx) {
+            std::span all{(*batches)[batch_idx].elements};
             auto range = key_range(all, prefix, [](const std::array<V, N> &t) {
                 return take_prefix<ProposeCol>(t);
             });
-            ranges[b].first = range.data() - all.data();
-            ranges[b].second = ranges[b].first + range.size();
+            ranges[batch_idx].first = range.data() - all.data();
+            ranges[batch_idx].second = ranges[batch_idx].first + range.size();
             total_count += range.size();
         }
-        old_prefix = prefix;
+        cached_prefix = prefix;
     }
 
   public:
     using value_type = V;
 
-    TupleLeaper(const std::vector<Relation<std::array<V, N>>> *bs,
-                ExtractorT ext)
-        : batches(bs), extractor(std::move(ext)) {}
+    TupleLeaper(const std::vector<Relation<std::array<V, N>>> *batch_relations,
+                ExtractorT prefix_extractor)
+        : batches(batch_relations), extractor(std::move(prefix_extractor)) {}
 
-    template <size_t JoinLen> size_t count(const std::array<V, JoinLen> &jp) {
-        auto prefix = extractor(jp);
-        if (!old_prefix || *old_prefix != prefix)
+    template <size_t JoinLen> size_t count(const std::array<V, JoinLen> &join_prefix) {
+        auto prefix = extractor(join_prefix);
+        if (!cached_prefix || *cached_prefix != prefix)
             update_ranges(prefix);
         return total_count;
     }
@@ -363,9 +363,9 @@ class TupleLeaper {
     void propose(const std::array<V, JoinLen> &,
                  std::vector<const V *> &values) {
         size_t before = values.size();
-        for (size_t b = 0; b < num_batches; ++b)
-            for (size_t i = ranges[b].first; i < ranges[b].second; ++i)
-                values.push_back(&(*batches)[b].elements[i][ProposeCol]);
+        for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx)
+            for (size_t i = ranges[batch_idx].first; i < ranges[batch_idx].second; ++i)
+                values.push_back(&(*batches)[batch_idx].elements[i][ProposeCol]);
 
         // We can skip sorting if this is the first/only batch
         if (num_batches > 1)
@@ -377,17 +377,17 @@ class TupleLeaper {
     void intersect(const std::array<V, JoinLen> &,
                    std::vector<const V *> &values) {
         std::array<std::span<const std::array<V, N>>, MAX_BATCHES> slices;
-        for (size_t b = 0; b < num_batches; ++b)
-            slices[b] = {(*batches)[b].elements.begin() + ranges[b].first,
-                         (*batches)[b].elements.begin() + ranges[b].second};
+        for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx)
+            slices[batch_idx] = {(*batches)[batch_idx].elements.begin() + ranges[batch_idx].first,
+                                 (*batches)[batch_idx].elements.begin() + ranges[batch_idx].second};
         auto write_it = values.begin();
         for (const V *v : values) {
             bool found = false;
-            for (size_t b = 0; b < num_batches && !found; ++b) {
-                slices[b] = seek(slices[b], [v](const auto &t) {
+            for (size_t batch_idx = 0; batch_idx < num_batches && !found; ++batch_idx) {
+                slices[batch_idx] = seek(slices[batch_idx], [v](const auto &t) {
                     return t[ProposeCol] < *v;
                 });
-                if (!slices[b].empty() && slices[b][0][ProposeCol] == *v)
+                if (!slices[batch_idx].empty() && slices[batch_idx][0][ProposeCol] == *v)
                     found = true;
             }
             if (found)
