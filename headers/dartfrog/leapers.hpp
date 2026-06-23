@@ -161,7 +161,7 @@ class ExtendWith {
     }
 
     constexpr void propose(const Tuple &, std::vector<const Val *> &values) {
-        for (size_t i = start; i < end; ++i)
+        for (size_t i = start; i < end; i++)
             values.push_back(&relation->elements[i].second);
     }
 
@@ -345,7 +345,7 @@ class TupleLeaper {
     void update_ranges(const std::array<V, ProposeCol> &prefix) {
         num_batches = batches->size();
         total_count = 0;
-        for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx) {
+        for (size_t batch_idx = 0; batch_idx < num_batches; batch_idx++) {
             std::span all{(*batches)[batch_idx].elements};
             auto range = key_range(all, prefix, [](const std::array<V, N> &t) {
                 return take_prefix<ProposeCol>(t);
@@ -376,9 +376,9 @@ class TupleLeaper {
     void propose(const std::array<V, JoinLen> &,
                  std::vector<const V *> &values) {
         size_t before = values.size();
-        for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx)
+        for (size_t batch_idx = 0; batch_idx < num_batches; batch_idx++)
             for (size_t i = ranges[batch_idx].first;
-                 i < ranges[batch_idx].second; ++i)
+                 i < ranges[batch_idx].second; i++)
                 values.push_back(
                     &(*batches)[batch_idx].elements[i][ProposeCol]);
 
@@ -392,7 +392,7 @@ class TupleLeaper {
     void intersect(const std::array<V, JoinLen> &,
                    std::vector<const V *> &values) {
         std::array<std::span<const std::array<V, N>>, MAX_BATCHES> slices;
-        for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx)
+        for (size_t batch_idx = 0; batch_idx < num_batches; batch_idx++)
             slices[batch_idx] = {(*batches)[batch_idx].elements.begin() +
                                      ranges[batch_idx].first,
                                  (*batches)[batch_idx].elements.begin() +

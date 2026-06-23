@@ -96,9 +96,9 @@ class Datalog {
     std::vector<std::vector<size_t>> compute_strata() const {
         size_t N = next_idx;
         std::vector<int> strata(N, 0);
-        for (size_t round = 0; round < N + 1; ++round) {
+        for (size_t round = 0; round < N + 1; round++) {
             bool changed = false;
-            for (size_t from = 0; from < N; ++from) {
+            for (size_t from = 0; from < N; from++) {
                 for (const auto &edge : dep_edges[from]) {
                     int new_stratum = strata[from] + (edge.negative ? 1 : 0);
                     if (new_stratum > strata[edge.to]) {
@@ -120,7 +120,7 @@ class Datalog {
                         ? 0
                         : *std::max_element(strata.begin(), strata.end());
         std::vector<std::vector<size_t>> result(max_s + 1);
-        for (size_t i = 0; i < evaluators.size(); ++i) {
+        for (size_t i = 0; i < evaluators.size(); i++) {
             size_t head_pred_idx = eval_head_idx[i];
             result[head_pred_idx < N ? strata[head_pred_idx] : 0].push_back(i);
         }

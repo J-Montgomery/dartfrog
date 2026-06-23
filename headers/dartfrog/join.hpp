@@ -71,8 +71,8 @@ constexpr void join_helper(Span1 slice1, Span2 slice2, Callback &&result_cb) {
                 slice2, [&](const auto &x) { return x.first == match_key; });
             size_t count2 = rest2.data() - slice2.data();
 
-            for (size_t i = 0; i < count1; ++i) {
-                for (size_t j = 0; j < count2; ++j) {
+            for (size_t i = 0; i < count1; i++) {
+                for (size_t j = 0; j < count2; j++) {
                     result_cb(match_key, slice1[i].second, slice2[j].second);
                 }
             }

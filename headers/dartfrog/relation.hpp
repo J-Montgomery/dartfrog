@@ -24,7 +24,7 @@ template <size_t M, typename V, size_t N>
 constexpr std::array<V, M> take_prefix(const std::array<V, N> &a) {
     static_assert(M <= N);
     std::array<V, M> r{};
-    for (size_t i = 0; i < M; ++i)
+    for (size_t i = 0; i < M; i++)
         r[i] = a[i];
     return r;
 }

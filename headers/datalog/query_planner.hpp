@@ -27,7 +27,7 @@ template <typename Atoms> constexpr auto atom_ids() {
         row.fill(-1);
     for_indices<NA>([&]<size_t I>() {
         using AT = atom_traits<std::tuple_element_t<I, Atoms>>;
-        for (size_t j = 0; j < AT::arity; ++j)
+        for (size_t j = 0; j < AT::arity; j++)
             result[I][j] = AT::var_ids[j];
     });
     return result;
@@ -46,14 +46,14 @@ template <typename Atoms> constexpr size_t num_vars() {
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
     int max_var_id = 0;
-    for (size_t atom = 0; atom < ids.size(); ++atom)
-        for (size_t col = 0; col < arities[atom]; ++col)
+    for (size_t atom = 0; atom < ids.size(); atom++)
+        for (size_t col = 0; col < arities[atom]; col++)
             if (ids[atom][col] > max_var_id)
                 max_var_id = ids[atom][col];
-    for (int var_id = 0; var_id <= max_var_id; ++var_id) {
+    for (int var_id = 0; var_id <= max_var_id; var_id++) {
         bool found = false;
-        for (size_t atom = 0; atom < ids.size() && !found; ++atom)
-            for (size_t col = 0; col < arities[atom] && !found; ++col)
+        for (size_t atom = 0; atom < ids.size() && !found; atom++)
+            for (size_t col = 0; col < arities[atom] && !found; col++)
                 if (ids[atom][col] == var_id)
                     found = true;
         if (!found)
@@ -65,7 +65,7 @@ template <typename Atoms> constexpr size_t num_vars() {
 template <size_t NV>
 constexpr std::array<int, NV> invert(const std::array<int, NV> &order) {
     std::array<int, NV> result{};
-    for (size_t i = 0; i < NV; ++i)
+    for (size_t i = 0; i < NV; i++)
         result[order[i]] = (int)i;
     return result;
 }
@@ -87,16 +87,16 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
     // bind a variable and update scores for its unbound neighbors
     auto bind = [&](int var_id) {
         bound[var_id] = true;
-        for (size_t atom = 0; atom < NA; ++atom) {
+        for (size_t atom = 0; atom < NA; atom++) {
             bool has_var = false;
-            for (size_t col = 0; col < arities[atom]; ++col)
+            for (size_t col = 0; col < arities[atom]; col++)
                 if (ids[atom][col] == var_id) {
                     has_var = true;
                     break;
                 }
             if (!has_var)
                 continue;
-            for (size_t col = 0; col < arities[atom]; ++col) {
+            for (size_t col = 0; col < arities[atom]; col++) {
                 int neighbor = ids[atom][col];
                 if (neighbor >= 0 && !bound[neighbor])
                     ++score[neighbor];
@@ -106,7 +106,7 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
 
     // Place the bound variables
     size_t num_bound = 0;
-    for (size_t col = 0; col < arities[s]; ++col) {
+    for (size_t col = 0; col < arities[s]; col++) {
         order[num_bound++] = ids[s][col];
         bind(ids[s][col]);
     }
@@ -115,7 +115,7 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
     // co-occur with already bound variables in this stratum
     while (num_bound < NV) {
         int best_var = -1, best_score = -1;
-        for (int var_id = 0; var_id < (int)NV; ++var_id)
+        for (int var_id = 0; var_id < (int)NV; var_id++)
             if (!bound[var_id] && score[var_id] > best_score) {
                 best_score = score[var_id];
                 best_var = var_id;
@@ -142,18 +142,18 @@ template <typename Atoms> constexpr auto level_plan(size_t s, size_t K) {
     constexpr auto arities = atom_arities<Atoms>();
     auto var_positions = invert<NV>(make_order<Atoms>(s));
     LevelPlan<NA> plan{};
-    for (size_t atom = 0; atom < NA; ++atom) {
+    for (size_t atom = 0; atom < NA; atom++) {
         if (atom == s)
             continue;
         size_t arity = arities[atom];
         int max_pos = -1;
-        for (size_t col = 0; col < arity; ++col)
+        for (size_t col = 0; col < arity; col++)
             if (ids[atom][col] >= 0 && var_positions[ids[atom][col]] > max_pos)
                 max_pos = var_positions[ids[atom][col]];
         if (max_pos != (int)K)
             continue;
         bool forward = true;
-        for (size_t col = 1; col < arity; ++col)
+        for (size_t col = 1; col < arity; col++)
             if (ids[atom][col] < 0 || var_positions[ids[atom][col]] <=
                                           var_positions[ids[atom][col - 1]]) {
                 forward = false;
@@ -207,18 +207,18 @@ constexpr bool has_residual_filters() {
         constexpr auto ids = atom_ids<Atoms>();
         constexpr auto arities = atom_arities<Atoms>();
         constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
-        for (size_t atom = 0; atom < NA; ++atom) {
+        for (size_t atom = 0; atom < NA; atom++) {
             if (atom == S)
                 continue;
             size_t arity = arities[atom];
 
-            for (size_t col = 0; col < arity; ++col)
-                for (size_t d = col + 1; d < arity; ++d)
+            for (size_t col = 0; col < arity; col++)
+                for (size_t d = col + 1; d < arity; d++)
                     if (ids[atom][col] == ids[atom][d])
                         return true;
 
             bool forward = true;
-            for (size_t col = 1; col < arity; ++col)
+            for (size_t col = 1; col < arity; col++)
                 if (ids[atom][col] < 0 ||
                     var_positions[ids[atom][col]] <=
                         var_positions[ids[atom][col - 1]]) {
@@ -231,7 +231,7 @@ constexpr bool has_residual_filters() {
             // All vars are bound in the source prefix
             constexpr size_t src_arity = atom_arities<Atoms>()[S];
             int max_pos = -1;
-            for (size_t col = 0; col < arity; ++col)
+            for (size_t col = 0; col < arity; col++)
                 if (ids[atom][col] >= 0 &&
                     var_positions[ids[atom][col]] > max_pos)
                     max_pos = var_positions[ids[atom][col]];
@@ -246,7 +246,7 @@ template <typename V, size_t K> struct ArrayAppender {
     constexpr std::array<V, K + 1> operator()(const std::array<V, K> &prefix,
                                               const V &new_val) const {
         std::array<V, K + 1> result;
-        for (size_t i = 0; i < K; ++i)
+        for (size_t i = 0; i < K; i++)
             result[i] = prefix[i];
         result[K] = new_val;
         return result;
@@ -261,7 +261,7 @@ auto make_ext(const Atoms &atoms, const std::array<int, NV> &var_positions) {
     constexpr size_t ProposeCol = N - 1;
 
     std::array<int, ProposeCol> key_positions{};
-    for (size_t col = 0; col < ProposeCol; ++col)
+    for (size_t col = 0; col < ProposeCol; col++)
         key_positions[col] = var_positions[ids[Atom][col]];
 
     auto *pred = std::get<Atom>(atoms).pred;
@@ -333,7 +333,7 @@ struct QueryPlanner {
 
     template <size_t S> static constexpr bool source_is_forward_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        for (size_t K = source_arity; K < NV; ++K)
+        for (size_t K = source_arity; K < NV; K++)
             if (level_plan<Atoms>(S, K).count == 0)
                 return false;
         return true;
@@ -406,7 +406,7 @@ struct QueryPlanner {
         constexpr size_t arity = arities[I];
         constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
         bool forward = true;
-        for (size_t col = 1; col < arity; ++col)
+        for (size_t col = 1; col < arity; col++)
             if (ids[I][col] < 0 ||
                 var_positions[ids[I][col]] <= var_positions[ids[I][col - 1]]) {
                 forward = false;
@@ -415,7 +415,7 @@ struct QueryPlanner {
         if (!forward)
             return true;
         int max_pos = -1;
-        for (size_t col = 0; col < arity; ++col)
+        for (size_t col = 0; col < arity; col++)
             if (ids[I][col] >= 0 && var_positions[ids[I][col]] > max_pos)
                 max_pos = var_positions[ids[I][col]];
         return max_pos < (int)source_arity;
@@ -429,7 +429,7 @@ struct QueryPlanner {
             constexpr auto arities = atom_arities<Atoms>();
             constexpr size_t arity = arities[I];
             std::array<V, arity> key;
-            for (size_t col = 0; col < arity; ++col)
+            for (size_t col = 0; col < arity; col++)
                 key[col] = tuple[var_positions[ids[I][col]]];
             return std::get<I>(atoms).pred->stable_contains(key);
         }
