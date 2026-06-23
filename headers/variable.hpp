@@ -90,7 +90,7 @@ template <std::totally_ordered Tuple> class Variable {
             }
 
             if (distinct) {
-            df::dedup_against(current_to_add, stable);
+                df::dedup_against(current_to_add, stable);
             }
             recent_data = std::move(current_to_add);
         }

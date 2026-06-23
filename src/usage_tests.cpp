@@ -138,10 +138,9 @@ TEST(UsageTest, MultipleRoundsOfFixedPoint) {
     int round = 0;
     while (iter.changed() && round < 10) {
         round++;
-        reachable->from_join(*reachable, *edge, *reachable,
-                             [](int x, std::monostate _, int y) {
-                                 return std::pair{y, std::monostate{}};
-                             });
+        reachable->from_join(
+            *reachable, *edge, *reachable,
+            [](int x, df::Unit _, int y) { return std::pair{y, df::Unit{}}; });
     }
 
     auto result = std::move(*reachable).complete();

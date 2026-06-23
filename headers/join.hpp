@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cassert>
 #include <concepts>
+
+#include <cassert>
 #include <span>
 #include <vector>
 
@@ -59,12 +60,12 @@ constexpr void join_helper(Span1 slice1, Span2 slice2, Callback &&result_cb) {
         } else {
             const K &match_key = k1;
 
-            auto rest1 =
-                seek(slice1, [&](const auto &x) { return x.first == match_key; });
+            auto rest1 = seek(
+                slice1, [&](const auto &x) { return x.first == match_key; });
             size_t count1 = rest1.data() - slice1.data();
 
-            auto rest2 =
-                seek(slice2, [&](const auto &x) { return x.first == match_key; });
+            auto rest2 = seek(
+                slice2, [&](const auto &x) { return x.first == match_key; });
             size_t count2 = rest2.data() - slice2.data();
 
             for (size_t i = 0; i < count1; ++i) {

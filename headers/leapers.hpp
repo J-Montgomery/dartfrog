@@ -68,13 +68,13 @@ struct PrefixFilter {
         return predicate(prefix) ? std::numeric_limits<size_t>::max() : 0;
     }
 
-    template <typename Val2>
-    constexpr void propose(const Tuple &, std::vector<const Val2 *> &) {
+    template <typename OtherVal>
+    constexpr void propose(const Tuple &, std::vector<const OtherVal *> &) {
         assert(!"PrefixFilter::propose(): variable apparently unbound");
     }
 
-    template <typename Val2>
-    constexpr void intersect(const Tuple &, std::vector<const Val2 *> &) {}
+    template <typename OtherVal>
+    constexpr void intersect(const Tuple &, std::vector<const OtherVal *> &) {}
 
     constexpr void for_each_count(const Tuple &tuple, auto &&op) {
         size_t c = count(tuple);
@@ -244,14 +244,13 @@ class FilterWith {
         return present ? std::numeric_limits<size_t>::max() : 0;
     }
 
-    template <typename Val2>
-    constexpr void propose(const Tuple &, std::vector<const Val2 *> &) {
-        throw std::logic_error(
-            !"FilterWith::propose(): variable apparently unbound");
+    template <typename OtherVal>
+    constexpr void propose(const Tuple &, std::vector<const OtherVal *> &) {
+        assert(!"FilterWith::propose(): variable apparently unbound");
     }
 
-    template <typename Val2>
-    constexpr void intersect(const Tuple &, std::vector<const Val2 *> &) {}
+    template <typename OtherVal>
+    constexpr void intersect(const Tuple &, std::vector<const OtherVal *> &) {}
 };
 
 template <typename Key, typename Val, typename Tuple, typename Func>
@@ -285,13 +284,6 @@ class FilterAnti {
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
 };
 
-template <typename V, size_t K, size_t PrefixLen> struct PrefixExtractor {
-    std::array<int, PrefixLen> positions;
-    std::array<V, PrefixLen> operator()(const std::array<V, K> &jp) const {
-        return project<PrefixLen>(jp, positions);
-    }
-};
-
 template <typename Key, typename Val> struct RelationLeaper {
     const Relation<std::pair<Key, Val>> *self;
 
@@ -317,10 +309,18 @@ template <typename Key, typename Val> struct RelationLeaper {
     }
 };
 
-template <typename V, size_t N, size_t ProposeCol, typename Extractor>
+template <typename V, size_t K, size_t PrefixLen> struct PrefixExtractor {
+    std::array<int, PrefixLen> positions;
+    std::array<V, PrefixLen> operator()(const std::array<V, K> &jp) const {
+        return project<PrefixLen>(jp, positions);
+    }
+};
+
+template <typename V, size_t N, size_t ProposeCol, typename ExtractorT>
 class TupleLeaper {
     static constexpr size_t MAX_BATCHES = 32;
-    const std::vector < Relation<std::array<V, N>>> *batches;
+
+    const std::vector<Relation<std::array<V, N>>> *batches;
     std::optional<std::array<V, ProposeCol>> old_prefix;
 
     // [start, end)
@@ -328,12 +328,12 @@ class TupleLeaper {
     std::array<batch_range, MAX_BATCHES> ranges;
     size_t num_batches = 0;
     size_t total_count = 0;
-    Extractor extractor;
+    ExtractorT extractor;
 
     void update_ranges(const std::array<V, ProposeCol> &prefix) {
         num_batches = batches->size();
         total_count = 0;
-        for (size_t b = 0; b < num_batches; b++) {
+        for (size_t b = 0; b < num_batches; ++b) {
             std::span all{(*batches)[b].elements};
             auto range = key_range(all, prefix, [](const std::array<V, N> &t) {
                 return take_prefix<ProposeCol>(t);
@@ -342,7 +342,6 @@ class TupleLeaper {
             ranges[b].second = ranges[b].first + range.size();
             total_count += range.size();
         }
-
         old_prefix = prefix;
     }
 
@@ -350,7 +349,7 @@ class TupleLeaper {
     using value_type = V;
 
     TupleLeaper(const std::vector<Relation<std::array<V, N>>> *bs,
-                Extractor ext)
+                ExtractorT ext)
         : batches(bs), extractor(std::move(ext)) {}
 
     template <size_t JoinLen> size_t count(const std::array<V, JoinLen> &jp) {
@@ -364,46 +363,38 @@ class TupleLeaper {
     void propose(const std::array<V, JoinLen> &,
                  std::vector<const V *> &values) {
         size_t before = values.size();
-        for (size_t b = 0; b < num_batches; ++b) {
-            for (size_t i = ranges[b].first; i < ranges[b].second; i++) {
+        for (size_t b = 0; b < num_batches; ++b)
+            for (size_t i = ranges[b].first; i < ranges[b].second; ++i)
                 values.push_back(&(*batches)[b].elements[i][ProposeCol]);
-            }
 
-            // We can skip sorting if this is the first/only batch
-            if (num_batches > 1) {
-                std::sort(values.begin() + before, values.end(),
-                          [](const V *a, const V *b) { return *a < *b; });
-            }
-        }
+        // We can skip sorting if this is the first/only batch
+        if (num_batches > 1)
+            std::sort(values.begin() + before, values.end(),
+                      [](const V *a, const V *b) { return *a < *b; });
     }
 
     template <size_t JoinLen>
     void intersect(const std::array<V, JoinLen> &,
-                   std::vector<const V *> *values) {
+                   std::vector<const V *> &values) {
         std::array<std::span<const std::array<V, N>>, MAX_BATCHES> slices;
-
-        for (size_t b = 0; b < num_batches; ++b) {
+        for (size_t b = 0; b < num_batches; ++b)
             slices[b] = {(*batches)[b].elements.begin() + ranges[b].first,
                          (*batches)[b].elements.begin() + ranges[b].second};
-            auto write_it = values.begin();
-            for (const V *v : values) {
-                bool found = false;
-                for (size_t b = 0; b < num_batches && found; b++) {
-                    slices[b] = seek(slices[b], [v](const auto &t) {
-                        return t[ProposeCol] < *v;
-                    });
-
-                    if (!slices[b].empty() && slices[b][0][ProposeCol] == *v)
-                        found = true;
-                }
-
-                if (found)
-                    *write_it++ = v;
+        auto write_it = values.begin();
+        for (const V *v : values) {
+            bool found = false;
+            for (size_t b = 0; b < num_batches && !found; ++b) {
+                slices[b] = seek(slices[b], [v](const auto &t) {
+                    return t[ProposeCol] < *v;
+                });
+                if (!slices[b].empty() && slices[b][0][ProposeCol] == *v)
+                    found = true;
             }
-
-            values.erase(write_it, values.end());
+            if (found)
+                *write_it++ = v;
         }
-    };
+        values.erase(write_it, values.end());
+    }
 };
 
 } // namespace df

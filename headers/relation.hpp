@@ -23,7 +23,8 @@ template <size_t M, typename V, size_t N>
 constexpr std::array<V, M> take_prefix(const std::array<V, N> &a) {
     static_assert(M <= N);
     std::array<V, M> r{};
-    std::copy(a.begin(), a.begin() + M, r.begin());
+    for (size_t i = 0; i < M; ++i)
+        r[i] = a[i];
     return r;
 }
 
@@ -122,16 +123,12 @@ template <std::totally_ordered Tuple> struct Relation {
     }
 
     template <typename R>
-        requires std::convertible_to<std::ranges::range_value_t<R>, Tuple>
+        requires std::convertible_to<
+            std::iter_value_t<decltype(std::begin(std::declval<R &>()))>, Tuple>
     static constexpr Relation from_iter(R &&range) {
-        if constexpr (std::is_rvalue_reference_v<R &&>) {
-            return from_vec(std::vector<Tuple>(
-                std::make_move_iterator(std::ranges::begin(range)),
-                std::make_move_iterator(std::ranges::end(range))));
-        } else {
-            return from_vec(std::vector<Tuple>(std::ranges::begin(range),
-                                               std::ranges::end(range)));
-        }
+        return from_vec(
+            std::vector<Tuple>(std::make_move_iterator(std::begin(range)),
+                               std::make_move_iterator(std::end(range))));
     }
 
     template <typename T2, typename Logic>
@@ -161,18 +158,15 @@ template <std::totally_ordered Tuple> struct Relation {
 
 template <std::totally_ordered T>
 constexpr void dedup_against(Relation<T> &rel,
-                             const std::vector < Relation<T >> &committed) {
+                             const std::vector<Relation<T>> &committed) {
     for (const auto &batch : committed) {
         std::span<const T> slice = batch.elements;
         std::erase_if(rel.elements, [&](const T &x) {
-            if (slice.size() > 4 * rel.size()) {
+            if (slice.size() > 4 * rel.size())
                 slice = seek(slice, [&](const T &y) { return y < x; });
-            } else {
-                while (!slice.empty() && slice[0] < x) {
+            else
+                while (!slice.empty() && slice[0] < x)
                     slice = slice.subspan(1);
-                }
-            }
-
             return !slice.empty() && slice[0] == x;
         });
     }
