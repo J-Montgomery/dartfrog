@@ -2,7 +2,6 @@
 
 #include <concepts>
 
-#include <cassert>
 #include <span>
 #include <vector>
 

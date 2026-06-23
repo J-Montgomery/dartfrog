@@ -56,7 +56,7 @@ template <typename Atoms> constexpr size_t num_vars() {
                 if (ids[atom][col] == var_id)
                     found = true;
         if (!found)
-            throw "variable IDs must be contiguous from 0";
+            throw std::logic_error("variable IDs must be contiguous from 0");
     }
     return (size_t)(max_var_id + 1);
 }

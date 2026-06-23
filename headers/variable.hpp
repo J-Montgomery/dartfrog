@@ -50,7 +50,7 @@ template <std::totally_ordered Tuple> class Variable {
 
     constexpr Relation<Tuple> complete() && {
         if (!is_stable()) {
-            throw std::runtime_error("Variable is not stable");
+            throw std::logic_error("Variable is not stable");
         }
 
         Relation<Tuple> result;

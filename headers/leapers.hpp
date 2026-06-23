@@ -46,7 +46,7 @@ struct LeaperCollection {
             }
         });
         if (!found)
-            throw std::runtime_error("No match found for min_index");
+            throw std::logic_error("No match found for min_index");
     }
 
     constexpr void intersect(const Tuple &tuple, size_t min_index,
@@ -70,7 +70,7 @@ struct PrefixFilter {
 
     template <typename OtherVal>
     constexpr void propose(const Tuple &, std::vector<const OtherVal *> &) {
-        assert(!"PrefixFilter::propose(): variable apparently unbound");
+        throw std::logic_error("PrefixFilter::propose(): variable apparently unbound");
     }
 
     template <typename OtherVal>
@@ -112,7 +112,7 @@ struct ValueFilter {
     }
 
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
-        assert("ValueFilter::propose(): variable apparently unbound");
+        throw std::logic_error("ValueFilter::propose(): variable apparently unbound");
     }
 
     constexpr void intersect(const Tuple &prefix,
@@ -195,7 +195,7 @@ class ExtendAnti {
         return std::numeric_limits<size_t>::max();
     }
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
-        assert("ExtendAnti::propose(): variable apparently unbound.");
+        throw std::logic_error("ExtendAnti::propose(): variable apparently unbound.");
     }
 
     constexpr void intersect(const Tuple &prefix,
@@ -246,7 +246,7 @@ class FilterWith {
 
     template <typename OtherVal>
     constexpr void propose(const Tuple &, std::vector<const OtherVal *> &) {
-        assert(!"FilterWith::propose(): variable apparently unbound");
+        throw std::logic_error("FilterWith::propose(): variable apparently unbound");
     }
 
     template <typename OtherVal>
