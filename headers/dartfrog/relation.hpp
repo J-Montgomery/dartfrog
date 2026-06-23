@@ -6,6 +6,7 @@
 #include <iterator>
 #include <optional>
 #include <span>
+#include <cstddef>
 #include <utility>
 #include <vector>
 

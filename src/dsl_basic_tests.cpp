@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-#include <datalog/predicate.hpp>
+#include <datalog.hpp>
 #include <gtest/gtest.h>
 
 using namespace df::datalog;

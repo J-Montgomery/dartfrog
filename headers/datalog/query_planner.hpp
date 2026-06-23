@@ -1,12 +1,13 @@
 #pragma once
+
 #include <array>
 #include <span>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
-#include "../leapers.hpp"
-#include "var.hpp"
+#include "dartfrog/leapers.hpp"
+#include "datalog/var.hpp"
 
 namespace df::datalog {
 
@@ -153,7 +154,8 @@ template <typename Atoms> constexpr auto level_plan(size_t s, size_t K) {
             continue;
         bool forward = true;
         for (size_t col = 1; col < arity; ++col)
-            if (ids[atom][col] < 0 || var_positions[ids[atom][col]] <= var_positions[ids[atom][col - 1]]) {
+            if (ids[atom][col] < 0 || var_positions[ids[atom][col]] <=
+                                          var_positions[ids[atom][col - 1]]) {
                 forward = false;
                 break;
             }
@@ -217,7 +219,9 @@ constexpr bool has_residual_filters() {
 
             bool forward = true;
             for (size_t col = 1; col < arity; ++col)
-                if (ids[atom][col] < 0 || var_positions[ids[atom][col]] <= var_positions[ids[atom][col - 1]]) {
+                if (ids[atom][col] < 0 ||
+                    var_positions[ids[atom][col]] <=
+                        var_positions[ids[atom][col - 1]]) {
                     forward = false;
                     break;
                 }
@@ -228,7 +232,8 @@ constexpr bool has_residual_filters() {
             constexpr size_t src_arity = atom_arities<Atoms>()[S];
             int max_pos = -1;
             for (size_t col = 0; col < arity; ++col)
-                if (ids[atom][col] >= 0 && var_positions[ids[atom][col]] > max_pos)
+                if (ids[atom][col] >= 0 &&
+                    var_positions[ids[atom][col]] > max_pos)
                     max_pos = var_positions[ids[atom][col]];
             if (max_pos < (int)src_arity)
                 return true;
@@ -271,12 +276,14 @@ auto to_coll(std::tuple<Exts...> &&t) {
     return df::LeaperCollection<std::array<V, K>, V, Exts...>{std::move(t)};
 }
 
-template <typename V, size_t K, size_t S, size_t Klvl, typename Atoms, size_t... Js>
+template <typename V, size_t K, size_t S, size_t Klvl, typename Atoms,
+          size_t... Js>
 auto build_exts(const Atoms &atoms, std::index_sequence<Js...>) {
     constexpr auto plan = level_plan<Atoms>(S, Klvl);
     constexpr size_t NV = num_vars<Atoms>();
     constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
-    return std::make_tuple(make_ext<plan.entries[Js].atom, V, K>(atoms, var_positions)...);
+    return std::make_tuple(
+        make_ext<plan.entries[Js].atom, V, K>(atoms, var_positions)...);
 }
 
 template <typename V, size_t NV, size_t S, size_t K, typename Atoms>
@@ -350,13 +357,14 @@ struct QueryPlanner {
         constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
         constexpr auto head_var_ids = atom_traits<HeadTerm>::var_ids;
         constexpr size_t head_arity = atom_traits<HeadTerm>::arity;
-        constexpr auto head_positions = project<head_arity>(var_positions, head_var_ids);
+        constexpr auto head_positions =
+            project<head_arity>(var_positions, head_var_ids);
         auto project_to_head = [&](const std::array<V, NV> &row) {
             return project<head_arity>(row, head_positions);
         };
         if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
-            head.pred->insert(
-                df::Relation<std::array<V, head_arity>>::from_map(joined_tuples, project_to_head));
+            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_map(
+                joined_tuples, project_to_head));
         } else {
             auto keep = make_residual_test<S>(var_positions);
             std::vector<std::array<V, head_arity>> result;
@@ -364,8 +372,8 @@ struct QueryPlanner {
             for (const auto &row : joined_tuples.elements)
                 if (keep(row))
                     result.push_back(project_to_head(row));
-            head.pred->insert(
-                df::Relation<std::array<V, head_arity>>::from_vec(std::move(result)));
+            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_vec(
+                std::move(result)));
         }
     }
 
@@ -383,8 +391,8 @@ struct QueryPlanner {
         if constexpr (source_is_forward_viable<S>()) {
             auto *source_pred = std::get<S>(atoms).pred;
             for (const auto &batch : source_pred->var.stable)
-                do_source_impl<S>(
-                    std::span<const std::array<V, source_arity>>(batch.elements));
+                do_source_impl<S>(std::span<const std::array<V, source_arity>>(
+                    batch.elements));
         }
     }
 
@@ -399,7 +407,8 @@ struct QueryPlanner {
         constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
         bool forward = true;
         for (size_t col = 1; col < arity; ++col)
-            if (ids[I][col] < 0 || var_positions[ids[I][col]] <= var_positions[ids[I][col - 1]]) {
+            if (ids[I][col] < 0 ||
+                var_positions[ids[I][col]] <= var_positions[ids[I][col - 1]]) {
                 forward = false;
                 break;
             }
@@ -437,7 +446,8 @@ struct QueryPlanner {
                       "filter variable not bound by a positive body atom");
         int pos_a = var_positions[var_id_a], pos_b = var_positions[var_id_b];
         if constexpr (is_negated<Filt>::value) {
-            return !std::get<F>(filters).pred->stable_contains({tuple[pos_a], tuple[pos_b]});
+            return !std::get<F>(filters).pred->stable_contains(
+                {tuple[pos_a], tuple[pos_b]});
         } else {
             constexpr Cmp op = filter_vars<Filt>::op;
             return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);

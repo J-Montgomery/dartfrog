@@ -1,15 +1,20 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <concepts>
-#include <cstdint>
+#include <iterator>
 #include <limits>
+#include <optional>
+#include <span>
+#include <cstddef>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
-#include "join.hpp"
-#include "relation.hpp"
+#include "dartfrog/relation.hpp"
 
 namespace df {
 
@@ -70,7 +75,8 @@ struct PrefixFilter {
 
     template <typename OtherVal>
     constexpr void propose(const Tuple &, std::vector<const OtherVal *> &) {
-        throw std::logic_error("PrefixFilter::propose(): variable apparently unbound");
+        throw std::logic_error(
+            "PrefixFilter::propose(): variable apparently unbound");
     }
 
     template <typename OtherVal>
@@ -112,7 +118,8 @@ struct ValueFilter {
     }
 
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
-        throw std::logic_error("ValueFilter::propose(): variable apparently unbound");
+        throw std::logic_error(
+            "ValueFilter::propose(): variable apparently unbound");
     }
 
     constexpr void intersect(const Tuple &prefix,
@@ -195,7 +202,8 @@ class ExtendAnti {
         return std::numeric_limits<size_t>::max();
     }
     constexpr void propose(const Tuple &, std::vector<const Val *> &) {
-        throw std::logic_error("ExtendAnti::propose(): variable apparently unbound.");
+        throw std::logic_error(
+            "ExtendAnti::propose(): variable apparently unbound.");
     }
 
     constexpr void intersect(const Tuple &prefix,
@@ -238,7 +246,8 @@ class FilterWith {
     constexpr size_t count(const Tuple &prefix) {
         auto kv = key_func(prefix);
         if (cached_key_value && cached_key_value->first == kv)
-            return cached_key_value->second ? std::numeric_limits<size_t>::max() : 0;
+            return cached_key_value->second ? std::numeric_limits<size_t>::max()
+                                            : 0;
         bool present = relation->binary_search(kv).has_value();
         cached_key_value = {kv, present};
         return present ? std::numeric_limits<size_t>::max() : 0;
@@ -246,7 +255,8 @@ class FilterWith {
 
     template <typename OtherVal>
     constexpr void propose(const Tuple &, std::vector<const OtherVal *> &) {
-        throw std::logic_error("FilterWith::propose(): variable apparently unbound");
+        throw std::logic_error(
+            "FilterWith::propose(): variable apparently unbound");
     }
 
     template <typename OtherVal>
@@ -268,7 +278,9 @@ class FilterAnti {
         auto kv = key_func(prefix);
 
         if (cached_key_value && cached_key_value->first == kv) {
-            return cached_key_value->second ? 0 : std::numeric_limits<size_t>::max();
+            return cached_key_value->second
+                       ? 0
+                       : std::numeric_limits<size_t>::max();
         }
 
         bool present = relation->binary_search(kv).has_value();
@@ -352,7 +364,8 @@ class TupleLeaper {
                 ExtractorT prefix_extractor)
         : batches(batch_relations), extractor(std::move(prefix_extractor)) {}
 
-    template <size_t JoinLen> size_t count(const std::array<V, JoinLen> &join_prefix) {
+    template <size_t JoinLen>
+    size_t count(const std::array<V, JoinLen> &join_prefix) {
         auto prefix = extractor(join_prefix);
         if (!cached_prefix || *cached_prefix != prefix)
             update_ranges(prefix);
@@ -364,8 +377,10 @@ class TupleLeaper {
                  std::vector<const V *> &values) {
         size_t before = values.size();
         for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx)
-            for (size_t i = ranges[batch_idx].first; i < ranges[batch_idx].second; ++i)
-                values.push_back(&(*batches)[batch_idx].elements[i][ProposeCol]);
+            for (size_t i = ranges[batch_idx].first;
+                 i < ranges[batch_idx].second; ++i)
+                values.push_back(
+                    &(*batches)[batch_idx].elements[i][ProposeCol]);
 
         // We can skip sorting if this is the first/only batch
         if (num_batches > 1)
@@ -378,16 +393,20 @@ class TupleLeaper {
                    std::vector<const V *> &values) {
         std::array<std::span<const std::array<V, N>>, MAX_BATCHES> slices;
         for (size_t batch_idx = 0; batch_idx < num_batches; ++batch_idx)
-            slices[batch_idx] = {(*batches)[batch_idx].elements.begin() + ranges[batch_idx].first,
-                                 (*batches)[batch_idx].elements.begin() + ranges[batch_idx].second};
+            slices[batch_idx] = {(*batches)[batch_idx].elements.begin() +
+                                     ranges[batch_idx].first,
+                                 (*batches)[batch_idx].elements.begin() +
+                                     ranges[batch_idx].second};
         auto write_it = values.begin();
         for (const V *v : values) {
             bool found = false;
-            for (size_t batch_idx = 0; batch_idx < num_batches && !found; ++batch_idx) {
+            for (size_t batch_idx = 0; batch_idx < num_batches && !found;
+                 ++batch_idx) {
                 slices[batch_idx] = seek(slices[batch_idx], [v](const auto &t) {
                     return t[ProposeCol] < *v;
                 });
-                if (!slices[batch_idx].empty() && slices[batch_idx][0][ProposeCol] == *v)
+                if (!slices[batch_idx].empty() &&
+                    slices[batch_idx][0][ProposeCol] == *v)
                     found = true;
             }
             if (found)

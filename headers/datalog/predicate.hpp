@@ -1,12 +1,23 @@
 #pragma once
-#include <algorithm>
-#include <memory>
-#include <stdexcept>
-#include <unordered_map>
-#include <vector>
 
-#include "../variable.hpp"
-#include "query_planner.hpp"
+#include <cstddef>         
+#include <algorithm>        
+#include <array>            
+#include <concepts>         
+#include <initializer_list> 
+#include <memory>           
+#include <span>             
+#include <stdexcept>        
+#include <tuple>            
+#include <unordered_map>    
+#include <utility>          
+#include <vector>    
+
+#include "dartfrog/variable.hpp"  
+#include "dartfrog/relation.hpp"     
+#include "datalog/var.hpp"  
+#include "datalog/query_planner.hpp"
+
 
 namespace df::datalog {
 
@@ -120,7 +131,7 @@ class Datalog {
     template <IsPredicate P> void register_predicate(P *p) {
         predicates.push_back(
             {p, +[](void *x) { return static_cast<P *>(x)->step(); },
-                +[](void *x) { static_cast<P *>(x)->snapshot(); }});
+             +[](void *x) { static_cast<P *>(x)->snapshot(); }});
     }
 
     template <typename V> void make_symmetric(Predicate<V, 2> &pred);

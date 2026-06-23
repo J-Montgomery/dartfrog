@@ -1,11 +1,14 @@
 #pragma once
 
-#include "variable.hpp"
 #include <concepts>
-#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <tuple>
-#include <vector>
+#include <type_traits>
+#include <utility>
+
+#include "dartfrog/relation.hpp"
+#include "dartfrog/variable.hpp"
 
 namespace df {
 
