@@ -5,7 +5,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "../dartfrog.hpp"
+#include "../leapers.hpp"
+#include "../relation.hpp"
 #include "var.hpp"
 
 namespace df::datalog {
@@ -157,14 +158,30 @@ template <class PosTuple> constexpr auto level_plan(int s, int K) {
     return lp;
 }
 
+template <typename V, size_t K> struct ArrayIndexer {
+    int idx;
+    constexpr V operator()(const std::array<V, K> &p) const { return p[idx]; }
+};
+
+template <typename V, size_t K> struct ArrayAppender {
+    constexpr std::array<V, K + 1> operator()(const std::array<V, K> &p,
+                                              const V &nv) const {
+        std::array<V, K + 1> o;
+        for (size_t i = 0; i < K; i++) {
+            o[i] = p[i];
+        }
+        o[K] = nv;
+        return o;
+    }
+};
+
 template <int Atom, int Kp, bool Rev, class V, size_t K, class AtomsT>
 auto make_ext(const AtomsT &atoms) {
     auto *pred = std::get<Atom>(atoms).pred;
     const df::Relation<std::pair<V, V>> *rel =
         Rev ? &pred->snap_rev : &pred->snap_fwd;
     df::RelationLeaper<V, V> lw{rel};
-    return lw.template extend_with<std::array<V, K>>(
-        [](const std::array<V, K> &p) { return p[Kp]; });
+    return lw.template extend_with<std::array<V, K>>(ArrayIndexer<V, K>{Kp});
 }
 
 template <class V, size_t K, class... E> auto to_coll(std::tuple<E...> &&t) {

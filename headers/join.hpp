@@ -1,12 +1,8 @@
 #pragma once
 
-#include <concepts>
-
 #include <cassert>
-#include <functional>
-#include <ranges>
+#include <concepts>
 #include <span>
-#include <variant>
 #include <vector>
 
 #include "relation.hpp"
@@ -114,8 +110,8 @@ constexpr void join_into(const Input1 &input1, const Input2 &input2,
     using K = typename KVTuple::first_type;
     using V1 = typename KVTuple::second_type;
     using V2 = typename Input2::value_type::second_type;
-    using Result =
-        std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
+    using Result = decltype(std::declval<Logic>()(
+        std::declval<K>(), std::declval<V1>(), std::declval<V2>()));
 
     std::vector<Result> results;
     auto push_result = [&](const K &k, const V1 &v1, const V2 &v2) {
@@ -136,8 +132,8 @@ constexpr void join_and_filter_into(const Input1 &input1, const Input2 &input2,
     using K = typename KVTuple::first_type;
     using V1 = typename KVTuple::second_type;
     using V2 = typename Input2::value_type::second_type;
-    using OptResult =
-        std::invoke_result_t<Logic, const K &, const V1 &, const V2 &>;
+    using OptResult = decltype(std::declval<Logic>()(
+        std::declval<K>(), std::declval<V1>(), std::declval<V2>()));
     using Result = typename OptResult::value_type;
 
     std::vector<Result> results;
@@ -157,8 +153,8 @@ constexpr auto antijoin(const InputRange &input1,
         typename std::remove_cvref_t<decltype(*std::begin(input1))>;
     using KeyType = typename ElementType::first_type;
     using ValType = typename ElementType::second_type;
-    using Result =
-        std::invoke_result_t<Logic, const KeyType &, const ValType &>;
+    using Result = decltype(std::declval<Logic>()(std::declval<KeyType>(),
+                                                  std::declval<ValType>()));
 
     std::vector<Result> results;
     std::span<const ExcludeKey> tuples2 = input2.elements;
@@ -181,9 +177,9 @@ template <class Tuple, class Collection, class Logic>
                 typename std::remove_cvref<Collection>::type::value_type>)
 constexpr auto leapjoin(std::span<const Tuple> source, Collection &collection,
                         Logic &&logic) {
-    using Result = std::invoke_result_t<
-        Logic, const Tuple &,
-        const typename std::remove_cvref_t<Collection>::value_type &>;
+    using Result = decltype(std::declval<Logic>()(
+        std::declval<Tuple>(),
+        std::declval<typename std::remove_cvref_t<Collection>::value_type>()));
     using PointerType =
         typename std::remove_cvref_t<decltype(collection)>::value_type;
     using Val = std::remove_cv_t<std::remove_pointer_t<PointerType>>;

@@ -1,8 +1,11 @@
 #pragma once
 #include <array>
 #include <functional>
+#include <vector>
 
-#include "../dartfrog.hpp"
+#include "../relation.hpp"
+#include "../variable.hpp"
+
 #include "query_planner.hpp"
 #include "var.hpp"
 
@@ -78,30 +81,9 @@ struct QueryPlanner {
         }
     }
 
-    template <int S>
-    auto make_residual_test(const std::array<int, NV> &pos) const {
-        using Tup = std::array<V, NV>;
-        std::vector<std::function<bool(const Tup &)>> tests;
-
-        [&]<size_t... I>(std::index_sequence<I...>) {
-            (add_semijoin<S, I>(pos, tests), ...);
-        }(std::make_index_sequence<NA>{});
-
-        [&]<size_t... F>(std::index_sequence<F...>) {
-            (add_filter<F>(pos, tests), ...);
-        }(std::make_index_sequence<std::tuple_size_v<FilterTuple>>{});
-
-        return [tests = std::move(tests)](const Tup &a) {
-            for (auto &t : tests)
-                if (!t(a))
-                    return false;
-            return true;
-        };
-    }
-
-    template <int S, size_t I, class Tests>
-    void add_semijoin(const std::array<int, NV> &pos, Tests &tests) const {
-        using Tup = std::array<V, NV>;
+    template <int S, size_t I>
+    bool semijoin_check(const std::array<V, NV> &a,
+                        const std::array<int, NV> &pos) const {
         constexpr auto ids = atom_ids<PosTuple>();
         constexpr int i1 = ids[I][0], i2 = ids[I][1];
         if constexpr ((int)I != S && i1 >= 0 && i2 >= 0) {
@@ -109,18 +91,17 @@ struct QueryPlanner {
             constexpr bool semijoin =
                 (i1 == i2) || std::max(cpos[i1], cpos[i2]) <= 1;
             if constexpr (semijoin) {
-                const auto *snap = &std::get<I>(atoms).pred->snap_fwd;
-                int p1 = pos[i1], p2 = pos[i2];
-                tests.push_back([snap, p1, p2](const Tup &a) {
-                    return snap->binary_search({a[p1], a[p2]}).has_value();
-                });
+                return std::get<I>(atoms)
+                    .pred->snap_fwd.binary_search({a[pos[i1]], a[pos[i2]]})
+                    .has_value();
             }
         }
+        return true;
     }
 
-    template <size_t F, class Tests>
-    void add_filter(const std::array<int, NV> &pos, Tests &tests) const {
-        using Tup = std::array<V, NV>;
+    template <size_t F>
+    bool filter_check(const std::array<V, NV> &a,
+                      const std::array<int, NV> &pos) const {
         using Filt = std::tuple_element_t<F, FilterTuple>;
         constexpr int ia = index_of<typename filter_vars<Filt>::a_t, UV>::value;
         constexpr int ib = index_of<typename filter_vars<Filt>::b_t, UV>::value;
@@ -128,15 +109,27 @@ struct QueryPlanner {
                       "filter variable not bound by a positive body atom");
         int pa = pos[ia], pb = pos[ib];
         if constexpr (is_negated<Filt>::value) {
-            const auto *snap = &std::get<F>(filters).pred->snap_fwd;
-            tests.push_back([snap, pa, pb](const Tup &a) {
-                return !snap->binary_search({a[pa], a[pb]});
-            });
+            return !std::get<F>(filters)
+                        .pred->snap_fwd.binary_search({a[pa], a[pb]})
+                        .has_value();
         } else {
             constexpr Cmp op = filter_vars<Filt>::op;
-            tests.push_back(
-                [pa, pb](const Tup &a) { return cmp_apply<op>(a[pa], a[pb]); });
+            return cmp_apply<op>(a[pa], a[pb]);
         }
+    }
+
+    template <int S>
+    auto make_residual_test(const std::array<int, NV> &pos) const {
+        return [this, pos](const std::array<V, NV> &a) -> bool {
+            bool ok = [&]<size_t... I>(std::index_sequence<I...>) {
+                return (semijoin_check<S, I>(a, pos) && ...);
+            }(std::make_index_sequence<NA>{});
+            if (!ok)
+                return false;
+            return [&]<size_t... F>(std::index_sequence<F...>) {
+                return (filter_check<F>(a, pos) && ...);
+            }(std::make_index_sequence<std::tuple_size_v<FilterTuple>>{});
+        };
     }
 };
 

@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <concepts>
 #include <iterator>
+#include <optional>
 #include <ranges>
+#include <span>
 #include <vector>
 
 namespace df {

@@ -31,16 +31,13 @@ template <typename... Variables> class Iteration {
     constexpr bool changed() {
         // The more obvious fold expression short-circuits, which means
         // queries with antijoins can fail
-        return std::apply(
-            [](auto &&...vars) {
-                bool results[] = {false, vars->changed()...};
-                bool any_changed = false;
-                for (bool r : results) {
-                    any_changed |= r;
-                }
-                return any_changed;
-            },
-            variables);
+        return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+            bool results[] = {false, std::get<Is>(variables)->changed()...};
+            bool any_changed = false;
+            for (bool r : results)
+                any_changed |= r;
+            return any_changed;
+        }(std::make_index_sequence<sizeof...(Variables)>{});
     }
 
     template <std::totally_ordered Tuple,

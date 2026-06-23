@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
-#include <numeric>
+#include <limits>
 #include <tuple>
 #include <type_traits>
 #include <variant>
