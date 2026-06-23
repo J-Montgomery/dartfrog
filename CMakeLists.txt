@@ -41,9 +41,16 @@ target_sources(dsl_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/dsl_basic_tests.cpp
 )
 
+#####################################
+
 enable_testing()
 gtest_discover_tests(dartfrog_tests)
 gtest_discover_tests(dsl_tests)
 
 #####################################
 
+find_package(benchmark REQUIRED)
+
+add_executable(tc_benchmark src/tc_benchmark.cpp)
+target_link_libraries(tc_benchmark dartfrog benchmark::benchmark)
+target_compile_options(tc_benchmark PRIVATE -O3)
