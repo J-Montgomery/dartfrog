@@ -77,15 +77,17 @@ TEST(PassthroughTest, CountIsAlwaysOne) {
 
 TEST(PassthroughTest, ProposePushesUnit) {
     auto pt = filters::passthrough<int>();
+    Unit unit;
     std::vector<const Unit *> values;
     pt.propose(0, values);
     ASSERT_EQ(values.size(), 1);
-    EXPECT_EQ(values[0], &UNIT_INSTANCE);
+    EXPECT_EQ(values[0], &unit);
 }
 
 TEST(PassthroughTest, IntersectIsNoop) {
     auto pt = filters::passthrough<int>();
-    std::vector<const Unit *> values = {&UNIT_INSTANCE};
+    Unit unit;
+    std::vector<const Unit *> values = {&unit};
     pt.intersect(0, values);
     EXPECT_EQ(values.size(), 1);
 }

@@ -6,7 +6,6 @@
 #include <limits>
 #include <tuple>
 #include <type_traits>
-#include <variant>
 #include <vector>
 
 #include "join.hpp"
@@ -21,44 +20,41 @@ concept Leaper = requires(T l, const Tuple &t, std::vector<const Val *> &v) {
     { l.intersect(t, v) } -> std::same_as<void>;
 };
 
-using Unit = std::monostate;
-inline constexpr Unit UNIT_INSTANCE{};
+struct Unit {
+    constexpr auto operator<=>(const Unit &) const noexcept = default;
+};
 
-template <typename Tuple, typename Val, typename... LeaperTs>
-    requires(Leaper<LeaperTs, Tuple, Val> && ...)
+template <typename Tuple, typename Val, typename... Leapers>
+    requires(Leaper<Leapers, Tuple, Val> && ...)
 struct LeaperCollection {
     using value_type = Val;
-    std::tuple<LeaperTs...> leapers;
+    std::tuple<Leapers...> leapers;
 
     constexpr void for_each_count(const Tuple &tuple,
                                   std::invocable<size_t, size_t> auto &&op) {
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
-            (op(Is, std::get<Is>(leapers).count(tuple)), ...);
-        }(std::index_sequence_for<LeaperTs...>{});
+        for_indices<sizeof...(Leapers)>(
+            [&]<size_t I>() { op(I, std::get<I>(leapers).count(tuple)); });
     }
 
     constexpr void propose(const Tuple &tuple, size_t min_index,
                            std::vector<const Val *> &values) {
-        bool found = [&]<size_t... Is>(std::index_sequence<Is...>) {
-            bool handled = false;
-            ((Is == min_index ? (std::get<Is>(leapers).propose(tuple, values),
-                                 handled = true)
-                              : false) ||
-             ...);
-            return handled;
-        }(std::index_sequence_for<LeaperTs...>{});
-
+        bool found = false;
+        for_indices<sizeof...(Leapers)>([&]<size_t I>() {
+            if (I == min_index) {
+                std::get<I>(leapers).propose(tuple, values);
+                found = true;
+            }
+        });
         if (!found)
             throw std::runtime_error("No match found for min_index");
     }
 
     constexpr void intersect(const Tuple &tuple, size_t min_index,
                              std::vector<const Val *> &values) {
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
-            ((Is != min_index ? std::get<Is>(leapers).intersect(tuple, values)
-                              : void()),
-             ...);
-        }(std::index_sequence_for<LeaperTs...>{});
+        for_indices<sizeof...(Leapers)>([&]<size_t I>() {
+            if (I != min_index)
+                std::get<I>(leapers).intersect(tuple, values);
+        });
     }
 };
 
@@ -92,10 +88,12 @@ constexpr auto prefix_filter(Func pred) {
 }
 
 template <typename Tuple> struct Passthrough {
+    [[no_unique_address]] Unit unit;
+
     constexpr size_t count(const Tuple &) { return 1; }
 
     constexpr void propose(const Tuple &, std::vector<const Unit *> &values) {
-        values.push_back(&UNIT_INSTANCE);
+        values.push_back(&unit);
     }
 
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
@@ -248,7 +246,8 @@ class FilterWith {
 
     template <typename Val2>
     constexpr void propose(const Tuple &, std::vector<const Val2 *> &) {
-        assert(!"FilterWith::propose(): variable apparently unbound");
+        throw std::logic_error(
+            !"FilterWith::propose(): variable apparently unbound");
     }
 
     template <typename Val2>
@@ -260,6 +259,7 @@ class FilterAnti {
     const Relation<std::pair<Key, Val>> *relation;
     Func key_func;
     std::optional<std::pair<std::pair<Key, Val>, bool>> old_kv;
+    [[no_unique_address]] Unit unit;
 
   public:
     constexpr FilterAnti(const Relation<std::pair<Key, Val>> *rel, Func f)
@@ -279,10 +279,17 @@ class FilterAnti {
     }
 
     constexpr void propose(const Tuple &, std::vector<const Unit *> &v) {
-        v.push_back(&UNIT_INSTANCE);
+        v.push_back(&unit);
     }
 
     constexpr void intersect(const Tuple &, std::vector<const Unit *> &) {}
+};
+
+template <typename V, size_t K, size_t PrefixLen> struct PrefixExtractor {
+    std::array<int, PrefixLen> positions;
+    std::array<V, PrefixLen> operator()(const std::array<V, K> &jp) const {
+        return project<PrefixLen>(jp, positions);
+    }
 };
 
 template <typename Key, typename Val> struct RelationLeaper {
@@ -308,6 +315,95 @@ template <typename Key, typename Val> struct RelationLeaper {
     constexpr auto filter_anti(Func &&f) const {
         return FilterAnti<Key, Val, Tuple, Func>(self, std::forward<Func>(f));
     }
+};
+
+template <typename V, size_t N, size_t ProposeCol, typename Extractor>
+class TupleLeaper {
+    static constexpr size_t MAX_BATCHES = 32;
+    const std::vector < Relation<std::array<V, N>>> *batches;
+    std::optional<std::array<V, ProposeCol>> old_prefix;
+
+    // [start, end)
+    using batch_range = std::pair<size_t, size_t>;
+    std::array<batch_range, MAX_BATCHES> ranges;
+    size_t num_batches = 0;
+    size_t total_count = 0;
+    Extractor extractor;
+
+    void update_ranges(const std::array<V, ProposeCol> &prefix) {
+        num_batches = batches->size();
+        total_count = 0;
+        for (size_t b = 0; b < num_batches; b++) {
+            std::span all{(*batches)[b].elements};
+            auto range = key_range(all, prefix, [](const std::array<V, N> &t) {
+                return take_prefix<ProposeCol>(t);
+            });
+            ranges[b].first = range.data() - all.data();
+            ranges[b].second = ranges[b].first + range.size();
+            total_count += range.size();
+        }
+
+        old_prefix = prefix;
+    }
+
+  public:
+    using value_type = V;
+
+    TupleLeaper(const std::vector<Relation<std::array<V, N>>> *bs,
+                Extractor ext)
+        : batches(bs), extractor(std::move(ext)) {}
+
+    template <size_t JoinLen> size_t count(const std::array<V, JoinLen> &jp) {
+        auto prefix = extractor(jp);
+        if (!old_prefix || *old_prefix != prefix)
+            update_ranges(prefix);
+        return total_count;
+    }
+
+    template <size_t JoinLen>
+    void propose(const std::array<V, JoinLen> &,
+                 std::vector<const V *> &values) {
+        size_t before = values.size();
+        for (size_t b = 0; b < num_batches; ++b) {
+            for (size_t i = ranges[b].first; i < ranges[b].second; i++) {
+                values.push_back(&(*batches)[b].elements[i][ProposeCol]);
+            }
+
+            // We can skip sorting if this is the first/only batch
+            if (num_batches > 1) {
+                std::sort(values.begin() + before, values.end(),
+                          [](const V *a, const V *b) { return *a < *b; });
+            }
+        }
+    }
+
+    template <size_t JoinLen>
+    void intersect(const std::array<V, JoinLen> &,
+                   std::vector<const V *> *values) {
+        std::array<std::span<const std::array<V, N>>, MAX_BATCHES> slices;
+
+        for (size_t b = 0; b < num_batches; ++b) {
+            slices[b] = {(*batches)[b].elements.begin() + ranges[b].first,
+                         (*batches)[b].elements.begin() + ranges[b].second};
+            auto write_it = values.begin();
+            for (const V *v : values) {
+                bool found = false;
+                for (size_t b = 0; b < num_batches && found; b++) {
+                    slices[b] = seek(slices[b], [v](const auto &t) {
+                        return t[ProposeCol] < *v;
+                    });
+
+                    if (!slices[b].empty() && slices[b][0][ProposeCol] == *v)
+                        found = true;
+                }
+
+                if (found)
+                    *write_it++ = v;
+            }
+
+            values.erase(write_it, values.end());
+        }
+    };
 };
 
 } // namespace df

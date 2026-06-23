@@ -90,21 +90,7 @@ template <std::totally_ordered Tuple> class Variable {
             }
 
             if (distinct) {
-                for (const auto &batch : stable) {
-                    std::span<const Tuple> slice = batch.elements;
-
-                    std::erase_if(current_to_add.elements, [&](const Tuple &x) {
-                        if (slice.size() > 4 * current_to_add.size()) {
-                            slice = df::seek(
-                                slice, [&](const Tuple &y) { return y < x; });
-                        } else {
-                            while (!slice.empty() && slice[0] < x) {
-                                slice = slice.subspan(1);
-                            }
-                        }
-                        return !slice.empty() && slice[0] == x;
-                    });
-                }
+            df::dedup_against(current_to_add, stable);
             }
             recent_data = std::move(current_to_add);
         }
@@ -118,7 +104,7 @@ template <std::totally_ordered Tuple> class Variable {
         }
     }
 
-    template <std::ranges::input_range R> constexpr void extend(R &&range) {
+    template <typename R> constexpr void extend(R &&range) {
         insert(Relation<Tuple>::from_iter(std::forward<R>(range)));
     }
 
@@ -153,9 +139,10 @@ template <std::totally_ordered Tuple> class Variable {
                      typename std::remove_cvref_t<Collection>::value_type>
     constexpr void from_leapjoin(const Input1 &source, Collection &&leapers,
                                  Logic &&logic) {
-        this->insert(leapjoin(source.recent(),
-                              std::forward<Collection>(leapers),
-                              std::forward<Logic>(logic)));
+        auto result =
+            leapjoin(source.recent(), std::forward<Collection>(leapers),
+                     std::forward<Logic>(logic));
+        this->insert(Relation<Tuple>::from_vec(std::move(result.elements)));
     }
 };
 
