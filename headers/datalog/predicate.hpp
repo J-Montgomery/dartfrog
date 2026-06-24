@@ -1,23 +1,22 @@
 #pragma once
 
-#include <cstddef>         
-#include <algorithm>        
-#include <array>            
-#include <concepts>         
-#include <initializer_list> 
-#include <memory>           
-#include <span>             
-#include <stdexcept>        
-#include <tuple>            
-#include <unordered_map>    
-#include <utility>          
-#include <vector>    
+#include <algorithm>
+#include <array>
+#include <concepts>
+#include <cstddef>
+#include <initializer_list>
+#include <memory>
+#include <span>
+#include <stdexcept>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "dartfrog/variable.hpp"  
-#include "dartfrog/relation.hpp"     
-#include "datalog/var.hpp"  
+#include "dartfrog/relation.hpp"
+#include "dartfrog/variable.hpp"
 #include "datalog/query_planner.hpp"
-
+#include "datalog/var.hpp"
 
 namespace df::datalog {
 
@@ -156,6 +155,7 @@ class Datalog {
                             head->insert(batch);
                     }
                 };
+
                 evaluators.push_back(
                     make_eval(IdentityEval{rule.head.pred, rule.body.pred}));
                 return;
@@ -178,6 +178,9 @@ class Datalog {
         eval_head_idx.push_back(head_idx);
         QueryPlanner<Term<HeadPred, HeadVars...>, Atoms, Filters> runner{
             rule.head, rule.body.pos, rule.body.filt};
+
+        // Store the query as a type-erased callback so the rest of the engine
+        // can treat them uniformly
         evaluators.push_back(make_eval(std::move(runner)));
     }
 
@@ -216,6 +219,9 @@ class Datalog {
 template <typename V, size_t N> struct Predicate {
     using TupleT = std::array<V, N>;
 
+    // var.stable holds the current facts
+    // var.recent_data holds new facts discovered in the last iteration
+    // var.to_add holds newly produced facts during the iteration
     df::Variable<TupleT> var;
 
     // Provide a default constructor so Predicate can be used as a free query
@@ -225,6 +231,8 @@ template <typename V, size_t N> struct Predicate {
 
     void insert(const df::Relation<TupleT> &rel) { var.insert(rel); }
 
+    // Promote the new facts from the last iteration
+    // into var.stable
     void snapshot() {
         if (var.recent_data.empty())
             return;
@@ -246,6 +254,8 @@ template <typename V, size_t N> struct Predicate {
         return false;
     }
 
+    // Deduplicate the newly produced facts and promote them
+    // into to recent_data
     bool step() {
         var.recent_data = {};
         if (var.to_add.empty())
@@ -274,7 +284,7 @@ template <typename V, size_t N> struct Predicate {
         return Term<Predicate, Var<Ids>...>{this};
     }
 
-    // Copy the produced facts
+    // Non-destructively return the result facts
     std::vector<TupleT> peek() const {
         std::vector<TupleT> result;
         var.for_each_stable_set([&](std::span<const TupleT> batch) {
@@ -284,34 +294,50 @@ template <typename V, size_t N> struct Predicate {
         return result;
     }
 
-    // Move the produced facts, emptying the var
+    // Destructively return the result facts
     std::vector<TupleT> extract() { return std::move(var).complete().elements; }
 };
 
+// Convert a directed relation into an undirected relation
+// by generating the inverse edge
 template <typename V> void Datalog::make_symmetric(Predicate<V, 2> &pred) {
     Var<0> x;
     Var<1> y;
     add_rule(pred(y, x) <<= pred(x, y));
 }
 
-template <typename V> Predicate<V, 1> Const(std::initializer_list<V> values) {
-    Predicate<V, 1> p;
-    std::vector<std::array<V, 1>> tuples;
-    tuples.reserve(values.size());
-    for (const auto &v : values)
-        tuples.push_back({v});
-    p.insert(df::Relation<std::array<V, 1>>::from_vec(std::move(tuples)));
-    p.commit();
-    return p;
+// Quick convenience wrappers to allow constant literals
+// without boilerplate
+template <typename V, size_t N>
+auto &Const(std::vector<std::array<V, N>> data) {
+    static std::vector<
+        std::pair<std::vector<std::array<V, N>>, Predicate<V, N>>>
+        cache;
+
+    for (auto &entry : cache) {
+        if (entry.first == data) {
+            return entry.second;
+        }
+    }
+
+    auto &new_entry = cache.emplace_back(data, Predicate<V, N>{});
+
+    new_entry.second.insert(
+        df::Relation<std::array<V, N>>::from_vec(std::move(data)));
+    new_entry.second.commit();
+
+    return new_entry.second;
 }
 
-template <typename V, size_t N>
-Predicate<V, N> Const(std::initializer_list<std::array<V, N>> tuples) {
-    Predicate<V, N> p;
-    p.insert(df::Relation<std::array<V, N>>::from_vec(
-        std::vector<std::array<V, N>>(tuples)));
-    p.commit();
-    return p;
+template <typename V> auto &Const(std::initializer_list<V> values) {
+    std::vector<std::array<V, 1>> data;
+    data.reserve(values.size());
+
+    for (const auto &v : values) {
+        data.push_back({v});
+    }
+
+    return Const<V, 1>(std::move(data));
 }
 
 } // namespace df::datalog

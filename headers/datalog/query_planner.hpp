@@ -21,11 +21,11 @@ template <typename P, int... Ids> struct atom_traits<Term<P, Var<Ids>...>> {
 };
 
 template <typename Atoms> constexpr auto atom_ids() {
-    constexpr size_t NA = std::tuple_size_v<Atoms>;
-    std::array<std::array<int, MAX_ARITY>, NA> result{};
+    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+    std::array<std::array<int, MAX_ARITY>, NumAtoms> result{};
     for (auto &row : result)
         row.fill(-1);
-    for_indices<NA>([&]<size_t I>() {
+    for_indices<NumAtoms>([&]<size_t I>() {
         using AT = atom_traits<std::tuple_element_t<I, Atoms>>;
         for (size_t j = 0; j < AT::arity; j++)
             result[I][j] = AT::var_ids[j];
@@ -34,9 +34,9 @@ template <typename Atoms> constexpr auto atom_ids() {
 }
 
 template <typename Atoms> constexpr auto atom_arities() {
-    constexpr size_t NA = std::tuple_size_v<Atoms>;
-    std::array<size_t, NA> result{};
-    for_indices<NA>([&]<size_t I>() {
+    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+    std::array<size_t, NumAtoms> result{};
+    for_indices<NumAtoms>([&]<size_t I>() {
         result[I] = atom_traits<std::tuple_element_t<I, Atoms>>::arity;
     });
     return result;
@@ -62,32 +62,36 @@ template <typename Atoms> constexpr size_t num_vars() {
     return (size_t)(max_var_id + 1);
 }
 
-template <size_t NV>
-constexpr std::array<int, NV> invert(const std::array<int, NV> &order) {
-    std::array<int, NV> result{};
-    for (size_t i = 0; i < NV; i++)
+template <size_t NumVars>
+constexpr std::array<int, NumVars>
+invert(const std::array<int, NumVars> &order) {
+    std::array<int, NumVars> result{};
+    for (size_t i = 0; i < NumVars; i++)
         result[order[i]] = (int)i;
     return result;
 }
 
+// make_order determines the variable binding order
+// by greedily assuming unbound variables that share
+// rules with lots of bound variables should be
+// bound and proposed before less common variables
 template <typename Atoms> constexpr auto make_order(size_t s) {
-    constexpr size_t NV = num_vars<Atoms>();
-    constexpr size_t NA = std::tuple_size_v<Atoms>;
+    constexpr size_t NumVars = num_vars<Atoms>();
+    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
 
-    std::array<int, NV> order{};
-    std::array<bool, NV> bound{};
-    std::array<int, NV> score{};
+    std::array<int, NumVars> order{};
+    std::array<bool, NumVars> bound{};
+    std::array<int, NumVars> score{};
     for (auto &flag : bound)
         flag = false;
     for (auto &sc : score)
         sc = 0;
 
-    // bind a variable and update scores for its unbound neighbors
     auto bind = [&](int var_id) {
         bound[var_id] = true;
-        for (size_t atom = 0; atom < NA; atom++) {
+        for (size_t atom = 0; atom < NumAtoms; atom++) {
             bool has_var = false;
             for (size_t col = 0; col < arities[atom]; col++)
                 if (ids[atom][col] == var_id) {
@@ -104,18 +108,18 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
         }
     };
 
-    // Place the bound variables
+    // Bind the bound variables first
     size_t num_bound = 0;
     for (size_t col = 0; col < arities[s]; col++) {
         order[num_bound++] = ids[s][col];
         bind(ids[s][col]);
     }
 
-    // bind the unbound variables in order of how often they
-    // co-occur with already bound variables in this stratum
-    while (num_bound < NV) {
+    // Now bind the unbound variables in order of the scores
+    // we've calculated
+    while (num_bound < NumVars) {
         int best_var = -1, best_score = -1;
-        for (int var_id = 0; var_id < (int)NV; var_id++)
+        for (int var_id = 0; var_id < (int)NumVars; var_id++)
             if (!bound[var_id] && score[var_id] > best_score) {
                 best_score = score[var_id];
                 best_var = var_id;
@@ -130,36 +134,48 @@ struct ExtSpec {
     size_t atom;
 };
 
-template <size_t NA> struct LevelPlan {
-    std::array<ExtSpec, NA> entries{};
+template <size_t NumAtoms> struct LevelPlan {
+    std::array<ExtSpec, NumAtoms> entries{};
     size_t count = 0;
 };
 
-template <typename Atoms> constexpr auto level_plan(size_t s, size_t K) {
-    constexpr size_t NA = std::tuple_size_v<Atoms>;
-    constexpr size_t NV = num_vars<Atoms>();
+// Generate an execution plan for a single stratum
+// Variables are ordered and greedily bound to determine which
+// atom relations that will be proposed by the leaper when we solve()
+template <typename Atoms>
+constexpr auto level_plan(size_t src_idx, size_t bound_vars) {
+    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+    constexpr size_t NumVars = num_vars<Atoms>();
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
-    auto var_positions = invert<NV>(make_order<Atoms>(s));
-    LevelPlan<NA> plan{};
-    for (size_t atom = 0; atom < NA; atom++) {
-        if (atom == s)
+    auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
+    LevelPlan<NumAtoms> plan{};
+    for (size_t atom = 0; atom < NumAtoms; atom++) {
+        if (atom == src_idx)
             continue;
         size_t arity = arities[atom];
         int max_pos = -1;
+
+        // Find the maximum binding depth of any variable in this atom
+        // We can only evaluate once the variable is bound
         for (size_t col = 0; col < arity; col++)
             if (ids[atom][col] >= 0 && var_positions[ids[atom][col]] > max_pos)
                 max_pos = var_positions[ids[atom][col]];
-        if (max_pos != (int)K)
+
+        // Defer variables that will be bound in a later iteration
+        if (max_pos != (int)bound_vars)
             continue;
-        bool forward = true;
+
+        // Check if variables are bound in the same order as the trie traversal
+        // If not, we have to handle this atom as a residual
+        bool trie_binding_order = true;
         for (size_t col = 1; col < arity; col++)
             if (ids[atom][col] < 0 || var_positions[ids[atom][col]] <=
                                           var_positions[ids[atom][col - 1]]) {
-                forward = false;
+                trie_binding_order = false;
                 break;
             }
-        if (forward)
+        if (trie_binding_order)
             plan.entries[plan.count++] = {atom};
     }
     return plan;
@@ -202,12 +218,12 @@ constexpr bool has_residual_filters() {
     if constexpr (std::tuple_size_v<Filters> > 0) {
         return true;
     } else {
-        constexpr size_t NA = std::tuple_size_v<Atoms>;
-        constexpr size_t NV = num_vars<Atoms>();
+        constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+        constexpr size_t NumVars = num_vars<Atoms>();
         constexpr auto ids = atom_ids<Atoms>();
         constexpr auto arities = atom_arities<Atoms>();
-        constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
-        for (size_t atom = 0; atom < NA; atom++) {
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+        for (size_t atom = 0; atom < NumAtoms; atom++) {
             if (atom == S)
                 continue;
             size_t arity = arities[atom];
@@ -253,8 +269,9 @@ template <typename V, size_t K> struct ArrayAppender {
     }
 };
 
-template <size_t Atom, typename V, size_t K, typename Atoms, size_t NV>
-auto make_ext(const Atoms &atoms, const std::array<int, NV> &var_positions) {
+template <size_t Atom, typename V, size_t K, typename Atoms, size_t NumVars>
+auto make_ext(const Atoms &atoms,
+              const std::array<int, NumVars> &var_positions) {
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
     constexpr size_t N = arities[Atom];
@@ -280,16 +297,16 @@ template <typename V, size_t K, size_t S, size_t Klvl, typename Atoms,
           size_t... Js>
 auto build_exts(const Atoms &atoms, std::index_sequence<Js...>) {
     constexpr auto plan = level_plan<Atoms>(S, Klvl);
-    constexpr size_t NV = num_vars<Atoms>();
-    constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
+    constexpr size_t NumVars = num_vars<Atoms>();
+    constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
     return std::make_tuple(
         make_ext<plan.entries[Js].atom, V, K>(atoms, var_positions)...);
 }
 
-template <typename V, size_t NV, size_t S, size_t K, typename Atoms>
-df::Relation<std::array<V, NV>> extend(df::Relation<std::array<V, K>> prefix,
-                                       const Atoms &atoms) {
-    if constexpr (K == NV) {
+template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
+df::Relation<std::array<V, NumVars>>
+extend(df::Relation<std::array<V, K>> prefix, const Atoms &atoms) {
+    if constexpr (K == NumVars) {
         return std::move(prefix);
     } else {
         constexpr auto plan = level_plan<Atoms>(S, K);
@@ -299,24 +316,24 @@ df::Relation<std::array<V, NV>> extend(df::Relation<std::array<V, K>> prefix,
         auto next =
             df::leapjoin(std::span<const std::array<V, K>>(prefix.elements),
                          leapers, ArrayAppender<V, K>{});
-        return extend<V, NV, S, K + 1>(std::move(next), atoms);
+        return extend<V, NumVars, S, K + 1>(std::move(next), atoms);
     }
 }
 
-template <typename V, size_t NV, size_t S, size_t K, typename Atoms>
-df::Relation<std::array<V, NV>> extend(std::span<const std::array<V, K>> src,
-                                       const Atoms &atoms) {
-    if constexpr (K == NV) {
+template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
+df::Relation<std::array<V, NumVars>>
+extend(std::span<const std::array<V, K>> src, const Atoms &atoms) {
+    if constexpr (K == NumVars) {
 
-        return df::Relation<std::array<V, NV>>{
-            std::vector<std::array<V, NV>>(src.begin(), src.end())};
+        return df::Relation<std::array<V, NumVars>>{
+            std::vector<std::array<V, NumVars>>(src.begin(), src.end())};
     } else {
         constexpr auto plan = level_plan<Atoms>(S, K);
         auto extractors = build_exts<V, K, S, K, Atoms>(
             atoms, std::make_index_sequence<plan.count>{});
         auto leapers = to_coll<V, K>(std::move(extractors));
         auto next = df::leapjoin(src, leapers, ArrayAppender<V, K>{});
-        return extend<V, NV, S, K + 1>(std::move(next), atoms);
+        return extend<V, NumVars, S, K + 1>(std::move(next), atoms);
     }
 }
 
@@ -326,42 +343,51 @@ struct QueryPlanner {
     Atoms atoms;
     Filters filters;
 
-    using V = typename atom_traits<
-        std::tuple_element_t<0, Atoms>>::pred_t::TupleT::value_type;
-    static constexpr size_t NV = num_vars<Atoms>();
-    static constexpr size_t NA = std::tuple_size_v<Atoms>;
+    using FirstAtom = std::tuple_element_t<0, Atoms>;
+    using FirstPred = typename atom_traits<FirstAtom>::pred_t;
+    using V = typename FirstPred::TupleT::value_type;
+
+    static constexpr size_t NumVars = num_vars<Atoms>();
+    static constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
 
     template <size_t S> static constexpr bool source_is_forward_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        for (size_t K = source_arity; K < NV; K++)
+        for (size_t K = source_arity; K < NumVars; K++)
             if (level_plan<Atoms>(S, K).count == 0)
                 return false;
         return true;
     }
 
+    // Execute a semi-naive delta step over the newly produced facts
     void operator()() const {
-        for_indices<NA>([&]<size_t S>() { do_source<S>(); });
+        for_indices<NumAtoms>([&]<size_t S>() { do_source<S>(); });
     }
 
+    // Execute a semi-naive step over all stable facts
     void eval_full() const {
-        for_indices<NA>([&]<size_t S>() { do_source_full<S>(); });
+        for_indices<NumAtoms>([&]<size_t S>() { do_source_full<S>(); });
     }
 
+    // Take a batch of source tuples and extend them through LFTJ
+    // before projecting into the head predicate
     template <size_t S>
     void do_source_impl(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
         if (src.empty())
             return;
-        auto joined_tuples = extend<V, NV, S, source_arity>(src, atoms);
-        constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
+        auto joined_tuples = extend<V, NumVars, S, source_arity>(src, atoms);
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
         constexpr auto head_var_ids = atom_traits<HeadTerm>::var_ids;
         constexpr size_t head_arity = atom_traits<HeadTerm>::arity;
         constexpr auto head_positions =
             project<head_arity>(var_positions, head_var_ids);
-        auto project_to_head = [&](const std::array<V, NV> &row) {
+        auto project_to_head = [&](const std::array<V, NumVars> &row) {
             return project<head_arity>(row, head_positions);
         };
+
+        // Take care of any residual atoms that couldn't be bound
+        // in trie traversal order so LFTJ could deal with them
         if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
             head.pred->insert(df::Relation<std::array<V, head_arity>>::from_map(
                 joined_tuples, project_to_head));
@@ -404,7 +430,7 @@ struct QueryPlanner {
         constexpr auto arities = atom_arities<Atoms>();
         constexpr size_t source_arity = arities[S];
         constexpr size_t arity = arities[I];
-        constexpr auto var_positions = invert<NV>(make_order<Atoms>(S));
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
         bool forward = true;
         for (size_t col = 1; col < arity; col++)
             if (ids[I][col] < 0 ||
@@ -422,8 +448,8 @@ struct QueryPlanner {
     }
 
     template <size_t S, size_t I>
-    bool semijoin_check(const std::array<V, NV> &tuple,
-                        const std::array<int, NV> &var_positions) const {
+    bool semijoin_check(const std::array<V, NumVars> &tuple,
+                        const std::array<int, NumVars> &var_positions) const {
         if constexpr (atom_needs_semijoin_check<S, I>()) {
             constexpr auto ids = atom_ids<Atoms>();
             constexpr auto arities = atom_arities<Atoms>();
@@ -437,8 +463,8 @@ struct QueryPlanner {
     }
 
     template <size_t F>
-    bool filter_check(const std::array<V, NV> &tuple,
-                      const std::array<int, NV> &var_positions) const {
+    bool filter_check(const std::array<V, NumVars> &tuple,
+                      const std::array<int, NumVars> &var_positions) const {
         using Filt = std::tuple_element_t<F, Filters>;
         constexpr int var_id_a = filter_vars<Filt>::a_id;
         constexpr int var_id_b = filter_vars<Filt>::b_id;
@@ -455,17 +481,19 @@ struct QueryPlanner {
     }
 
     template <size_t S>
-    auto make_residual_test(const std::array<int, NV> &var_positions) const {
-        return [this, var_positions](const std::array<V, NV> &row) -> bool {
-            bool passes = [&]<size_t... Is>(std::index_sequence<Is...>) {
-                return (semijoin_check<S, Is>(row, var_positions) && ...);
-            }(std::make_index_sequence<NA>{});
-            if (!passes)
-                return false;
-            return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
-                return (filter_check<Fs>(row, var_positions) && ...);
-            }(std::make_index_sequence<std::tuple_size_v<Filters>>{});
-        };
+    auto
+    make_residual_test(const std::array<int, NumVars> &var_positions) const {
+        return
+            [this, var_positions](const std::array<V, NumVars> &row) -> bool {
+                bool passes = [&]<size_t... Is>(std::index_sequence<Is...>) {
+                    return (semijoin_check<S, Is>(row, var_positions) && ...);
+                }(std::make_index_sequence<NumAtoms>{});
+                if (!passes)
+                    return false;
+                return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
+                    return (filter_check<Fs>(row, var_positions) && ...);
+                }(std::make_index_sequence<std::tuple_size_v<Filters>>{});
+            };
     }
 };
 
