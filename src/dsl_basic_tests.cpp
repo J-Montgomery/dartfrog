@@ -593,3 +593,58 @@ TEST(DslIncremental, UpdateAddsNewFacts) {
               (std::vector<std::array<int, 2>>{
                   {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}}));
 }
+
+TEST(DslIncremental, PeanoArithmetic) {
+    auto x = Var<0>();
+    auto y = Var<1>();
+    auto y_next = Var<2>();
+    auto res = Var<3>();
+    auto res_next = Var<4>();
+
+    Datalog dl;
+
+    Predicate<int, 2> succ(dl);
+    Predicate<int, 1> num(dl);
+    Predicate<int, 3> add(dl);
+    Predicate<int, 3> mul(dl);
+
+    auto zero = Const<int>({0});
+
+    // The domain of numbers we'll compute over
+    succ.insert(rel<int>({{0, 1}, {1, 2}, {2, 3}, {3, 4}}));
+
+    dl.add_rule(num(x) <<= zero(x));
+    dl.add_rule(num(x) <<= succ(x, y));
+    dl.add_rule(num(y) <<= succ(x, y));
+
+    dl.add_rule(add(x, y, x) <<= num(x) && zero(y));
+    dl.add_rule(add(x, y_next, res_next) <<=
+                add(x, y, res) && succ(y, y_next) && succ(res, res_next));
+
+    dl.add_rule(mul(x, y, y) <<= num(x) && zero(y));
+    dl.add_rule(mul(x, y_next, res_next) <<=
+                mul(x, y, res) && succ(y, y_next) && add(x, res, res_next));
+
+    dl.solve();
+
+    auto has_fact = [](const auto &vec, const std::array<int, 3> &val) {
+        return std::find(vec.begin(), vec.end(), val) != vec.end();
+    };
+
+    auto add_out = add.extract();
+    EXPECT_TRUE(has_fact(add_out, {1, 2, 3})); // 1 + 2 = 3
+    EXPECT_TRUE(has_fact(add_out, {2, 1, 3})); // 2 + 1 = 3
+
+    auto mul_out = mul.extract();
+    EXPECT_TRUE(has_fact(mul_out, {2, 1, 2})); // 2 * 1 = 2
+    EXPECT_TRUE(has_fact(mul_out, {2, 2, 4})); // 2 * 2 = 4
+
+    succ.insert(rel<int>({{3, 4}}));
+    dl.solve();
+
+    add_out = add.extract();
+    EXPECT_TRUE(has_fact(add_out, {2, 2, 4})); // 2 + 2 = 4
+
+    mul_out = mul.extract();
+    EXPECT_TRUE(has_fact(mul_out, {2, 2, 4})); // 2 * 2 = 4
+}

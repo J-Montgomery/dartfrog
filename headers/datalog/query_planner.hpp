@@ -132,6 +132,7 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
 
 struct ExtSpec {
     size_t atom;
+    size_t propose_col;
 };
 
 template <size_t NumAtoms> struct LevelPlan {
@@ -154,29 +155,26 @@ constexpr auto level_plan(size_t src_idx, size_t bound_vars) {
         if (atom == src_idx)
             continue;
         size_t arity = arities[atom];
-        int max_pos = -1;
+        int propose_col = -1;
+        bool prefix_ok = true;
+        for (size_t col = 0; col < arity; col++) {
+            if (ids[atom][col] < 0) {
+                continue;
+            }
 
-        // Find the maximum binding depth of any variable in this atom
-        // We can only evaluate once the variable is bound
-        for (size_t col = 0; col < arity; col++)
-            if (ids[atom][col] >= 0 && var_positions[ids[atom][col]] > max_pos)
-                max_pos = var_positions[ids[atom][col]];
-
-        // Defer variables that will be bound in a later iteration
-        if (max_pos != (int)bound_vars)
-            continue;
-
-        // Check if variables are bound in the same order as the trie traversal
-        // If not, we have to handle this atom as a residual
-        bool trie_binding_order = true;
-        for (size_t col = 1; col < arity; col++)
-            if (ids[atom][col] < 0 || var_positions[ids[atom][col]] <=
-                                          var_positions[ids[atom][col - 1]]) {
-                trie_binding_order = false;
+            int pos = var_positions[ids[atom][col]];
+            if (pos == static_cast<int>(bound_vars)) {
+                propose_col = static_cast<int>(col);
+                break;
+            } else if (pos > static_cast<int>(bound_vars)) {
+                prefix_ok = false;
                 break;
             }
-        if (trie_binding_order)
-            plan.entries[plan.count++] = {atom};
+        }
+        if (!prefix_ok || propose_col < 0) {
+            continue;
+        }
+        plan.entries[plan.count++] = {atom, static_cast<size_t>(propose_col)};
     }
     return plan;
 }
@@ -269,13 +267,13 @@ template <typename V, size_t K> struct ArrayAppender {
     }
 };
 
-template <size_t Atom, typename V, size_t K, typename Atoms, size_t NumVars>
+template <size_t Atom, size_t ProposeCol, typename V, size_t K, typename Atoms,
+          size_t NumVars>
 auto make_ext(const Atoms &atoms,
               const std::array<int, NumVars> &var_positions) {
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
     constexpr size_t N = arities[Atom];
-    constexpr size_t ProposeCol = N - 1;
 
     std::array<int, ProposeCol> key_positions{};
     for (size_t col = 0; col < ProposeCol; col++)
@@ -300,7 +298,8 @@ auto build_exts(const Atoms &atoms, std::index_sequence<Js...>) {
     constexpr size_t NumVars = num_vars<Atoms>();
     constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
     return std::make_tuple(
-        make_ext<plan.entries[Js].atom, V, K>(atoms, var_positions)...);
+        make_ext<plan.entries[Js].atom, plan.entries[Js].propose_col, V, K>(
+            atoms, var_positions)...);
 }
 
 template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
@@ -361,7 +360,7 @@ struct QueryPlanner {
         }(),
         "All head variables must appear in the body");
 
-    template <size_t S> static constexpr bool source_is_forward_viable() {
+    template <size_t S> static constexpr bool source_is_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
         for (size_t K = source_arity; K < NumVars; K++)
             if (level_plan<Atoms>(S, K).count == 0)
@@ -415,7 +414,7 @@ struct QueryPlanner {
     }
 
     template <size_t S> void do_source() const {
-        if constexpr (source_is_forward_viable<S>()) {
+        if constexpr (source_is_viable<S>()) {
             auto *source_pred = std::get<S>(atoms).pred;
             do_source_impl<S>(source_pred->var.recent());
         }
@@ -425,7 +424,7 @@ struct QueryPlanner {
     // the committed facts recorded in var.stable
     template <size_t S> void do_source_full() const {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        if constexpr (source_is_forward_viable<S>()) {
+        if constexpr (source_is_viable<S>()) {
             auto *source_pred = std::get<S>(atoms).pred;
             for (const auto &batch : source_pred->var.stable)
                 do_source_impl<S>(std::span<const std::array<V, source_arity>>(
