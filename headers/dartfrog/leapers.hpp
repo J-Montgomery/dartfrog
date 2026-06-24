@@ -343,7 +343,7 @@ class TupleLeaper {
     ExtractorT extractor;
 
     void update_ranges(const std::array<V, ProposeCol> &prefix) {
-        if (batches->size() <= MAX_BATCHES) {
+        if (batches->size() >= MAX_BATCHES) {
             throw std::logic_error("Exceeded max batches");
         }
 
