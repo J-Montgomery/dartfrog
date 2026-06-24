@@ -41,6 +41,15 @@ target_sources(dsl_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/dsl_basic_tests.cpp
 )
 
+option(ENABLE_ASAN "Enable ASAN" OFF)
+if(ENABLE_ASAN)
+target_compile_options(dartfrog_tests PRIVATE -fsanitize=address)
+target_link_options(dartfrog_tests PRIVATE -fsanitize=address)
+
+target_compile_options(dsl_tests PRIVATE -fsanitize=address)
+target_link_options(dsl_tests PRIVATE -fsanitize=address)
+endif()
+
 #####################################
 
 enable_testing()

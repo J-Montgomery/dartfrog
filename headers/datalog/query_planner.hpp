@@ -350,6 +350,17 @@ struct QueryPlanner {
     static constexpr size_t NumVars = num_vars<Atoms>();
     static constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
 
+    static_assert(
+        []() {
+            for (size_t id : atom_traits<HeadTerm>::var_ids) {
+                if (id < 0 || id >= NumVars) {
+                    return false;
+                }
+            }
+            return true;
+        }(),
+        "All head variables must appear in the body");
+
     template <size_t S> static constexpr bool source_is_forward_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
         for (size_t K = source_arity; K < NumVars; K++)

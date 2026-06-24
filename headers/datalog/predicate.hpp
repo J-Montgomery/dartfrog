@@ -310,17 +310,17 @@ template <typename V> void Datalog::make_symmetric(Predicate<V, 2> &pred) {
 // without boilerplate
 template <typename V, size_t N>
 auto &Const(std::vector<std::array<V, N>> data) {
-    static std::vector<
-        std::pair<std::vector<std::array<V, N>>, Predicate<V, N>>>
-        cache;
+    using Entry = std::pair<std::vector<std::array<V, N>>, Predicate<V, N>>;
+    static std::vector<std::unique_ptr<Entry>> cache;
 
     for (auto &entry : cache) {
-        if (entry.first == data) {
-            return entry.second;
+        if (entry->first == data) {
+            return entry->second;
         }
     }
 
-    auto &new_entry = cache.emplace_back(data, Predicate<V, N>{});
+    auto &new_entry =
+        *cache.emplace_back(std::make_unique<Entry>(data, Predicate<V, N>{}));
 
     new_entry.second.insert(
         df::Relation<std::array<V, N>>::from_vec(std::move(data)));
