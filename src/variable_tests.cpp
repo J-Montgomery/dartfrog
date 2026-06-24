@@ -80,7 +80,7 @@ TEST(VariableTest, CompleteWhenStable) {
 TEST(VariableTest, CompleteWhenNotStableThrows) {
     Variable<int> v;
     v.insert(Relation<int>::from_vec({1, 2}));
-    EXPECT_THROW(std::move(v).complete(), std::runtime_error);
+    EXPECT_THROW(std::move(v).complete(), std::logic_error);
 }
 
 TEST(VariableTest, ForEachStableSetIteratesBatches) {

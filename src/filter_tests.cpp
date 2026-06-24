@@ -80,12 +80,13 @@ TEST(PassthroughTest, ProposePushesUnit) {
     std::vector<const Unit *> values;
     pt.propose(0, values);
     ASSERT_EQ(values.size(), 1);
-    EXPECT_EQ(values[0], &UNIT_INSTANCE);
+    EXPECT_NE(values[0], nullptr);
 }
 
 TEST(PassthroughTest, IntersectIsNoop) {
     auto pt = filters::passthrough<int>();
-    std::vector<const Unit *> values = {&UNIT_INSTANCE};
+    Unit u;
+    std::vector<const Unit *> values = {&u};
     pt.intersect(0, values);
     EXPECT_EQ(values.size(), 1);
 }

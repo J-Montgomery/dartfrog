@@ -1,11 +1,15 @@
 #pragma once
 
-#include <cassert>
 #include <concepts>
+#include <cstddef>
+#include <iterator>
+#include <limits>
 #include <span>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
-#include "relation.hpp"
+#include "dartfrog/relation.hpp"
 
 namespace df {
 
@@ -45,9 +49,8 @@ concept PairLike = requires {
     { t.second } -> std::convertible_to<const typename T::second_type &>;
 };
 
-template <typename Span1, typename Span2, class ResultCallback>
-constexpr void join_helper(Span1 slice1, Span2 slice2,
-                           ResultCallback &&result_cb) {
+template <typename Span1, typename Span2, typename Callback>
+constexpr void join_helper(Span1 slice1, Span2 slice2, Callback &&result_cb) {
     using K = typename decltype(slice1)::value_type::first_type;
     while (!slice1.empty() && !slice2.empty()) {
         auto k1 = slice1[0].first;
@@ -60,16 +63,16 @@ constexpr void join_helper(Span1 slice1, Span2 slice2,
         } else {
             const K &match_key = k1;
 
-            size_t count1 = 0;
-            while (count1 < slice1.size() && slice1[count1].first == match_key)
-                count1++;
+            auto rest1 = seek(
+                slice1, [&](const auto &x) { return x.first == match_key; });
+            size_t count1 = rest1.data() - slice1.data();
 
-            size_t count2 = 0;
-            while (count2 < slice2.size() && slice2[count2].first == match_key)
-                count2++;
+            auto rest2 = seek(
+                slice2, [&](const auto &x) { return x.first == match_key; });
+            size_t count2 = rest2.data() - slice2.data();
 
-            for (size_t i = 0; i < count1; ++i) {
-                for (size_t j = 0; j < count2; ++j) {
+            for (size_t i = 0; i < count1; i++) {
+                for (size_t j = 0; j < count2; j++) {
                     result_cb(match_key, slice1[i].second, slice2[j].second);
                 }
             }
@@ -100,11 +103,11 @@ constexpr void join_delta(const Input1 &input1, const Input2 &input2,
     join_helper(recent1, recent2, result_cb);
 }
 
-template <class Input1, class Input2, class OutputT, class Logic>
+template <typename Input1, typename Input2, typename Output, typename Logic>
     requires JoinInput<Input2, typename Input2::value_type> &&
              PairLike<typename Input1::value_type>
 constexpr void join_into(const Input1 &input1, const Input2 &input2,
-                         OutputT &output, Logic &&logic) {
+                         Output &output, Logic &&logic) {
 
     using KVTuple = typename Input1::value_type;
     using K = typename KVTuple::first_type;
@@ -123,11 +126,11 @@ constexpr void join_into(const Input1 &input1, const Input2 &input2,
     output.insert(Relation<Result>::from_vec(std::move(results)));
 }
 
-template <typename Input1, typename Input2, typename OutputT, typename Logic>
+template <typename Input1, typename Input2, typename Output, typename Logic>
     requires PairLike<typename Input1::value_type> &&
              JoinInput<Input2, typename Input2::value_type>
 constexpr void join_and_filter_into(const Input1 &input1, const Input2 &input2,
-                                    OutputT &output, Logic &&logic) {
+                                    Output &output, Logic &&logic) {
     using KVTuple = typename Input1::value_type;
     using K = typename KVTuple::first_type;
     using V1 = typename KVTuple::second_type;
@@ -168,10 +171,10 @@ constexpr auto antijoin(const InputRange &input1,
         }
     }
 
-    return Relation<Result>::from_vec(std::move(results));
+    return Relation<Result>{std::move(results)};
 }
 
-template <class Tuple, class Collection, class Logic>
+template <typename Tuple, typename Collection, typename Logic>
     requires(std::totally_ordered<Tuple>) &&
             (std::totally_ordered<
                 typename std::remove_cvref<Collection>::type::value_type>)
@@ -210,7 +213,7 @@ constexpr auto leapjoin(std::span<const Tuple> source, Collection &collection,
         }
     }
 
-    return Relation<Result>::from_vec(std::move(result));
+    return Relation<Result>{std::move(result)};
 }
 
 } // namespace df
