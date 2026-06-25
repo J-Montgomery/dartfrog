@@ -7,10 +7,10 @@
 #include <type_traits>
 #include <utility>
 
-#include "dartfrog/relation.hpp"
-#include "dartfrog/variable.hpp"
+#include "datatoad/relation.hpp"
+#include "datatoad/variable.hpp"
 
-namespace df {
+namespace dt {
 
 template <typename... Variables> class Iteration {
     std::tuple<std::unique_ptr<Variables>...> variables;
@@ -86,4 +86,4 @@ template <typename... Variables> class Iteration {
     template <typename... OtherVars> friend class Iteration;
 };
 
-} // namespace df
+} // namespace dt

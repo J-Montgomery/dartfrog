@@ -6,10 +6,10 @@
 #include <type_traits>
 #include <vector>
 
-#include "dartfrog/leapers.hpp"
 #include "datalog/var.hpp"
+#include "datatoad/leapers.hpp"
 
-namespace df::datalog {
+namespace dt::datalog {
 
 static constexpr size_t MAX_ARITY = 8;
 
@@ -280,15 +280,15 @@ auto make_ext(const Atoms &atoms,
         key_positions[col] = var_positions[ids[Atom][col]];
 
     auto *pred = std::get<Atom>(atoms).pred;
-    df::PrefixExtractor<V, K, ProposeCol> extractor{key_positions};
-    return df::TupleLeaper<V, N, ProposeCol,
-                           df::PrefixExtractor<V, K, ProposeCol>>{
+    dt::PrefixExtractor<V, K, ProposeCol> extractor{key_positions};
+    return dt::TupleLeaper<V, N, ProposeCol,
+                           dt::PrefixExtractor<V, K, ProposeCol>>{
         &pred->var.stable, std::move(extractor)};
 }
 
 template <typename V, size_t K, typename... Exts>
 auto to_coll(std::tuple<Exts...> &&t) {
-    return df::LeaperCollection<std::array<V, K>, V, Exts...>{std::move(t)};
+    return dt::LeaperCollection<std::array<V, K>, V, Exts...>{std::move(t)};
 }
 
 template <typename V, size_t K, size_t S, size_t Klvl, typename Atoms,
@@ -303,8 +303,8 @@ auto build_exts(const Atoms &atoms, std::index_sequence<Js...>) {
 }
 
 template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
-df::Relation<std::array<V, NumVars>>
-extend(df::Relation<std::array<V, K>> prefix, const Atoms &atoms) {
+dt::Relation<std::array<V, NumVars>>
+extend(dt::Relation<std::array<V, K>> prefix, const Atoms &atoms) {
     if constexpr (K == NumVars) {
         return std::move(prefix);
     } else {
@@ -313,25 +313,25 @@ extend(df::Relation<std::array<V, K>> prefix, const Atoms &atoms) {
             atoms, std::make_index_sequence<plan.count>{});
         auto leapers = to_coll<V, K>(std::move(extractors));
         auto next =
-            df::leapjoin(std::span<const std::array<V, K>>(prefix.elements),
+            dt::leapjoin(std::span<const std::array<V, K>>(prefix.elements),
                          leapers, ArrayAppender<V, K>{});
         return extend<V, NumVars, S, K + 1>(std::move(next), atoms);
     }
 }
 
 template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
-df::Relation<std::array<V, NumVars>>
+dt::Relation<std::array<V, NumVars>>
 extend(std::span<const std::array<V, K>> src, const Atoms &atoms) {
     if constexpr (K == NumVars) {
 
-        return df::Relation<std::array<V, NumVars>>{
+        return dt::Relation<std::array<V, NumVars>>{
             std::vector<std::array<V, NumVars>>(src.begin(), src.end())};
     } else {
         constexpr auto plan = level_plan<Atoms>(S, K);
         auto extractors = build_exts<V, K, S, K, Atoms>(
             atoms, std::make_index_sequence<plan.count>{});
         auto leapers = to_coll<V, K>(std::move(extractors));
-        auto next = df::leapjoin(src, leapers, ArrayAppender<V, K>{});
+        auto next = dt::leapjoin(src, leapers, ArrayAppender<V, K>{});
         return extend<V, NumVars, S, K + 1>(std::move(next), atoms);
     }
 }
@@ -399,7 +399,7 @@ struct QueryPlanner {
         // Take care of any residual atoms that couldn't be bound
         // in trie traversal order so LFTJ could deal with them
         if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
-            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_map(
+            head.pred->insert(dt::Relation<std::array<V, head_arity>>::from_map(
                 joined_tuples, project_to_head));
         } else {
             auto keep = make_residual_test<S>(var_positions);
@@ -408,7 +408,7 @@ struct QueryPlanner {
             for (const auto &row : joined_tuples.elements)
                 if (keep(row))
                     result.push_back(project_to_head(row));
-            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_vec(
+            head.pred->insert(dt::Relation<std::array<V, head_arity>>::from_vec(
                 std::move(result)));
         }
     }
@@ -507,4 +507,4 @@ struct QueryPlanner {
     }
 };
 
-} // namespace df::datalog
+} // namespace dt::datalog

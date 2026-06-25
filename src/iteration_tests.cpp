@@ -2,9 +2,9 @@
 #include <string>
 #include <vector>
 
-#include <dartfrog.hpp>
+#include <datatoad.hpp>
 
-using namespace df;
+using namespace dt;
 
 TEST(IterationTest, ChangedReturnsFalseWhenAllStable) {
     auto [iter, v] = Iteration{}.variable<int>();

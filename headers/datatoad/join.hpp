@@ -9,9 +9,9 @@
 #include <utility>
 #include <vector>
 
-#include "dartfrog/relation.hpp"
+#include "datatoad/relation.hpp"
 
-namespace df {
+namespace dt {
 
 template <std::totally_ordered Tuple> class Variable;
 template <std::totally_ordered Tuple> struct Relation;
@@ -216,4 +216,4 @@ constexpr auto leapjoin(std::span<const Tuple> source, Collection &collection,
     return Relation<Result>{std::move(result)};
 }
 
-} // namespace df
+} // namespace dt

@@ -2,9 +2,9 @@
 #include <string>
 #include <vector>
 
-#include <dartfrog.hpp>
+#include <datatoad.hpp>
 
-using namespace df;
+using namespace dt;
 
 TEST(RelationTest, FromVecHandlesDuplicatesAndSorting) {
     std::vector<int> input = {5, 1, 3, 3, 1, 5};

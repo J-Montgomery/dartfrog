@@ -1,9 +1,9 @@
 #include <benchmark/benchmark.h>
-#include <dartfrog.hpp>
-#include <datalog/predicate.hpp>
+#include <datalog.hpp>
+#include <datatoad.hpp>
 #include <random>
 
-using namespace df::datalog;
+using namespace dt::datalog;
 
 static std::vector<std::array<int, 2>> make_random_kout(int n, int k,
                                                         uint64_t seed = 42) {
@@ -36,12 +36,12 @@ static std::vector<std::array<int, 2>> make_windowed_dag(int n, int k, int w,
     return edges;
 }
 
-static df::Relation<std::array<int, 2>>
+static dt::Relation<std::array<int, 2>>
 to_relation(std::vector<std::array<int, 2>> edges) {
-    return df::Relation<std::array<int, 2>>::from_vec(std::move(edges));
+    return dt::Relation<std::array<int, 2>>::from_vec(std::move(edges));
 }
 
-static size_t run_tc(const df::Relation<std::array<int, 2>> &graph) {
+static size_t run_tc(const dt::Relation<std::array<int, 2>> &graph) {
     Datalog dl;
     Predicate<int, 2> edge(dl);
     Predicate<int, 2> tc(dl);
@@ -95,7 +95,7 @@ static void BM_TC_Windowed(benchmark::State &state) {
     state.counters["tc_size"] = (double)tc_size;
 }
 
-static size_t run_tc_magic(const df::Relation<std::array<int, 2>> &graph,
+static size_t run_tc_magic(const dt::Relation<std::array<int, 2>> &graph,
                            int start) {
     Datalog dl;
     Predicate<int, 2> edge(dl);
@@ -107,7 +107,7 @@ static size_t run_tc_magic(const df::Relation<std::array<int, 2>> &graph,
     dl.add_rule(tc(x, y) %= magic_tc(x) && edge(x, y));
     dl.add_rule(tc(x, z) %= magic_tc(x) && tc(x, y) && edge(y, z));
     edge.insert(graph);
-    magic_tc.insert(df::Relation<std::array<int, 1>>::from_vec({{{start}}}));
+    magic_tc.insert(dt::Relation<std::array<int, 1>>::from_vec({{{start}}}));
     dl.solve();
     return tc.extract().size();
 }

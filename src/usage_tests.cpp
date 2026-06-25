@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "dartfrog.hpp"
+#include "datatoad.hpp"
 
-using namespace df;
+using namespace dt;
 
 TEST(UsageTest, TransitiveClosureOneStep) {
     // edge(1,2), edge(2,3) => path(1,2), path(2,3), path(1,3)
@@ -140,7 +140,7 @@ TEST(UsageTest, MultipleRoundsOfFixedPoint) {
         round++;
         reachable->from_join(
             *reachable, *edge, *reachable,
-            [](int x, df::Unit _, int y) { return std::pair{y, df::Unit{}}; });
+            [](int x, dt::Unit _, int y) { return std::pair{y, dt::Unit{}}; });
     }
 
     auto result = std::move(*reachable).complete();

@@ -14,9 +14,9 @@
 #include <utility>
 #include <vector>
 
-#include "dartfrog/relation.hpp"
+#include "datatoad/relation.hpp"
 
-namespace df {
+namespace dt {
 
 template <typename T, typename Tuple, typename Val>
 concept Leaper = requires(T l, const Tuple &t, std::vector<const Val *> &v) {
@@ -151,7 +151,7 @@ class ExtendWith {
         Key key = key_func(prefix);
         if (!cached_key || *cached_key != key) {
             std::span all{relation->elements};
-            auto range = df::key_range(all, key,
+            auto range = dt::key_range(all, key,
                                        [](const auto &kv) { return kv.first; });
             start = range.data() - all.data();
             end = start + range.size();
@@ -172,7 +172,7 @@ class ExtendWith {
         auto write_it = values.begin();
         for (const Val *v : values) {
             slice =
-                df::seek(slice, [&](const auto &kv) { return kv.second < *v; });
+                dt::seek(slice, [&](const auto &kv) { return kv.second < *v; });
             if (!slice.empty() && slice[0].second == *v) {
                 *write_it = v;
                 ++write_it;
@@ -214,7 +214,7 @@ class ExtendAnti {
         Key key = key_func(prefix);
         if (!cached_range || cached_range->key != key) {
             std::span all{relation->elements};
-            auto range = df::key_range(all, key,
+            auto range = dt::key_range(all, key,
                                        [](const auto &kv) { return kv.first; });
             size_t range_start = range.data() - all.data();
             cached_range = Cache{key, range_start, range_start + range.size()};
@@ -227,7 +227,7 @@ class ExtendAnti {
 
         std::erase_if(values, [slice](const Val *v) mutable {
             slice =
-                df::seek(slice, [&](const auto &kv) { return kv.second < *v; });
+                dt::seek(slice, [&](const auto &kv) { return kv.second < *v; });
             return !slice.empty() && slice[0].second == *v;
         });
     }
@@ -420,4 +420,4 @@ class TupleLeaper {
     }
 };
 
-} // namespace df
+} // namespace dt

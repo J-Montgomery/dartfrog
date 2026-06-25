@@ -2,9 +2,9 @@
 #include <string>
 #include <vector>
 
-#include <dartfrog.hpp>
+#include <datatoad.hpp>
 
-using namespace df;
+using namespace dt;
 
 TEST(MergeUniqueTest, HandlesEmptyVectors) {
     std::vector<int> a = {1, 2, 3};

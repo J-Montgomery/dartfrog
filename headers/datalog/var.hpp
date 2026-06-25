@@ -3,7 +3,7 @@
 #include <tuple>
 #include <type_traits>
 
-namespace df::datalog {
+namespace dt::datalog {
 
 template <int N> struct Var {
     static constexpr int id = N;
@@ -99,4 +99,4 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
         c.pos, std::tuple_cat(c.filt, std::make_tuple(f))};
 }
 
-} // namespace df::datalog
+} // namespace dt::datalog
