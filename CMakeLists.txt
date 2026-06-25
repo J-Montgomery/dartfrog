@@ -63,3 +63,12 @@ find_package(benchmark REQUIRED)
 add_executable(tc_benchmark src/tc_benchmark.cpp)
 target_link_libraries(tc_benchmark dartfrog benchmark::benchmark)
 target_compile_options(tc_benchmark PRIVATE -O3)
+
+#####################################
+# Frank McSherry's crdt benchmark
+add_executable(crdt_benchmark)
+target_link_libraries(crdt_benchmark dartfrog GTest::gtest_main)
+target_sources(crdt_benchmark PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/crdt_benchmark.cpp
+)
+target_compile_options(crdt_benchmark PRIVATE -O3)
