@@ -303,7 +303,7 @@ template <typename V, size_t N> struct Predicate {
 template <typename V> void Datalog::make_symmetric(Predicate<V, 2> &pred) {
     Var<0> x;
     Var<1> y;
-    add_rule(pred(y, x) <<= pred(x, y));
+    add_rule(pred(y, x) %= pred(x, y));
 }
 
 // Quick convenience wrappers to allow constant literals

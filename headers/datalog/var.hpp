@@ -19,7 +19,7 @@ template <typename Head, typename Body> struct Rule;
 template <typename Pred, typename... Vars> struct Term {
     Pred *pred;
 
-    template <typename BodyT> auto operator<<=(const BodyT &body) const {
+    template <typename BodyT> auto operator%=(const BodyT &body) const {
         return Rule<Term, BodyT>{*this, body};
     }
 };
