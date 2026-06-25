@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "datalog/var.hpp"
+#include "datatoad/join.hpp"
 #include "datatoad/leapers.hpp"
 
 namespace dt::datalog {
