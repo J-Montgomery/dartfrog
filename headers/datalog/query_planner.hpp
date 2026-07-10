@@ -591,8 +591,12 @@ struct QueryPlanner {
             do_source_impl_lftj<S>(src);
     }
 
+    template <size_t S> static constexpr bool source_enabled() {
+        return !has_duplicate_var_atom<Atoms>() || source_is_viable<S>();
+    }
+
     template <size_t S> void do_source() const {
-        if constexpr (source_is_viable<S>()) {
+        if constexpr (source_enabled<S>()) {
             auto *source_pred = std::get<S>(atoms).pred;
             do_source_impl<S>(source_pred->var.recent());
         }
@@ -602,7 +606,7 @@ struct QueryPlanner {
     // the committed facts recorded in var.stable
     template <size_t S> void do_source_full() const {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        if constexpr (source_is_viable<S>()) {
+        if constexpr (source_enabled<S>()) {
             auto *source_pred = std::get<S>(atoms).pred;
             for (const auto &batch : source_pred->var.stable)
                 do_source_impl<S>(std::span<const std::array<V, source_arity>>(
