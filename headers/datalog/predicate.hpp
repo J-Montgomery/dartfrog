@@ -133,6 +133,12 @@ class Datalog {
              +[](void *x) { static_cast<P *>(x)->snapshot(); }});
     }
 
+    template <std::size_t N> static constexpr auto vars() {
+        return []<std::size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(Var<static_cast<int>(Is)>{}...);
+        }(std::make_index_sequence<N>{});
+    }
+
     template <typename V> void make_symmetric(Predicate<V, 2> &pred);
 
     template <int... Cols, typename V, size_t N>
