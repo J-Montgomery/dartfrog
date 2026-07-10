@@ -111,3 +111,18 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
 }
 
 } // namespace df::datalog
+
+// DL_VARS(a, b, c, ...) declares up to 8 named rule variables bound to
+// Var<0>, Var<1>, ... in listing order, so a ported rule can name
+// its variables instead of hand-numbering positional Var<N>:
+//
+//   DL_VARS(x, y, z);
+//   dl.add_rule(Foo(c, y) %= Bar(z, y) && Baz(x, z));
+//
+// To improve performance, list variables in the order they appear in columns
+#define DT_DL_NARG(...) DT_DL_NARG_IMPL(__VA_ARGS__, DT_DL_RSEQ_N())
+#define DT_DL_NARG_IMPL(...) DT_DL_ARG_N(__VA_ARGS__)
+#define DT_DL_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, N, ...) N
+#define DT_DL_RSEQ_N() 8, 7, 6, 5, 4, 3, 2, 1, 0
+#define DL_VARS(...)                                                           \
+    auto [__VA_ARGS__] = ::df::datalog::Datalog::vars<DT_DL_NARG(__VA_ARGS__)>()
