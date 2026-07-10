@@ -373,6 +373,31 @@ template <typename Atoms> constexpr bool has_duplicate_var_atom() {
     return false;
 }
 
+// Normalize a rule's head spec to a tuple of head Terms, so
+// a single Term<...> becomes a one-element tuple and
+// a MultiHead<Hs...> unwraps to its heads.
+template <typename H> struct head_tuple_of {
+    using type = std::tuple<H>;
+};
+template <typename... Hs> struct head_tuple_of<MultiHead<Hs...>> {
+    using type = std::tuple<Hs...>;
+};
+
+// True iff Head references only variable ids in [0, NumVars).
+template <typename Head, size_t NumVars> constexpr bool one_head_covered() {
+    for (int id : atom_traits<Head>::var_ids)
+        if (id < 0 || id >= static_cast<int>(NumVars))
+            return false;
+    return true;
+}
+
+// True iff every head in HeadTup references only variable ids in [0, NumVars).
+template <typename HeadTup, size_t NumVars, size_t... Hs>
+constexpr bool all_heads_covered(std::index_sequence<Hs...>) {
+    return (one_head_covered<std::tuple_element_t<Hs, HeadTup>, NumVars>() &&
+            ...);
+}
+
 template <typename HeadTerm, typename Atoms, typename Filters>
 struct QueryPlanner {
     HeadTerm head;
@@ -390,16 +415,21 @@ struct QueryPlanner {
     static constexpr size_t NumVars = num_vars<Atoms>();
     static constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
 
-    static_assert(
-        []() {
-            for (size_t id : atom_traits<HeadTerm>::var_ids) {
-                if (id < 0 || id >= NumVars) {
-                    return false;
-                }
-            }
-            return true;
-        }(),
-        "All head variables must appear in the body");
+    using HeadTuple = typename head_tuple_of<HeadTerm>::type;
+    static constexpr size_t NumHeads = std::tuple_size_v<HeadTuple>;
+
+    template <size_t H> using HeadAt = std::tuple_element_t<H, HeadTuple>;
+
+    template <size_t H> auto *head_pred() const {
+        if constexpr (is_multihead<HeadTerm>::value)
+            return std::get<H>(head.heads).pred;
+        else
+            return head.pred;
+    }
+
+    static_assert(all_heads_covered<HeadTuple, NumVars>(
+                      std::make_index_sequence<NumHeads>{}),
+                  "All head variables must appear in the body");
 
     template <size_t S> static constexpr bool source_is_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
@@ -496,10 +526,6 @@ struct QueryPlanner {
     void do_source_impl_lftj(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-        constexpr auto head_var_ids = atom_traits<HeadTerm>::var_ids;
-        constexpr size_t head_arity = atom_traits<HeadTerm>::arity;
-        constexpr auto head_positions =
-            project<head_arity>(var_positions, head_var_ids);
 
         auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(atom_spans<S, Is>(src)...);
@@ -523,16 +549,24 @@ struct QueryPlanner {
         }(std::make_index_sequence<NumAtoms>{});
 
         [[maybe_unused]] auto keep = make_filter_test<S>(var_positions);
-        std::vector<std::array<V, head_arity>> batch;
         constexpr size_t FLUSH_ROWS = size_t{1} << 16;
-        batch.reserve(FLUSH_ROWS);
-        auto flush = [&]() {
-            if (batch.empty())
+        auto batches = [&]<size_t... Hs>(std::index_sequence<Hs...>) {
+            return std::make_tuple(
+                std::vector<
+                    std::array<V, atom_traits<HeadAt<Hs>>::arity>>{}...);
+        }(std::make_index_sequence<NumHeads>{});
+        for_indices<NumHeads>(
+            [&]<size_t H>() { std::get<H>(batches).reserve(FLUSH_ROWS); });
+
+        auto flush_head = [&]<size_t H>() {
+            auto &b = std::get<H>(batches);
+            if (b.empty())
                 return;
-            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_vec(
-                std::move(batch)));
-            batch.clear();
-            batch.reserve(FLUSH_ROWS);
+            constexpr size_t head_atom = atom_traits<HeadAt<H>>::arity;
+            head_pred<H>()->insert(
+                df::Relation<std::array<V, head_atom>>::from_vec(std::move(b)));
+            b.clear();
+            b.reserve(FLUSH_ROWS);
         };
 
         std::array<V, NumVars> row{};
@@ -544,11 +578,19 @@ struct QueryPlanner {
                 if constexpr (std::tuple_size_v<Filters> > 0)
                     if (!keep(row))
                         return;
-                batch.push_back(project<head_arity>(row, head_positions));
-                if (batch.size() >= FLUSH_ROWS)
-                    flush();
+                for_indices<NumHeads>([&]<size_t H>() {
+                    constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
+                    constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+                    constexpr auto hpos =
+                        project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
+                    auto &b = std::get<H>(batches);
+                    b.push_back(project<ha>(row, hpos));
+                    if (b.size() >= FLUSH_ROWS)
+                        flush_head.template operator()<H>();
+                });
             });
-        flush();
+        for_indices<NumHeads>(
+            [&]<size_t H>() { flush_head.template operator()<H>(); });
     }
 
     // Breadth-first fallback (materializes each level) for rules with repeated
@@ -559,26 +601,39 @@ struct QueryPlanner {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
         auto joined_tuples = extend<V, NumVars, S, source_arity>(src, atoms);
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-        constexpr auto head_var_ids = atom_traits<HeadTerm>::var_ids;
-        constexpr size_t head_arity = atom_traits<HeadTerm>::arity;
-        constexpr auto head_positions =
-            project<head_arity>(var_positions, head_var_ids);
-        auto project_to_head = [&](const std::array<V, NumVars> &row) {
-            return project<head_arity>(row, head_positions);
-        };
 
         if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
-            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_map(
-                joined_tuples, project_to_head));
+            for_indices<NumHeads>([&]<size_t H>() {
+                constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
+                constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+                constexpr auto hpos =
+                    project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
+                head_pred<H>()->insert(
+                    df::Relation<std::array<V, ha>>::from_map(
+                        joined_tuples, [&](const std::array<V, NumVars> &row) {
+                            return project<ha>(row, hpos);
+                        }));
+            });
         } else {
             auto keep = make_residual_test<S>(var_positions);
-            std::vector<std::array<V, head_arity>> result;
-            result.reserve(joined_tuples.elements.size());
+            std::vector<std::array<V, NumVars>> kept;
+            kept.reserve(joined_tuples.elements.size());
             for (const auto &row : joined_tuples.elements)
                 if (keep(row))
-                    result.push_back(project_to_head(row));
-            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_vec(
-                std::move(result)));
+                    kept.push_back(row);
+            for_indices<NumHeads>([&]<size_t H>() {
+                constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
+                constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+                constexpr auto hpos =
+                    project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
+                std::vector<std::array<V, ha>> result;
+                result.reserve(kept.size());
+                for (const auto &row : kept)
+                    result.push_back(project<ha>(row, hpos));
+                head_pred<H>()->insert(
+                    df::Relation<std::array<V, ha>>::from_vec(
+                        std::move(result)));
+            });
         }
     }
 

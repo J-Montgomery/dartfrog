@@ -314,6 +314,44 @@ class Datalog {
         evaluators.push_back(make_eval(std::move(runner)));
     }
 
+    // Add a multi-head rule
+    template <typename... Heads, typename Atoms, typename Filters>
+    void add_rule(
+        const Rule<MultiHead<Heads...>, Conjunction<Atoms, Filters>> &rule) {
+        constexpr size_t H = sizeof...(Heads);
+        const std::array<size_t, H> head_idxs =
+            [&]<size_t... Hs>(std::index_sequence<Hs...>) {
+                return std::array<size_t, H>{
+                    get_or_add_pred(std::get<Hs>(rule.head.heads).pred)...};
+            }(std::make_index_sequence<H>{});
+        for (size_t hi : head_idxs) {
+            register_pos_deps(
+                rule.body.pos, hi,
+                std::make_index_sequence<std::tuple_size_v<Atoms>>{});
+            register_neg_deps<Filters>(rule.body.filt, hi);
+        }
+        // Tie every head to head_idxs[0]'s stratum with zero-weight edges.
+        for (size_t k = 1; k < H; k++) {
+            add_dep(head_idxs[0], head_idxs[k], false);
+            add_dep(head_idxs[k], head_idxs[0], false);
+        }
+        eval_head_idx.push_back(head_idxs[0]);
+        QueryPlanner<MultiHead<Heads...>, Atoms, Filters> runner{
+            rule.head, rule.body.pos, rule.body.filt};
+        bind_indexes(runner);
+        evaluators.push_back(make_eval(std::move(runner)));
+    }
+
+    // Multi-head rule with a single body atom: wrap the body in a Conjunction.
+    template <typename... Heads, typename BodyPred, typename... BodyVars>
+    void add_rule(
+        const Rule<MultiHead<Heads...>, Term<BodyPred, BodyVars...>> &rule) {
+        using Conj =
+            Conjunction<std::tuple<Term<BodyPred, BodyVars...>>, std::tuple<>>;
+        add_rule(Rule<MultiHead<Heads...>, Conj>{
+            rule.head, Conj{std::make_tuple(rule.body), {}}});
+    }
+
     void solve() {
         auto stratum_evals = compute_strata();
         for (const auto &evals : stratum_evals) {

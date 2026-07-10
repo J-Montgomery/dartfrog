@@ -29,6 +29,30 @@ template <typename Head, typename Body> struct Rule {
     Body body;
 };
 
+template <typename... Heads> struct MultiHead {
+    std::tuple<Heads...> heads;
+
+    template <typename BodyT> auto operator%=(const BodyT &body) const {
+        return Rule<MultiHead, BodyT>{*this, body};
+    }
+};
+
+template <typename T> struct is_multihead : std::false_type {};
+template <typename... Heads>
+struct is_multihead<MultiHead<Heads...>> : std::true_type {};
+
+// Yes, overriding the comma operator is awful and should never be done,
+// but it looks so much better than the alternatives I've come up with
+template <typename P1, typename... V1, typename P2, typename... V2>
+auto operator,(const Term<P1, V1...> &a, const Term<P2, V2...> &b) {
+    return MultiHead<Term<P1, V1...>, Term<P2, V2...>>{std::make_tuple(a, b)};
+}
+template <typename... Heads, typename P, typename... V>
+auto operator,(const MultiHead<Heads...> &m, const Term<P, V...> &b) {
+    return MultiHead<Heads..., Term<P, V...>>{
+        std::tuple_cat(m.heads, std::make_tuple(b))};
+}
+
 template <typename Pred, typename... Vars> struct NegatedTerm {
     Pred *pred;
 };
