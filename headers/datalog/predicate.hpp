@@ -135,8 +135,9 @@ class Datalog {
 
     template <typename V> void make_symmetric(Predicate<V, 2> &pred);
 
-    template <int LeftCol, int RightCol, typename V>
-    void make_reindexed(Predicate<V, 2> &source, Predicate<V, 2> &target);
+    template <int... Cols, typename V, size_t N>
+        requires(sizeof...(Cols) == N)
+    void make_reindexed(Predicate<V, N> &source, Predicate<V, N> &target);
 
     template <typename HeadPred, typename... HeadVars, typename BodyPred,
               typename... BodyVars>
@@ -309,14 +310,12 @@ template <typename V> void Datalog::make_symmetric(Predicate<V, 2> &pred) {
     add_rule(pred(y, x) %= pred(x, y));
 }
 
-template <int LeftCol, int RightCol, typename V>
-void Datalog::make_reindexed(Predicate<V, 2> &source, Predicate<V, 2> &target) {
-    static_assert(LeftCol != RightCol,
-                  "output column indices must be distinct");
-    static_assert(LeftCol >= 0 && LeftCol < 2 && RightCol >= 0 && RightCol < 2,
-                  "column indices must be 0 or 1 for binary relations");
-    add_rule(target(Var<LeftCol>{}, Var<RightCol>{}) %=
-             source(Var<0>{}, Var<1>{}));
+template <int... Cols, typename V, size_t N>
+    requires(sizeof...(Cols) == N)
+void Datalog::make_reindexed(Predicate<V, N> &source, Predicate<V, N> &target) {
+    [&]<size_t... Js>(std::index_sequence<Js...>) {
+        add_rule(target(Var<Cols>{}...) %= source(Var<(int)Js>{}...));
+    }(std::make_index_sequence<N>{});
 }
 
 // Quick convenience wrappers to allow constant literals
