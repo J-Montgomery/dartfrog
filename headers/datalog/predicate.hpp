@@ -13,10 +13,10 @@
 #include <utility>
 #include <vector>
 
-#include "datalog/query_planner.hpp"
-#include "datalog/var.hpp"
 #include "dartfrog/relation.hpp"
 #include "dartfrog/variable.hpp"
+#include "datalog/query_planner.hpp"
+#include "datalog/var.hpp"
 
 namespace df::datalog {
 
@@ -315,7 +315,8 @@ void Datalog::make_reindexed(Predicate<V, 2> &source, Predicate<V, 2> &target) {
                   "output column indices must be distinct");
     static_assert(LeftCol >= 0 && LeftCol < 2 && RightCol >= 0 && RightCol < 2,
                   "column indices must be 0 or 1 for binary relations");
-    add_rule(target(Var<LeftCol>{}, Var<RightCol>{}) %= source(Var<0>{}, Var<1>{}));
+    add_rule(target(Var<LeftCol>{}, Var<RightCol>{}) %=
+             source(Var<0>{}, Var<1>{}));
 }
 
 // Quick convenience wrappers to allow constant literals

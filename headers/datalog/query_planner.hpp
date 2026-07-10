@@ -6,9 +6,9 @@
 #include <type_traits>
 #include <vector>
 
-#include "datalog/var.hpp"
 #include "dartfrog/join.hpp"
 #include "dartfrog/leapers.hpp"
+#include "datalog/var.hpp"
 
 namespace df::datalog {
 

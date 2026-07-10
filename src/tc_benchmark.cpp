@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
-#include <datalog.hpp>
 #include <dartfrog.hpp>
+#include <datalog.hpp>
 #include <random>
 
 using namespace df::datalog;
