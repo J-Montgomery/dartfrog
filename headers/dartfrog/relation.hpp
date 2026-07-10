@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace dt {
+namespace df {
 
 // Utility functions
 
@@ -173,4 +173,4 @@ constexpr void dedup_against(Relation<T> &rel,
     }
 }
 
-} // namespace dt
+} // namespace df

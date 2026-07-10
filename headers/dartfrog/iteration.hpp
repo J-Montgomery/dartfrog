@@ -10,7 +10,7 @@
 #include "dartfrog/relation.hpp"
 #include "dartfrog/variable.hpp"
 
-namespace dt {
+namespace df {
 
 template <typename... Variables> class Iteration {
     std::tuple<std::unique_ptr<Variables>...> variables;
@@ -86,4 +86,4 @@ template <typename... Variables> class Iteration {
     template <typename... OtherVars> friend class Iteration;
 };
 
-} // namespace dt
+} // namespace df

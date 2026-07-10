@@ -4,7 +4,7 @@
 
 #include <dartfrog.hpp>
 
-using namespace dt;
+using namespace df;
 
 TEST(IterationTest, ChangedReturnsFalseWhenAllStable) {
     auto [iter, v] = Iteration{}.variable<int>();

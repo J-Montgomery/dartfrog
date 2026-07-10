@@ -4,7 +4,7 @@
 
 #include <dartfrog.hpp>
 
-using namespace dt;
+using namespace df;
 
 TEST(MergeUniqueTest, HandlesEmptyVectors) {
     std::vector<int> a = {1, 2, 3};

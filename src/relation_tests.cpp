@@ -4,7 +4,7 @@
 
 #include <dartfrog.hpp>
 
-using namespace dt;
+using namespace df;
 
 TEST(RelationTest, FromVecHandlesDuplicatesAndSorting) {
     std::vector<int> input = {5, 1, 3, 3, 1, 5};

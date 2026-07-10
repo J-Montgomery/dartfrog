@@ -7,12 +7,12 @@
 #include <datalog.hpp>
 #include <gtest/gtest.h>
 
-using namespace dt::datalog;
+using namespace df::datalog;
 namespace {
 
 template <class T>
-dt::Relation<std::array<T, 2>> rel(std::vector<std::array<T, 2>> v) {
-    return dt::Relation<std::array<T, 2>>::from_vec(std::move(v));
+df::Relation<std::array<T, 2>> rel(std::vector<std::array<T, 2>> v) {
+    return df::Relation<std::array<T, 2>>::from_vec(std::move(v));
 }
 
 template <class T> std::vector<T> sorted(std::vector<T> v) {
@@ -525,7 +525,7 @@ TEST(DslQuery, DetachedPredicateFromExternalData) {
     using T2 = std::array<int, 2>;
     Predicate<int, 2> graph;
     graph.insert(
-        dt::Relation<T2>::from_vec({{1, 2}, {1, 3}, {2, 3}, {2, 4}, {3, 4}}));
+        df::Relation<T2>::from_vec({{1, 2}, {1, 3}, {2, 3}, {2, 4}, {3, 4}}));
     graph.commit();
 
     Datalog query_dl;

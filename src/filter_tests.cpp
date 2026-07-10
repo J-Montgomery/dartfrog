@@ -4,7 +4,7 @@
 
 #include <dartfrog.hpp>
 
-using namespace dt;
+using namespace df;
 
 // Prefix Filter tests
 TEST(PrefixFilterTest, PredicateTrueReturnsMax) {

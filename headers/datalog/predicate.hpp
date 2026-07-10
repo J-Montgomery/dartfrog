@@ -18,7 +18,7 @@
 #include "dartfrog/relation.hpp"
 #include "dartfrog/variable.hpp"
 
-namespace dt::datalog {
+namespace df::datalog {
 
 template <typename P>
 concept IsPredicate = requires(P &p) {
@@ -222,21 +222,21 @@ template <typename V, size_t N> struct Predicate {
     // var.stable holds the current facts
     // var.recent_data holds new facts discovered in the last iteration
     // var.to_add holds newly produced facts during the iteration
-    dt::Variable<TupleT> var;
+    df::Variable<TupleT> var;
 
     // Provide a default constructor so Predicate can be used as a free query
     // body
     Predicate() = default;
     Predicate(Datalog &dl) { dl.register_predicate(this); }
 
-    void insert(const dt::Relation<TupleT> &rel) { var.insert(rel); }
+    void insert(const df::Relation<TupleT> &rel) { var.insert(rel); }
 
     // Promote the new facts from the last iteration
     // into var.stable
     void snapshot() {
         if (var.recent_data.empty())
             return;
-        dt::Relation<TupleT> incoming{
+        df::Relation<TupleT> incoming{
             std::vector<TupleT>(var.recent_data.elements)};
         while (!var.stable.empty() &&
                var.stable.back().size() <= 2 * incoming.size()) {
@@ -260,13 +260,13 @@ template <typename V, size_t N> struct Predicate {
         var.recent_data = {};
         if (var.to_add.empty())
             return false;
-        dt::Relation<TupleT> incoming = std::move(var.to_add.back());
+        df::Relation<TupleT> incoming = std::move(var.to_add.back());
         var.to_add.pop_back();
         while (!var.to_add.empty()) {
             incoming = std::move(incoming).merge(std::move(var.to_add.back()));
             var.to_add.pop_back();
         }
-        dt::dedup_against(incoming, var.stable);
+        df::dedup_against(incoming, var.stable);
         if (incoming.empty())
             return false;
         var.recent_data = std::move(incoming);
@@ -323,7 +323,7 @@ auto &Const(std::vector<std::array<V, N>> data) {
         *cache.emplace_back(std::make_unique<Entry>(data, Predicate<V, N>{}));
 
     new_entry.second.insert(
-        dt::Relation<std::array<V, N>>::from_vec(std::move(data)));
+        df::Relation<std::array<V, N>>::from_vec(std::move(data)));
     new_entry.second.commit();
 
     return new_entry.second;
@@ -340,4 +340,4 @@ template <typename V> auto &Const(std::initializer_list<V> values) {
     return Const<V, 1>(std::move(data));
 }
 
-} // namespace dt::datalog
+} // namespace df::datalog

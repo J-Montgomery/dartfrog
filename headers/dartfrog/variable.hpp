@@ -12,7 +12,7 @@
 #include "dartfrog/join.hpp"
 #include "dartfrog/relation.hpp"
 
-namespace dt {
+namespace df {
 
 template <typename T>
 concept IterationVariable = requires(T v) {
@@ -93,7 +93,7 @@ template <std::totally_ordered Tuple> class Variable {
             }
 
             if (distinct) {
-                dt::dedup_against(current_to_add, stable);
+                df::dedup_against(current_to_add, stable);
             }
             recent_data = std::move(current_to_add);
         }
@@ -114,26 +114,26 @@ template <std::totally_ordered Tuple> class Variable {
     template <class Input1, class Input2, class OutputVariable, class Logic>
     constexpr void from_join(const Input1 &input1, const Input2 &input2,
                              OutputVariable &output, Logic &&logic) {
-        dt::join_into(input1, input2, output, std::forward<Logic>(logic));
+        df::join_into(input1, input2, output, std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Input2, typename Logic>
-        requires dt::PairLike<KVTuple> &&
-                 dt::JoinInput<Input2, typename Input2::value_type>
+        requires df::PairLike<KVTuple> &&
+                 df::JoinInput<Input2, typename Input2::value_type>
     constexpr void from_join_filtered(const Variable<KVTuple> &input1,
                                       const Input2 &input2, Logic &&logic) {
-        dt::join_and_filter_into(input1, input2, *this,
+        df::join_and_filter_into(input1, input2, *this,
                                  std::forward<Logic>(logic));
     }
 
     template <typename KVTuple, typename Logic>
-        requires dt::PairLike<KVTuple>
+        requires df::PairLike<KVTuple>
     constexpr void
     from_antijoin(const Variable<KVTuple> &input1,
                   const Relation<typename KVTuple::first_type> &input2,
                   Logic &&logic) {
         this->insert(
-            dt::antijoin(input1.recent(), input2, std::forward<Logic>(logic)));
+            df::antijoin(input1.recent(), input2, std::forward<Logic>(logic)));
     }
 
     template <typename Input1, typename Collection, typename Logic>
@@ -160,4 +160,4 @@ void map_into(const Variable<T1> &input, Variable<T2> &output, Logic &&logic) {
     output.insert(Relation<T2>::from_vec(std::move(results)));
 }
 
-} // namespace dt
+} // namespace df
