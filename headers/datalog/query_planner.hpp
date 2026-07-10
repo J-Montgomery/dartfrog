@@ -192,8 +192,15 @@ constexpr auto level_plan(size_t src_idx, size_t bound_vars) {
 }
 
 template <typename T> struct is_negated : std::false_type {};
-template <typename P, typename A, typename B>
-struct is_negated<NegatedTerm<P, A, B>> : std::true_type {};
+template <typename P, typename... Vars>
+struct is_negated<NegatedTerm<P, Vars...>> : std::true_type {};
+
+template <typename T> struct negated_var_ids;
+template <typename P, int... Ids>
+struct negated_var_ids<NegatedTerm<P, Var<Ids>...>> {
+    static constexpr size_t arity = sizeof...(Ids);
+    static constexpr std::array<int, sizeof...(Ids)> value = {Ids...};
+};
 
 template <typename T> struct is_expression_filter : std::false_type {};
 template <typename Func, int... VarIds>
@@ -207,11 +214,6 @@ struct expression_filter_var_ids_impl<ExpressionFilter<Func, VarIds...>> {
 };
 
 template <typename T> struct filter_vars;
-template <typename P, int A, int B>
-struct filter_vars<NegatedTerm<P, Var<A>, Var<B>>> {
-    static constexpr int a_id = A;
-    static constexpr int b_id = B;
-};
 template <Cmp Op, int A, int B>
 struct filter_vars<Compare<Op, Var<A>, Var<B>>> {
     static constexpr int a_id = A;
@@ -664,6 +666,13 @@ struct QueryPlanner {
                 return std::get<F>(filters).func(
                     tuple[var_positions[ids[Is]]]...);
             }(std::make_index_sequence<ids.size()>{});
+        } else if constexpr (is_negated<Filt>::value) {
+            constexpr auto ids = negated_var_ids<Filt>::value;
+            constexpr size_t arity = negated_var_ids<Filt>::arity;
+            std::array<V, arity> key;
+            for (size_t i = 0; i < arity; i++)
+                key[i] = tuple[var_positions[ids[i]]];
+            return !std::get<F>(filters).pred->stable_contains(key);
         } else {
             constexpr int var_id_a = filter_vars<Filt>::a_id;
             constexpr int var_id_b = filter_vars<Filt>::b_id;
@@ -671,13 +680,8 @@ struct QueryPlanner {
                           "filter variable not bound by a positive body atom");
             int pos_a = var_positions[var_id_a],
                 pos_b = var_positions[var_id_b];
-            if constexpr (is_negated<Filt>::value) {
-                return !std::get<F>(filters).pred->stable_contains(
-                    {tuple[pos_a], tuple[pos_b]});
-            } else {
-                constexpr Cmp op = filter_vars<Filt>::op;
-                return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
-            }
+            constexpr Cmp op = filter_vars<Filt>::op;
+            return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
         }
     }
 

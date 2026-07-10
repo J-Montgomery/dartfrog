@@ -29,13 +29,13 @@ template <typename Head, typename Body> struct Rule {
     Body body;
 };
 
-template <typename Pred, typename V1, typename V2> struct NegatedTerm {
+template <typename Pred, typename... Vars> struct NegatedTerm {
     Pred *pred;
 };
 
-template <typename Pred, typename V1, typename V2>
-auto operator!(const Term<Pred, V1, V2> &t) {
-    return NegatedTerm<Pred, V1, V2>{t.pred};
+template <typename Pred, typename... Vars>
+auto operator!(const Term<Pred, Vars...> &t) {
+    return NegatedTerm<Pred, Vars...>{t.pred};
 }
 
 enum class Cmp { Lt, Le, Gt, Ge, Ne, Eq };
