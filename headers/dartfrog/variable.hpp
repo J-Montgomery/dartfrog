@@ -102,8 +102,12 @@ template <std::totally_ordered Tuple> class Variable {
     }
 
     constexpr void insert(Relation<Tuple> relation) {
-        if (!relation.empty()) {
-            to_add.push_back(std::move(relation));
+        if (relation.empty()) {
+            return;
+        }
+        to_add.push_back(std::move(relation));
+        if (distinct && should_compact_pending()) {
+            compact_pending();
         }
     }
 
@@ -146,6 +150,40 @@ template <std::totally_ordered Tuple> class Variable {
             leapjoin(source.recent(), std::forward<Collection>(leapers),
                      std::forward<Logic>(logic));
         this->insert(Relation<Tuple>::from_vec(std::move(result.elements)));
+    }
+
+  private:
+    static constexpr size_t pending_growth_factor_ = 2;
+    static constexpr size_t min_dedup_size_ = 4096;
+
+    constexpr size_t pending_size() const {
+        return std::accumulate(
+            to_add.begin(), to_add.end(), size_t{0},
+            [](size_t sum, const auto &rel) { return sum + rel.size(); });
+    }
+
+    constexpr bool should_compact_pending() const {
+        size_t reference = recent_data.size();
+        if (reference < min_dedup_size_) {
+            reference = min_dedup_size_;
+        }
+        return pending_size() > pending_growth_factor_ * reference;
+    }
+
+    constexpr void compact_pending() {
+        if (to_add.empty()) {
+            return;
+        }
+        Relation<Tuple> merged = std::move(to_add.back());
+        to_add.pop_back();
+        while (!to_add.empty()) {
+            merged = std::move(merged).merge(std::move(to_add.back()));
+            to_add.pop_back();
+        }
+        df::dedup_against(merged, stable);
+        if (!merged.empty()) {
+            to_add.push_back(std::move(merged));
+        }
     }
 };
 
