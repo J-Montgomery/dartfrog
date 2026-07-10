@@ -1,4 +1,4 @@
-# DataToad
+# Dartfrog
 ----
 
 [Datafrog](https://github.com/rust-lang/datafrog) with a few more warts
@@ -7,7 +7,7 @@
 
 This header-only library is a port and expansion of the Datafrog crate to C++
 
-- `#include <datatoad.hpp>` - Datafrog-equivalent APIs
+- `#include <dartfrog.hpp>` - Datafrog-equivalent APIs
 - `#include <datalog.hpp>` - A Datalog inspired, compile-time DSL
 
 ## Building
@@ -20,12 +20,12 @@ ctest --test-dir bin
 
 ## Syntax Examples
 
-### DataToad
+### Dartfrog
 
 Transitive Closure
 
 ```cpp
-#include <datatoad.hpp>
+#include <dartfrog.hpp>
 
 auto [iter1, edge] = Iteration{}.variable<std::pair<int, int>>();
 auto [iter, path] = std::move(iter1).variable<std::pair<int, int>>();
@@ -40,7 +40,7 @@ while (iter.changed()) {
 auto result = std::move(*path).complete();
 ```
 
-### DataToad DSL
+### Dartfrog DSL
 
 Transitive Closure
 

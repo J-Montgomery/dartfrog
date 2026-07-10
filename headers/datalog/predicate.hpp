@@ -15,8 +15,8 @@
 
 #include "datalog/query_planner.hpp"
 #include "datalog/var.hpp"
-#include "datatoad/relation.hpp"
-#include "datatoad/variable.hpp"
+#include "dartfrog/relation.hpp"
+#include "dartfrog/variable.hpp"
 
 namespace dt::datalog {
 

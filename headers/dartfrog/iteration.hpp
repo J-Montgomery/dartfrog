@@ -7,8 +7,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "datatoad/relation.hpp"
-#include "datatoad/variable.hpp"
+#include "dartfrog/relation.hpp"
+#include "dartfrog/variable.hpp"
 
 namespace dt {
 

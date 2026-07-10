@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <datalog.hpp>
-#include <datatoad.hpp>
+#include <dartfrog.hpp>
 #include <random>
 
 using namespace dt::datalog;

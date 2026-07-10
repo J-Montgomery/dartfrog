@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-#include "datatoad/relation.hpp"
+#include "dartfrog/relation.hpp"
 
 namespace dt {
 

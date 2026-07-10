@@ -9,8 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include "datatoad/join.hpp"
-#include "datatoad/relation.hpp"
+#include "dartfrog/join.hpp"
+#include "dartfrog/relation.hpp"
 
 namespace dt {
 
