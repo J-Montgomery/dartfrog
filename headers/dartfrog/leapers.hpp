@@ -43,15 +43,13 @@ struct LeaperCollection {
 
     constexpr void propose(const Tuple &tuple, size_t min_index,
                            std::vector<const Val *> &values) {
-        bool found = false;
-        for_indices<sizeof...(Leapers)>([&]<size_t I>() {
-            if (I == min_index) {
-                std::get<I>(leapers).propose(tuple, values);
-                found = true;
-            }
-        });
-        if (!found)
-            throw std::logic_error("No match found for min_index");
+        [&]<size_t... Is>(std::index_sequence<Is...>) {
+            [[maybe_unused]] bool result =
+                ((Is == min_index
+                      ? (std::get<Is>(leapers).propose(tuple, values), true)
+                      : false) ||
+                 ...);
+        }(std::make_index_sequence<sizeof...(Leapers)>{});
     }
 
     constexpr void intersect(const Tuple &tuple, size_t min_index,
@@ -380,16 +378,17 @@ class TupleLeaper {
     void propose(const std::array<V, JoinLen> &,
                  std::vector<const V *> &values) {
         size_t before = values.size();
-        for (size_t batch_idx = 0; batch_idx < num_batches; batch_idx++)
-            for (size_t i = ranges[batch_idx].first;
-                 i < ranges[batch_idx].second; i++)
-                values.push_back(
-                    &(*batches)[batch_idx].elements[i][ProposeCol]);
-
-        // We can skip sorting if this is the first/only batch
-        if (num_batches > 1)
-            std::sort(values.begin() + before, values.end(),
-                      [](const V *a, const V *b) { return *a < *b; });
+        for (size_t b = 0; b < num_batches; b++) {
+            size_t mid = values.size();
+            for (size_t i = ranges[b].first; i < ranges[b].second; i++) {
+                values.push_back(&(*batches)[b].elements[i][ProposeCol]);
+            }
+            if (b > 0) {
+                std::inplace_merge(
+                    values.begin() + before, values.begin() + mid, values.end(),
+                    [](const V *a, const V *b) { return *a < *b; });
+            }
+        }
     }
 
     template <size_t JoinLen>
