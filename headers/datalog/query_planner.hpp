@@ -184,6 +184,17 @@ template <typename T> struct is_negated : std::false_type {};
 template <typename P, typename A, typename B>
 struct is_negated<NegatedTerm<P, A, B>> : std::true_type {};
 
+template <typename T> struct is_expression_filter : std::false_type {};
+template <typename Func, int... VarIds>
+struct is_expression_filter<ExpressionFilter<Func, VarIds...>>
+    : std::true_type {};
+
+template <typename T> struct expression_filter_var_ids_impl;
+template <typename Func, int... VarIds>
+struct expression_filter_var_ids_impl<ExpressionFilter<Func, VarIds...>> {
+    static constexpr std::array<int, sizeof...(VarIds)> value = {VarIds...};
+};
+
 template <typename T> struct filter_vars;
 template <typename P, int A, int B>
 struct filter_vars<NegatedTerm<P, Var<A>, Var<B>>> {
@@ -477,17 +488,26 @@ struct QueryPlanner {
     bool filter_check(const std::array<V, NumVars> &tuple,
                       const std::array<int, NumVars> &var_positions) const {
         using Filt = std::tuple_element_t<F, Filters>;
-        constexpr int var_id_a = filter_vars<Filt>::a_id;
-        constexpr int var_id_b = filter_vars<Filt>::b_id;
-        static_assert(var_id_a >= 0 && var_id_b >= 0,
-                      "filter variable not bound by a positive body atom");
-        int pos_a = var_positions[var_id_a], pos_b = var_positions[var_id_b];
-        if constexpr (is_negated<Filt>::value) {
-            return !std::get<F>(filters).pred->stable_contains(
-                {tuple[pos_a], tuple[pos_b]});
+        if constexpr (is_expression_filter<Filt>::value) {
+            constexpr auto ids = expression_filter_var_ids_impl<Filt>::value;
+            return [&]<size_t... Is>(std::index_sequence<Is...>) {
+                return std::get<F>(filters).func(
+                    tuple[var_positions[ids[Is]]]...);
+            }(std::make_index_sequence<ids.size()>{});
         } else {
-            constexpr Cmp op = filter_vars<Filt>::op;
-            return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
+            constexpr int var_id_a = filter_vars<Filt>::a_id;
+            constexpr int var_id_b = filter_vars<Filt>::b_id;
+            static_assert(var_id_a >= 0 && var_id_b >= 0,
+                          "filter variable not bound by a positive body atom");
+            int pos_a = var_positions[var_id_a],
+                pos_b = var_positions[var_id_b];
+            if constexpr (is_negated<Filt>::value) {
+                return !std::get<F>(filters).pred->stable_contains(
+                    {tuple[pos_a], tuple[pos_b]});
+            } else {
+                constexpr Cmp op = filter_vars<Filt>::op;
+                return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
+            }
         }
     }
 

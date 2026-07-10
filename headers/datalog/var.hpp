@@ -72,6 +72,17 @@ template <class T> struct is_filter_atom : std::true_type {};
 template <class P, class... Vars>
 struct is_filter_atom<Term<P, Vars...>> : std::false_type {};
 
+template <typename Func, int... VarIds> struct ExpressionFilter {
+    Func func;
+};
+
+template <typename Func, int... VarIds>
+struct is_filter_atom<ExpressionFilter<Func, VarIds...>> : std::true_type {};
+
+template <int... VarIds, typename Func> auto where(Func f) {
+    return ExpressionFilter<std::remove_cvref_t<Func>, VarIds...>{std::move(f)};
+}
+
 template <class P1, class... Vars1, class P2, class... Vars2>
 auto operator&&(const Term<P1, Vars1...> &l, const Term<P2, Vars2...> &r) {
     return Conjunction<std::tuple<Term<P1, Vars1...>, Term<P2, Vars2...>>,
