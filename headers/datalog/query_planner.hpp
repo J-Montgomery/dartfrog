@@ -1,13 +1,16 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <span>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "dartfrog/join.hpp"
 #include "dartfrog/leapers.hpp"
+#include "datalog/lftj.hpp"
 #include "datalog/var.hpp"
 
 namespace df::datalog {
@@ -70,6 +73,14 @@ invert(const std::array<int, NumVars> &order) {
     for (size_t i = 0; i < NumVars; i++)
         result[order[i]] = (int)i;
     return result;
+}
+
+template <size_t A>
+constexpr bool is_identity_perm(const std::array<int, A> &perm) {
+    for (size_t i = 0; i < A; i++)
+        if (perm[i] != static_cast<int>(i))
+            return false;
+    return true;
 }
 
 // make_order determines the variable binding order
@@ -348,11 +359,27 @@ extend(std::span<const std::array<V, K>> src, const Atoms &atoms) {
     }
 }
 
+template <typename Atoms> constexpr bool has_duplicate_var_atom() {
+    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+    constexpr auto ids = atom_ids<Atoms>();
+    constexpr auto arities = atom_arities<Atoms>();
+    for (size_t atom = 0; atom < NumAtoms; atom++)
+        for (size_t i = 0; i < arities[atom]; i++)
+            for (size_t j = i + 1; j < arities[atom]; j++)
+                if (ids[atom][i] == ids[atom][j])
+                    return true;
+    return false;
+}
+
 template <typename HeadTerm, typename Atoms, typename Filters>
 struct QueryPlanner {
     HeadTerm head;
     Atoms atoms;
     Filters filters;
+
+    std::array<std::array<const void *, std::tuple_size_v<Atoms>>,
+               std::tuple_size_v<Atoms>>
+        index_batches{};
 
     using FirstAtom = std::tuple_element_t<0, Atoms>;
     using FirstPred = typename atom_traits<FirstAtom>::pred_t;
@@ -390,14 +417,144 @@ struct QueryPlanner {
         for_indices<NumAtoms>([&]<size_t S>() { do_source_full<S>(); });
     }
 
-    // Take a batch of source tuples and extend them through LFTJ
-    // before projecting into the head predicate
+    template <size_t S, size_t I>
+    static constexpr std::array<int, atom_arities<Atoms>()[I]>
+    atom_reindex_perm() {
+        constexpr size_t a = atom_arities<Atoms>()[I];
+        constexpr auto ids = atom_ids<Atoms>();
+        constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+        std::array<int, a> perm{};
+        for (size_t i = 0; i < a; i++)
+            perm[i] = static_cast<int>(i);
+        for (size_t i = 0; i < a; i++)
+            for (size_t j = i + 1; j < a; j++)
+                if (vp[ids[I][perm[j]]] < vp[ids[I][perm[i]]])
+                    std::swap(perm[i], perm[j]);
+        return perm;
+    }
+
+    template <size_t S, size_t I> static std::vector<int> atom_reindex_vars() {
+        constexpr size_t a = atom_arities<Atoms>()[I];
+        constexpr auto ids = atom_ids<Atoms>();
+        constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+        constexpr auto perm = atom_reindex_perm<S, I>();
+        std::vector<int> vars(a);
+        for (size_t k = 0; k < a; k++)
+            vars[k] = vp[ids[I][perm[k]]];
+        return vars;
+    }
+
+    template <size_t S, size_t I>
+    std::vector<std::span<const std::array<V, atom_arities<Atoms>()[I]>>>
+    atom_spans(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
+        constexpr size_t a = atom_arities<Atoms>()[I];
+        std::vector<std::span<const std::array<V, a>>> spans;
+        if constexpr (I == S) {
+            spans.emplace_back(src);
+        } else {
+            const void *idx = index_batches[S][I];
+            if (idx != nullptr) {
+                const auto *batches = static_cast<
+                    const std::vector<std::vector<std::array<V, a>>> *>(idx);
+                spans.reserve(batches->size());
+                for (const auto &b : *batches)
+                    spans.emplace_back(b);
+            } else {
+                auto *pred = std::get<I>(atoms).pred;
+                spans.reserve(pred->var.stable.size());
+                for (const auto &batch : pred->var.stable)
+                    spans.emplace_back(batch.elements);
+            }
+        }
+        return spans;
+    }
+
     template <size_t S>
-    void do_source_impl(
+    auto make_filter_test(const std::array<int, NumVars> &var_positions) const {
+        return
+            [this, var_positions](const std::array<V, NumVars> &row) -> bool {
+                return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
+                    return (filter_check<Fs>(row, var_positions) && ...);
+                }(std::make_index_sequence<std::tuple_size_v<Filters>>{});
+            };
+    }
+
+    template <size_t I>
+    static lftj::MergedTrieIterator<V, atom_arities<Atoms>()[I]>
+    make_merged_iter(
+        const std::vector<
+            std::span<const std::array<V, atom_arities<Atoms>()[I]>>> &spans) {
+        return lftj::MergedTrieIterator<V, atom_arities<Atoms>()[I]>(spans);
+    }
+
+    // Depth-first LFTJ over all body atoms, reindexed to the source binding
+    // order
+    template <size_t S>
+    void do_source_impl_lftj(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+        constexpr auto head_var_ids = atom_traits<HeadTerm>::var_ids;
+        constexpr size_t head_arity = atom_traits<HeadTerm>::arity;
+        constexpr auto head_positions =
+            project<head_arity>(var_positions, head_var_ids);
+
+        auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(atom_spans<S, Is>(src)...);
+        }(std::make_index_sequence<NumAtoms>{});
+        auto iters = [&]<size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(
+                make_merged_iter<Is>(std::get<Is>(spans))...);
+        }(std::make_index_sequence<NumAtoms>{});
+
+        std::vector<lftj::AnyTrie<V>> erased;
+        erased.reserve(NumAtoms);
+        [&]<size_t... Is>(std::index_sequence<Is...>) {
+            (erased.push_back(lftj::erase_trie(std::get<Is>(iters))), ...);
+        }(std::make_index_sequence<NumAtoms>{});
+        std::vector<lftj::AtomPlan<V>> plans;
+        plans.reserve(NumAtoms);
+        [&]<size_t... Is>(std::index_sequence<Is...>) {
+            (plans.push_back(
+                 lftj::AtomPlan<V>{&erased[Is], atom_reindex_vars<S, Is>()}),
+             ...);
+        }(std::make_index_sequence<NumAtoms>{});
+
+        [[maybe_unused]] auto keep = make_filter_test<S>(var_positions);
+        std::vector<std::array<V, head_arity>> batch;
+        constexpr size_t FLUSH_ROWS = size_t{1} << 16;
+        batch.reserve(FLUSH_ROWS);
+        auto flush = [&]() {
+            if (batch.empty())
+                return;
+            head.pred->insert(df::Relation<std::array<V, head_arity>>::from_vec(
+                std::move(batch)));
+            batch.clear();
+            batch.reserve(FLUSH_ROWS);
+        };
+
+        std::array<V, NumVars> row{};
+        lftj::triejoin<V>(
+            static_cast<int>(NumVars), plans, [&](const std::vector<V> &asg) {
+                for (size_t i = 0; i < NumVars; i++)
+                    row[i] = asg[i];
+                // Check if the rule has any remaining filters to check
+                if constexpr (std::tuple_size_v<Filters> > 0)
+                    if (!keep(row))
+                        return;
+                batch.push_back(project<head_arity>(row, head_positions));
+                if (batch.size() >= FLUSH_ROWS)
+                    flush();
+            });
+        flush();
+    }
+
+    // Breadth-first fallback (materializes each level) for rules with repeated
+    // variables
+    template <size_t S>
+    void do_source_impl_extend(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        if (src.empty())
-            return;
         auto joined_tuples = extend<V, NumVars, S, source_arity>(src, atoms);
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
         constexpr auto head_var_ids = atom_traits<HeadTerm>::var_ids;
@@ -408,8 +565,6 @@ struct QueryPlanner {
             return project<head_arity>(row, head_positions);
         };
 
-        // Take care of any residual atoms that couldn't be bound
-        // in trie traversal order so LFTJ could deal with them
         if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
             head.pred->insert(df::Relation<std::array<V, head_arity>>::from_map(
                 joined_tuples, project_to_head));
@@ -423,6 +578,17 @@ struct QueryPlanner {
             head.pred->insert(df::Relation<std::array<V, head_arity>>::from_vec(
                 std::move(result)));
         }
+    }
+
+    template <size_t S>
+    void do_source_impl(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
+        if (src.empty())
+            return;
+        if constexpr (has_duplicate_var_atom<Atoms>())
+            do_source_impl_extend<S>(src);
+        else
+            do_source_impl_lftj<S>(src);
     }
 
     template <size_t S> void do_source() const {

@@ -4,7 +4,10 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -19,6 +22,59 @@
 #include "datalog/var.hpp"
 
 namespace df::datalog {
+
+// An automatically-maintained reindexed view of a base predicate's fact set,
+// used by the LFTJ planner so an atom can be read pre-sorted in a source's
+// binding order instead of being re-sorted every round.
+//
+// `perm` is the column permutation (output column k is input column perm[k]).
+// `batches` holds the reindexed fact set as a list of sorted, duplicate-free
+// batches (mirroring datatoad's own stable-batch layout so MergedTrieIterator
+// can consume it directly and deduplicate across batches).
+//
+// refresh() folds the base's current-round delta (`recent_data`) into the
+// index. It is driven by Datalog once per solve round, after snapshot and
+// before evaluators run. Because every fact passes through `recent_data`
+// exactly once (the round it is discovered) and refresh runs every round of
+// every stratum, `batches` accumulates exactly the base's full fact set with
+// no maintenance lag — at evaluator time the index already reflects every fact
+// the base has, matching the semantics of reading the base's stable directly.
+template <typename V, size_t N> struct ReindexedIndex {
+    df::Variable<std::array<V, N>> *base;
+    std::array<int, N> perm;
+    std::vector<std::vector<std::array<V, N>>> batches;
+
+    void refresh() {
+        const auto &delta = base->recent_data.elements;
+        if (delta.empty())
+            return;
+        std::vector<std::array<V, N>> incoming;
+        incoming.reserve(delta.size());
+        for (const auto &r : delta) {
+            std::array<V, N> t{};
+            for (size_t k = 0; k < N; k++)
+                t[k] = r[perm[k]];
+            incoming.push_back(t);
+        }
+        std::sort(incoming.begin(), incoming.end());
+        incoming.erase(std::unique(incoming.begin(), incoming.end()),
+                       incoming.end());
+        // fold the new delta into trailing batches while they are within 2x its
+        // size, so the amortized maintenance cost is O(total facts * log) over
+        // the whole solve rather than O(rounds * total facts).
+        while (!batches.empty() &&
+               batches.back().size() <= 2 * incoming.size()) {
+            std::vector<std::array<V, N>> last = std::move(batches.back());
+            batches.pop_back();
+            std::vector<std::array<V, N>> merged;
+            merged.reserve(last.size() + incoming.size());
+            std::set_union(last.begin(), last.end(), incoming.begin(),
+                           incoming.end(), std::back_inserter(merged));
+            incoming.swap(merged);
+        }
+        batches.push_back(std::move(incoming));
+    }
+};
 
 template <typename P>
 concept IsPredicate = requires(P &p) {
@@ -61,6 +117,22 @@ class Datalog {
     };
     std::vector<std::vector<DepEdge>> dep_edges;
     std::vector<size_t> eval_head_idx;
+
+    // Type-erased registry of maintained reindexed indexes
+    // A given (predicate, order) should only be materialized once
+    // and shared across every rule that needs it.
+    struct IndexEntry {
+        std::unique_ptr<void, void (*)(void *)> storage;
+        void (*refresh)(void *);
+        const void *batches_ptr;
+    };
+    std::vector<IndexEntry> indexes;
+    std::map<std::pair<const void *, uint64_t>, size_t> index_registry;
+
+    void refresh_all_indexes() {
+        for (auto &e : indexes)
+            e.refresh(e.storage.get());
+    }
 
     size_t get_or_add_pred(const void *p) {
         auto [it, inserted] = pred_to_idx.emplace(p, next_idx);
@@ -133,6 +205,52 @@ class Datalog {
              +[](void *x) { static_cast<P *>(x)->snapshot(); }});
     }
 
+    // Return the maintained reindexed index for (base, Perm...), creating it on
+    // first request.
+    template <int... Perm, typename V, size_t N>
+    const std::vector<std::vector<std::array<V, N>>> *
+    get_or_make_index(df::Variable<std::array<V, N>> *base) {
+        static_assert(sizeof...(Perm) == N,
+                      "permutation width must equal the predicate arity");
+        uint64_t code = N;
+        ((code =
+              (code << 4) | static_cast<uint64_t>(static_cast<unsigned>(Perm))),
+         ...);
+        const auto key = std::make_pair(static_cast<const void *>(base), code);
+        if (auto it = index_registry.find(key); it != index_registry.end())
+            return static_cast<
+                const std::vector<std::vector<std::array<V, N>>> *>(
+                indexes[it->second].batches_ptr);
+        auto *ri = new ReindexedIndex<V, N>{base, {Perm...}, {}};
+        indexes.push_back(IndexEntry{
+            {ri,
+             +[](void *p) { delete static_cast<ReindexedIndex<V, N> *>(p); }},
+            +[](void *p) { static_cast<ReindexedIndex<V, N> *>(p)->refresh(); },
+            &ri->batches});
+        index_registry[key] = indexes.size() - 1;
+        return &ri->batches;
+    }
+
+    template <typename Planner> void bind_indexes(Planner &p) {
+        constexpr size_t NA = Planner::NumAtoms;
+        for_indices<NA>([&]<size_t S>() {
+            for_indices<NA>([&]<size_t I>() {
+                if constexpr (I != S) {
+                    constexpr auto perm =
+                        Planner::template atom_reindex_perm<S, I>();
+                    if constexpr (!is_identity_perm(perm)) {
+                        auto *base = std::get<I>(p.atoms).pred;
+                        p.index_batches[S][I] =
+                            [&]<size_t... Ks>(
+                                std::index_sequence<Ks...>) -> const void * {
+                            return get_or_make_index<perm[Ks]...>(&base->var);
+                        }(std::make_index_sequence<perm.size()>{});
+                    }
+                }
+            });
+        });
+    }
+
     template <std::size_t N> static constexpr auto vars() {
         return []<std::size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(Var<static_cast<int>(Is)>{}...);
@@ -189,6 +307,8 @@ class Datalog {
         QueryPlanner<Term<HeadPred, HeadVars...>, Atoms, Filters> runner{
             rule.head, rule.body.pos, rule.body.filt};
 
+        bind_indexes(runner);
+
         // Store the query as a type-erased callback so the rest of the engine
         // can treat them uniformly
         evaluators.push_back(make_eval(std::move(runner)));
@@ -201,6 +321,7 @@ class Datalog {
                 h.step(h.instance);
             for (auto &h : predicates)
                 h.snapshot(h.instance);
+            refresh_all_indexes();
             for (size_t i : evals)
                 evaluators[i].eval_full();
             solve_stratum(evals);
@@ -218,6 +339,7 @@ class Datalog {
                 break;
             for (auto &h : predicates)
                 h.snapshot(h.instance);
+            refresh_all_indexes();
             for (size_t i : evals)
                 evaluators[i]();
         }
