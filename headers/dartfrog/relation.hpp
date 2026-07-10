@@ -123,6 +123,11 @@ template <std::totally_ordered Tuple> struct Relation {
         return Relation{std::move(elems)};
     }
 
+    static constexpr Relation
+    from_sorted_unique_vec(std::vector<Tuple> &&elems) {
+        return Relation{std::move(elems)};
+    }
+
     template <typename R>
         requires std::convertible_to<
             std::iter_value_t<decltype(std::begin(std::declval<R &>()))>, Tuple>
@@ -158,19 +163,21 @@ template <std::totally_ordered Tuple> struct Relation {
 };
 
 template <std::totally_ordered T>
-constexpr void dedup_against(Relation<T> &rel,
-                             const std::vector<Relation<T>> &committed) {
-    for (const auto &batch : committed) {
-        std::span<const T> slice = batch.elements;
-        std::erase_if(rel.elements, [&](const T &x) {
-            if (slice.size() > 4 * rel.size())
-                slice = seek(slice, [&](const T &y) { return y < x; });
-            else
-                while (!slice.empty() && slice[0] < x)
-                    slice = slice.subspan(1);
-            return !slice.empty() && slice[0] == x;
-        });
-    }
+void dedup_against(Relation<T> &rel,
+                   const std::vector<Relation<T>> &committed) {
+    if (committed.empty() || rel.empty())
+        return;
+    std::vector<size_t> pos(committed.size(), 0);
+    std::erase_if(rel.elements, [&](const T &x) {
+        for (size_t i = 0; i < committed.size(); ++i) {
+            const auto &batch = committed[i].elements;
+            while (pos[i] < batch.size() && batch[pos[i]] < x)
+                ++pos[i];
+            if (pos[i] < batch.size() && batch[pos[i]] == x)
+                return true;
+        }
+        return false;
+    });
 }
 
 } // namespace df
