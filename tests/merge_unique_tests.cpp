@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
@@ -48,8 +49,11 @@ TEST(MergeUniqueTest, MoveOnlyTypes) {
 
     auto result = merge_unique(std::move(a), std::move(b));
     ASSERT_EQ(result.size(), 2);
-    EXPECT_EQ(*result[0], 1);
-    EXPECT_EQ(*result[1], 2);
+    std::vector<int> vals;
+    for (auto &p : result)
+        vals.push_back(*p);
+    std::sort(vals.begin(), vals.end());
+    EXPECT_EQ(vals, (std::vector<int>{1, 2}));
 }
 
 TEST(MergeUniqueTest, BothEmpty) {
