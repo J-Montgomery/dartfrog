@@ -1,0 +1,25 @@
+// Benchmark from https://github.com/frankmcsherry/dynamic-datalog/tree/master/problems/galen
+
+.decl p(X: number, Z: number)
+.decl q(X: number, Y: number, Z: number)
+.decl r(R: number, P: number, E: number)
+.decl c(Y: number, Z: number, W: number)
+.decl u(R: number, Z: number, W: number)
+.decl s(R: number, P: number)
+
+.input p(IO="file", filename="p.txt", delimiter=",")
+.input q(IO="file", filename="q.txt", delimiter=",")
+.input r(IO="file", filename="r.txt", delimiter=",")
+.input c(IO="file", filename="c.txt", delimiter=",")
+.input u(IO="file", filename="u.txt", delimiter=",")
+.input s(IO="file", filename="s.txt", delimiter=",")
+
+p(?x,?z) :- p(?x,?y), p(?y,?z).
+q(?x,?r,?z) :- p(?x,?y), q(?y,?r,?z).
+p(?x,?z) :- p(?y,?w), u(?w,?r,?z), q(?x,?r,?y).
+p(?x,?z) :- c(?y,?w,?z),p(?x,?w), p(?x,?y).
+q(?x,?q,?z) :- q(?x,?r,?z),s(?r,?q).
+q(?x,?e,?o) :- q(?x,?y,?z),r(?y,?u,?e),q(?z,?u,?o).
+
+.output p
+.output q

@@ -29,13 +29,37 @@ template <typename Head, typename Body> struct Rule {
     Body body;
 };
 
-template <typename Pred, typename V1, typename V2> struct NegatedTerm {
+template <typename... Heads> struct MultiHead {
+    std::tuple<Heads...> heads;
+
+    template <typename BodyT> auto operator%=(const BodyT &body) const {
+        return Rule<MultiHead, BodyT>{*this, body};
+    }
+};
+
+template <typename T> struct is_multihead : std::false_type {};
+template <typename... Heads>
+struct is_multihead<MultiHead<Heads...>> : std::true_type {};
+
+// Yes, overriding the comma operator is awful and should never be done,
+// but it looks so much better than the alternatives I've come up with
+template <typename P1, typename... V1, typename P2, typename... V2>
+auto operator,(const Term<P1, V1...> &a, const Term<P2, V2...> &b) {
+    return MultiHead<Term<P1, V1...>, Term<P2, V2...>>{std::make_tuple(a, b)};
+}
+template <typename... Heads, typename P, typename... V>
+auto operator,(const MultiHead<Heads...> &m, const Term<P, V...> &b) {
+    return MultiHead<Heads..., Term<P, V...>>{
+        std::tuple_cat(m.heads, std::make_tuple(b))};
+}
+
+template <typename Pred, typename... Vars> struct NegatedTerm {
     Pred *pred;
 };
 
-template <typename Pred, typename V1, typename V2>
-auto operator!(const Term<Pred, V1, V2> &t) {
-    return NegatedTerm<Pred, V1, V2>{t.pred};
+template <typename Pred, typename... Vars>
+auto operator!(const Term<Pred, Vars...> &t) {
+    return NegatedTerm<Pred, Vars...>{t.pred};
 }
 
 enum class Cmp { Lt, Le, Gt, Ge, Ne, Eq };
@@ -122,7 +146,9 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
 // To improve performance, list variables in the order they appear in columns
 #define DT_DL_NARG(...) DT_DL_NARG_IMPL(__VA_ARGS__, DT_DL_RSEQ_N())
 #define DT_DL_NARG_IMPL(...) DT_DL_ARG_N(__VA_ARGS__)
-#define DT_DL_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, N, ...) N
-#define DT_DL_RSEQ_N() 8, 7, 6, 5, 4, 3, 2, 1, 0
+#define DT_DL_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13,    \
+                    _14, _15, _16, N, ...)                                     \
+    N
+#define DT_DL_RSEQ_N() 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 #define DL_VARS(...)                                                           \
     auto [__VA_ARGS__] = ::df::datalog::Datalog::vars<DT_DL_NARG(__VA_ARGS__)>()
