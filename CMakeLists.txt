@@ -73,6 +73,7 @@ target_sources(dartfrog_tests PRIVATE
 add_executable(dsl_tests)
 target_link_libraries(dsl_tests dartfrog GTest::gtest_main)
 target_sources(dsl_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/all_partitions_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/dsl_basic_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/dsl_planner_tests.cpp
 )
