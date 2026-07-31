@@ -16,6 +16,8 @@ namespace df::datalog::lftj {
 // rows.
 template <typename V, size_t N> class TrieIterator {
   public:
+    TrieIterator() = default;
+
     explicit TrieIterator(std::span<const std::array<V, N>> rows)
         : rows_(rows) {
         lo_[0] = 0;
@@ -23,34 +25,38 @@ template <typename V, size_t N> class TrieIterator {
         pos_[0] = 0;
     }
 
-    size_t depth() const { return depth_; }
+    [[gnu::always_inline]] size_t depth() const { return depth_; }
+    [[gnu::always_inline]] bool at_end() const {
+        return pos_[depth_] >= hi_[depth_];
+    }
+    [[gnu::always_inline]] const V &key() const {
+        return rows_[pos_[depth_]][depth_];
+    }
 
-    // Check if no more keys remain at the current level.
-    bool at_end() const { return pos_[depth_] >= hi_[depth_]; }
-
-    const V &key() const { return rows_[pos_[depth_]][depth_]; }
-
-    void next() {
+    [[gnu::always_inline]] void next() {
         const V current = key();
         size_t p = pos_[depth_];
-        while (p < hi_[depth_] && rows_[p][depth_] == current)
+        const size_t limit = hi_[depth_];
+
+        while (p < limit && rows_[p][depth_] == current)
             ++p;
         pos_[depth_] = p;
     }
 
-    // Advance to the first key >= target at the current level (galloping search
-    // bounded to the current sub-range). Leaves at_end() true if none.
-    void seek(const V &target) {
+    [[gnu::always_inline]] void seek(const V &target) {
         const size_t d = depth_;
         size_t lo = pos_[d];
         const size_t hi = hi_[d];
 
-        // Gallop from lo to bracket target, then binary search the bracket.
+        if (lo >= hi || rows_[lo][d] >= target)
+            return;
+
         size_t step = 1;
         while (lo + step < hi && rows_[lo + step][d] < target) {
             lo += step;
             step <<= 1;
         }
+
         size_t upper = std::min(hi, lo + step + 1);
         while (lo < upper) {
             const size_t mid = lo + (upper - lo) / 2;
@@ -62,24 +68,25 @@ template <typename V, size_t N> class TrieIterator {
         pos_[d] = lo;
     }
 
-    void open() {
+    [[gnu::always_inline]] void open() {
         const V current = key();
         const size_t d = depth_;
         size_t end = pos_[d];
-        while (end < hi_[d] && rows_[end][d] == current)
+        const size_t limit = hi_[d];
+
+        while (end < limit && rows_[end][d] == current)
             ++end;
-        lo_[d + 1] = pos_[d];
-        hi_[d + 1] = end;
-        pos_[d + 1] = pos_[d];
-        ++depth_;
+
+        const size_t next_d = d + 1;
+        lo_[next_d] = pos_[d];
+        hi_[next_d] = end;
+        pos_[next_d] = pos_[d];
+        depth_ = next_d;
     }
 
-    void up() { --depth_; }
+    [[gnu::always_inline]] void up() { --depth_; }
 
-    // Reposition to the first key of the current level's sub-range. Needed
-    // before each leapfrog at a level so that an iterator whose current level
-    // was consumed by a previous sibling branch restarts from the beginning.
-    void rewind() { pos_[depth_] = lo_[depth_]; }
+    [[gnu::always_inline]] void rewind() { pos_[depth_] = lo_[depth_]; }
 
   private:
     std::span<const std::array<V, N>> rows_;
@@ -92,90 +99,112 @@ template <typename V, size_t N> class TrieIterator {
 
 // A trie iterator presenting several sorted batches, so
 // duplicate keys shared by several batches are visited once.
-template <typename V, size_t N> class MergedTrieIterator {
+template <typename V, size_t N, size_t MAX_BATCHES = 16>
+class MergedTrieIterator {
   public:
     explicit MergedTrieIterator(
-        const std::vector<std::span<const std::array<V, N>>> &batches) {
-        batches_.reserve(batches.size());
-        for (const auto &b : batches)
-            batches_.emplace_back(b);
-        // A level's active batches are always a subset of its parent's, so
-        // partitioning in place keeps every level a prefix of one array.
-        active_.resize(batches_.size());
-        std::iota(active_.begin(), active_.end(), 0);
-        counts_[0] = active_.size();
+        const std::vector<std::span<const std::array<V, N>>> &batches)
+        : num_batches_(batches.size()) {
+
+        for (size_t i = 0; i < num_batches_; ++i) {
+            batches_[i] = TrieIterator<V, N>(batches[i]);
+            active_[i] = static_cast<uint8_t>(i);
+        }
+        counts_[0] = static_cast<uint8_t>(num_batches_);
         refresh();
     }
 
-    size_t depth() const { return depth_; }
-    bool at_end() const { return at_end_[depth_]; }
-    const V &key() const { return key_[depth_]; }
+    [[gnu::always_inline]] size_t depth() const { return depth_; }
+    [[gnu::always_inline]] bool at_end() const { return at_end_[depth_]; }
+    [[gnu::always_inline]] const V &key() const { return key_[depth_]; }
 
-    void next() {
+    [[gnu::always_inline]] void next() {
         const V current = key_[depth_];
-        for (int b : active())
-            if (!batches_[b].at_end() && batches_[b].key() == current)
+        const uint8_t count = counts_[depth_];
+
+        for (uint8_t i = 0; i < count; ++i) {
+            const uint8_t b = active_[i];
+            if (!batches_[b].at_end() && batches_[b].key() == current) {
                 batches_[b].next();
+            }
+        }
         refresh();
     }
 
-    void seek(const V &target) {
-        for (int b : active())
-            if (!batches_[b].at_end())
+    [[gnu::always_inline]] void seek(const V &target) {
+        const uint8_t count = counts_[depth_];
+        for (uint8_t i = 0; i < count; ++i) {
+            const uint8_t b = active_[i];
+            if (!batches_[b].at_end()) {
                 batches_[b].seek(target);
+            }
+        }
         refresh();
     }
 
-    void open() {
+    [[gnu::always_inline]] void open() {
         const V current = key_[depth_];
-        const std::span<int> level = active();
-        const auto rest =
-            std::partition(level.begin(), level.end(), [&](int b) {
-                return !batches_[b].at_end() && batches_[b].key() == current;
-            });
-        const size_t matched = std::distance(level.begin(), rest);
-        for (int b : level.first(matched))
-            batches_[b].open();
+        const uint8_t count = counts_[depth_];
+
+        uint8_t matched = 0;
+        for (uint8_t i = 0; i < count; ++i) {
+            const uint8_t b = active_[i];
+            if (!batches_[b].at_end() && batches_[b].key() == current) {
+                std::swap(active_[matched], active_[i]);
+                batches_[b].open();
+                matched++;
+            }
+        }
+
         counts_[++depth_] = matched;
-        if (depth_ < N)
+        if (depth_ < N) {
             refresh();
+        }
     }
 
-    void up() {
-        for (int b : active())
-            batches_[b].up();
+    [[gnu::always_inline]] void up() {
+        const uint8_t count = counts_[depth_];
+        for (uint8_t i = 0; i < count; ++i) {
+            batches_[active_[i]].up();
+        }
         --depth_;
     }
 
-    void rewind() {
-        for (int b : active())
-            batches_[b].rewind();
+    [[gnu::always_inline]] void rewind() {
+        const uint8_t count = counts_[depth_];
+        for (uint8_t i = 0; i < count; ++i) {
+            batches_[active_[i]].rewind();
+        }
         refresh();
     }
 
   private:
-    std::span<int> active() {
-        return std::span(active_).first(counts_[depth_]);
-    }
-
-    void refresh() {
+    [[gnu::always_inline]] void refresh() {
+        const uint8_t count = counts_[depth_];
         const V *best = nullptr;
-        for (int b : active())
+
+        for (uint8_t i = 0; i < count; ++i) {
+            const uint8_t b = active_[i];
             if (!batches_[b].at_end()) {
                 const V &k = batches_[b].key();
-                if (best == nullptr || k < *best)
+                if (best == nullptr || k < *best) {
                     best = &k;
+                }
             }
-        at_end_[depth_] = best == nullptr;
-        if (best != nullptr)
+        }
+
+        at_end_[depth_] = (best == nullptr);
+        if (best != nullptr) {
             key_[depth_] = *best;
+        }
     }
 
-    std::vector<TrieIterator<V, N>> batches_;
-    std::vector<int> active_;
+    std::array<TrieIterator<V, N>, MAX_BATCHES> batches_;
+    std::array<uint8_t, MAX_BATCHES> active_;
+    size_t num_batches_ = 0;
     size_t depth_ = 0;
 
-    std::array<size_t, N + 1> counts_{};
+    std::array<uint8_t, N + 1> counts_{};
     std::array<V, N + 1> key_{};
     std::array<bool, N + 1> at_end_{};
 };
