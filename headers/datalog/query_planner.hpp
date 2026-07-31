@@ -84,6 +84,15 @@ constexpr bool is_identity_perm(const std::array<int, A> &perm) {
     return true;
 }
 
+template <size_t N>
+constexpr bool is_identity_prefix(const std::array<int, N> &positions) {
+    for (size_t i = 0; i < N; ++i) {
+        if (positions[i] != static_cast<int>(i))
+            return false;
+    }
+    return true;
+}
+
 // make_order determines the variable binding order
 // by greedily assuming unbound variables that share
 // rules with lots of bound variables should be
@@ -624,9 +633,23 @@ struct QueryPlanner {
             auto &b = std::get<H>(batches);
             if (b.empty())
                 return;
-            constexpr size_t head_atom = atom_traits<HeadAt<H>>::arity;
-            head_pred<H>()->insert(
-                df::Relation<std::array<V, head_atom>>::from_vec(std::move(b)));
+
+            constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
+            constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+            constexpr auto hpos =
+                project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
+
+            using HeadTuple = std::array<V, ha>;
+            using HeadRelation = df::Relation<HeadTuple>;
+
+            if constexpr (is_identity_prefix(hpos)) {
+                b.erase(std::unique(b.begin(), b.end()), b.end());
+                head_pred<H>()->insert(
+                    HeadRelation::from_sorted_unique_vec(std::move(b)));
+            } else {
+                head_pred<H>()->insert(HeadRelation::from_vec(std::move(b)));
+            }
+
             b.clear();
             b.reserve(FLUSH_ROWS);
         };
