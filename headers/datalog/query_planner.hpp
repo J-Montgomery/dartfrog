@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -496,9 +497,26 @@ struct QueryPlanner {
 
     // Execute a semi-naive step over all stable facts
     void eval_full() const {
+        size_t best_source = NumAtoms;
+        size_t best_size = std::numeric_limits<size_t>::max();
+
         for_indices<NumAtoms>([&]<size_t S>() {
-            std::get<S>(atoms).pred->update_stats();
-            do_source_full<S>();
+            if constexpr (source_enabled<S>()) {
+                const auto *pred = std::get<S>(atoms).pred;
+                const size_t size = pred->var.num_stable();
+
+                if (size < best_size) {
+                    best_size = size;
+                    best_source = S;
+                }
+            }
+        });
+
+        for_indices<NumAtoms>([&]<size_t S>() {
+            if constexpr (source_enabled<S>()) {
+                if (best_source == S)
+                    do_source_full<S>();
+            }
         });
     }
 

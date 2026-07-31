@@ -15,6 +15,9 @@ namespace df::datalog::lftj {
 // A trie iterator over a single lexicographically-sorted relation of N-column
 // rows.
 template <typename V, size_t N> class TrieIterator {
+    std::array<size_t, N + 1> group_end_{};
+    std::array<bool, N + 1> group_end_valid_{};
+
   public:
     TrieIterator() = default;
 
@@ -34,17 +37,27 @@ template <typename V, size_t N> class TrieIterator {
     }
 
     [[gnu::always_inline]] void next() {
-        const V current = key();
-        size_t p = pos_[depth_];
-        const size_t limit = hi_[depth_];
+        const size_t d = depth_;
 
-        while (p < limit && rows_[p][depth_] == current)
+        if (group_end_valid_[d]) {
+            pos_[d] = group_end_[d];
+            group_end_valid_[d] = false;
+            return;
+        }
+
+        const V current = key();
+        size_t p = pos_[d];
+        const size_t limit = hi_[d];
+
+        while (p < limit && rows_[p][d] == current)
             ++p;
-        pos_[depth_] = p;
+
+        pos_[d] = p;
     }
 
     [[gnu::always_inline]] void seek(const V &target) {
         const size_t d = depth_;
+        group_end_valid_[d] = false;
         size_t lo = pos_[d];
         const size_t hi = hi_[d];
 
@@ -69,24 +82,37 @@ template <typename V, size_t N> class TrieIterator {
     }
 
     [[gnu::always_inline]] void open() {
-        const V current = key();
         const size_t d = depth_;
-        size_t end = pos_[d];
-        const size_t limit = hi_[d];
+        const V current = key();
 
-        while (end < limit && rows_[end][d] == current)
-            ++end;
+        size_t end;
+        if (group_end_valid_[d]) {
+            end = group_end_[d];
+        } else {
+            end = pos_[d];
+            const size_t limit = hi_[d];
+
+            while (end < limit && rows_[end][d] == current)
+                ++end;
+
+            group_end_[d] = end;
+            group_end_valid_[d] = true;
+        }
 
         const size_t next_d = d + 1;
         lo_[next_d] = pos_[d];
         hi_[next_d] = end;
         pos_[next_d] = pos_[d];
+        group_end_valid_[next_d] = false;
         depth_ = next_d;
     }
 
     [[gnu::always_inline]] void up() { --depth_; }
 
-    [[gnu::always_inline]] void rewind() { pos_[depth_] = lo_[depth_]; }
+    [[gnu::always_inline]] void rewind() {
+        pos_[depth_] = lo_[depth_];
+        group_end_valid_[depth_] = false;
+    }
 
   private:
     std::span<const std::array<V, N>> rows_;

@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <concepts>
 #include <cstddef>
 #include <iterator>
+#include <limits>
 #include <optional>
 #include <span>
 #include <utility>
@@ -167,12 +169,55 @@ void dedup_against(Relation<T> &rel,
                    const std::vector<Relation<T>> &committed) {
     if (committed.empty() || rel.empty())
         return;
+
+    size_t stable_size = 0;
+    for (const auto &batch : committed)
+        stable_size += batch.size();
+
+    size_t binary_cost = 0;
+    for (const auto &batch : committed) {
+        if (batch.empty())
+            continue;
+
+        const size_t log_size =
+            std::bit_width(static_cast<size_t>(batch.size()));
+
+        if (rel.size() > std::numeric_limits<size_t>::max() /
+                             std::max<size_t>(1, log_size)) {
+            binary_cost = std::numeric_limits<size_t>::max();
+            break;
+        }
+
+        binary_cost += rel.size() * log_size;
+    }
+
+    if (binary_cost < stable_size) {
+        std::erase_if(rel.elements, [&](const T &x) {
+            for (const auto &batch : committed) {
+                if (std::binary_search(batch.elements.begin(),
+                                       batch.elements.end(), x)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        return;
+    }
+
     std::vector<size_t> pos(committed.size(), 0);
+    const T &first = rel.elements.front();
+    for (size_t i = 0; i < committed.size(); ++i) {
+        const auto &batch = committed[i].elements;
+        pos[i] =
+            std::lower_bound(batch.begin(), batch.end(), first) - batch.begin();
+    }
+
     std::erase_if(rel.elements, [&](const T &x) {
         for (size_t i = 0; i < committed.size(); ++i) {
             const auto &batch = committed[i].elements;
             while (pos[i] < batch.size() && batch[pos[i]] < x)
                 ++pos[i];
+
             if (pos[i] < batch.size() && batch[pos[i]] == x)
                 return true;
         }
