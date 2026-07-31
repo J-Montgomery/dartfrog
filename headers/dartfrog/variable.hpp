@@ -102,13 +102,15 @@ template <std::totally_ordered Tuple> class Variable {
     }
 
     constexpr void insert(Relation<Tuple> relation) {
-        if (relation.empty()) {
+        if (relation.empty())
             return;
+
+        while (!to_add.empty() && to_add.back().size() <= 2 * relation.size()) {
+            relation = std::move(relation).merge(std::move(to_add.back()));
+            to_add.pop_back();
         }
+
         to_add.push_back(std::move(relation));
-        if (distinct && should_compact_pending()) {
-            compact_pending();
-        }
     }
 
     template <typename R> constexpr void extend(R &&range) {
