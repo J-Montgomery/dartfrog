@@ -496,7 +496,10 @@ struct QueryPlanner {
 
     // Execute a semi-naive step over all stable facts
     void eval_full() const {
-        for_indices<NumAtoms>([&]<size_t S>() { do_source_full<S>(); });
+        for_indices<NumAtoms>([&]<size_t S>() {
+            std::get<S>(atoms).pred->update_stats();
+            do_source_full<S>();
+        });
     }
 
     template <size_t S, size_t I>

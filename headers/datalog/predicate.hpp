@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -352,23 +353,42 @@ class Datalog {
             rule.head, Conj{std::make_tuple(rule.body), {}}});
     }
 
-    void solve() {
+    template <typename Callback = std::nullptr_t>
+    void solve(Callback &&on_stratum_complete = nullptr) {
         auto stratum_evals = compute_strata();
+        size_t stratum_idx = 0;
+
         for (const auto &evals : stratum_evals) {
             for (auto &h : predicates)
                 h.step(h.instance);
             for (auto &h : predicates)
                 h.snapshot(h.instance);
+
             refresh_all_indexes();
+
             for (size_t i : evals)
                 evaluators[i].eval_full();
-            solve_stratum(evals);
+
+            solve_stratum(evals, on_stratum_complete);
+
+            if constexpr (!std::is_same_v<std::decay_t<Callback>,
+                                          std::nullptr_t>) {
+                on_stratum_complete(stratum_idx, evals);
+            }
+            stratum_idx++;
         }
     }
 
   private:
-    void solve_stratum(const std::vector<size_t> &evals) {
+    template <typename Callback = std::nullptr_t>
+    void solve_stratum(const std::vector<size_t> &evals,
+                       Callback &&on_stratum_complete = nullptr) {
+        size_t idx = 0;
         while (true) {
+            if constexpr (!std::is_same_v<std::decay_t<Callback>,
+                                          std::nullptr_t>) {
+                on_stratum_complete(idx, evals);
+            }
             bool changed = false;
             for (auto &h : predicates)
                 if (h.step(h.instance))
@@ -386,6 +406,37 @@ class Datalog {
   public:
 };
 
+template <size_t Arity> struct TableStats {
+    size_t num_tuples = 0;
+    std::array<size_t, Arity> distinct_count{};
+
+    template <typename StableContainer, typename RecentContainer>
+    void analyze(const StableContainer &stable, const RecentContainer &recent) {
+        num_tuples = 0;
+        std::array<std::unordered_set<size_t>, Arity> unique_hashes{};
+
+        auto process_relation = [&](const auto &rel) {
+            for (const auto &tuple : rel) {
+                num_tuples++;
+                for (size_t col = 0; col < Arity; col++) {
+                    using ValT = std::decay_t<decltype(tuple[col])>;
+                    unique_hashes[col].insert(std::hash<ValT>{}(tuple[col]));
+                }
+            }
+        };
+
+        for (const auto &batch : stable) {
+            process_relation(batch);
+        }
+        process_relation(recent);
+
+        for (size_t col = 0; col < Arity; col++) {
+            distinct_count[col] =
+                std::max<size_t>(1, unique_hashes[col].size());
+        }
+    }
+};
+
 template <typename V, size_t N> struct Predicate {
     using TupleT = std::array<V, N>;
 
@@ -393,6 +444,7 @@ template <typename V, size_t N> struct Predicate {
     // var.recent_data holds new facts discovered in the last iteration
     // var.to_add holds newly produced facts during the iteration
     df::Variable<TupleT> var;
+    mutable TableStats<N> stats;
 
     // Provide a default constructor so Predicate can be used as a free query
     // body
@@ -466,6 +518,14 @@ template <typename V, size_t N> struct Predicate {
 
     // Destructively return the result facts
     std::vector<TupleT> extract() { return std::move(var).complete().elements; }
+
+    void update_stats() const { stats.analyze(var.stable, var.recent_data); }
+
+    size_t cardinality() const { return stats.num_tuples; }
+
+    size_t distinct_values(size_t col) const {
+        return (col < N) ? stats.distinct_count[col] : 1;
+    }
 };
 
 // Convert a directed relation into an undirected relation

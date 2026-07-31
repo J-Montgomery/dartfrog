@@ -117,7 +117,21 @@ std::array<size_t, 2> run_dartfrog_galen(const GalenData &data) {
     u_rel.insert(df::Relation<std::array<int32_t, 3>>::from_vec(std::vector(data.u)));
     s_rel.insert(df::Relation<std::array<int32_t, 2>>::from_vec(std::vector(data.s)));
 
-    dl.solve();
+
+    dl.solve([&](size_t stratum_idx, const auto& evals) {
+        std::cout << "=== Stratum " << stratum_idx << " Complete ===\n";
+        p_rel.update_stats();
+        q_rel.update_stats();
+
+        std::cout << "p_rel | Tuples: " << p_rel.stats.num_tuples 
+                << " | Dist [Col0: " << p_rel.stats.distinct_count[0]
+                << ", Col1: " << p_rel.stats.distinct_count[1] << "]\n";
+
+        std::cout << "q_rel | Tuples: " << q_rel.stats.num_tuples 
+                << " | Dist [Col0: " << q_rel.stats.distinct_count[0]
+                << ", Col1: " << q_rel.stats.distinct_count[1]
+                << ", Col2: " << q_rel.stats.distinct_count[2] << "]\n\n";
+    });
 
     auto p_result = p_rel.extract();
     auto q_result = q_rel.extract();
