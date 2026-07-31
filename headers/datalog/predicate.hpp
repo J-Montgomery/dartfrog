@@ -60,11 +60,11 @@ template <typename V, size_t N> struct ReindexedIndex {
         std::sort(incoming.begin(), incoming.end());
         incoming.erase(std::unique(incoming.begin(), incoming.end()),
                        incoming.end());
-        // fold the new delta into trailing batches while they are within 2x its
+        // fold the new delta into trailing batches while they are within 8x its
         // size, so the amortized maintenance cost is O(total facts * log) over
         // the whole solve rather than O(rounds * total facts).
         while (!batches.empty() &&
-               batches.back().size() <= 2 * incoming.size()) {
+               batches.back().size() <= 8 * incoming.size()) {
             std::vector<std::array<V, N>> last = std::move(batches.back());
             batches.pop_back();
             std::vector<std::array<V, N>> merged;
@@ -457,7 +457,7 @@ template <typename V, size_t N> struct Predicate {
         df::Relation<TupleT> incoming{
             std::vector<TupleT>(var.recent_data.elements)};
         while (!var.stable.empty() &&
-               var.stable.back().size() <= 2 * incoming.size()) {
+               var.stable.back().size() <= 8 * incoming.size()) {
             auto last = std::move(var.stable.back());
             var.stable.pop_back();
             incoming = std::move(incoming).merge(std::move(last));

@@ -132,6 +132,9 @@ class MergedTrieIterator {
         const std::vector<std::span<const std::array<V, N>>> &batches)
         : num_batches_(batches.size()) {
 
+        if (batches.size() > MAX_BATCHES)
+            throw std::logic_error(
+                "MergedTrieIterator batch capacity exceeded");
         for (size_t i = 0; i < num_batches_; ++i) {
             batches_[i] = TrieIterator<V, N>(batches[i]);
             active_[i] = static_cast<uint8_t>(i);
