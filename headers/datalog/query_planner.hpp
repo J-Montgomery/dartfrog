@@ -515,15 +515,19 @@ struct QueryPlanner {
         return perm;
     }
 
-    template <size_t S, size_t I> static std::vector<int> atom_reindex_vars() {
-        constexpr size_t a = atom_arities<Atoms>()[I];
+    template <size_t S> static constexpr auto atom_var_table() {
         constexpr auto ids = atom_ids<Atoms>();
+        constexpr auto arities = atom_arities<Atoms>();
         constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
-        constexpr auto perm = atom_reindex_perm<S, I>();
-        std::vector<int> vars(a);
-        for (size_t k = 0; k < a; k++)
-            vars[k] = vp[ids[I][perm[k]]];
-        return vars;
+        std::array<std::array<int, MAX_ARITY>, NumAtoms> table{};
+        for (auto &row : table)
+            row.fill(-1);
+        for_indices<NumAtoms>([&]<size_t I>() {
+            constexpr auto perm = atom_reindex_perm<S, I>();
+            for (size_t col = 0; col < arities[I]; col++)
+                table[I][col] = vp[ids[I][perm[col]]];
+        });
+        return table;
     }
 
     template <size_t S, size_t I>
@@ -585,19 +589,6 @@ struct QueryPlanner {
                 make_merged_iter<Is>(std::get<Is>(spans))...);
         }(std::make_index_sequence<NumAtoms>{});
 
-        std::vector<lftj::AnyTrie<V>> erased;
-        erased.reserve(NumAtoms);
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
-            (erased.push_back(lftj::erase_trie(std::get<Is>(iters))), ...);
-        }(std::make_index_sequence<NumAtoms>{});
-        std::vector<lftj::AtomPlan<V>> plans;
-        plans.reserve(NumAtoms);
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
-            (plans.push_back(
-                 lftj::AtomPlan<V>{&erased[Is], atom_reindex_vars<S, Is>()}),
-             ...);
-        }(std::make_index_sequence<NumAtoms>{});
-
         [[maybe_unused]] auto keep = make_filter_test<S>(var_positions);
         constexpr size_t FLUSH_ROWS = size_t{1} << 16;
         auto batches = [&]<size_t... Hs>(std::index_sequence<Hs...>) {
@@ -619,11 +610,8 @@ struct QueryPlanner {
             b.reserve(FLUSH_ROWS);
         };
 
-        std::array<V, NumVars> row{};
-        lftj::triejoin<V>(
-            static_cast<int>(NumVars), plans, [&](const std::vector<V> &asg) {
-                for (size_t i = 0; i < NumVars; i++)
-                    row[i] = asg[i];
+        lftj::triejoin<V, NumVars, atom_var_table<S>()>(
+            iters, [&](const std::array<V, NumVars> &row) {
                 // Check if the rule has any remaining filters to check
                 if constexpr (std::tuple_size_v<Filters> > 0)
                     if (!keep(row))

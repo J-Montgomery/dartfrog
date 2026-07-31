@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <functional>
+#include <iterator>
 #include <numeric>
 #include <span>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 namespace df::datalog::lftj {
@@ -94,75 +96,88 @@ template <typename V, size_t N> class MergedTrieIterator {
   public:
     explicit MergedTrieIterator(
         const std::vector<std::span<const std::array<V, N>>> &batches) {
+        batches_.reserve(batches.size());
         for (const auto &b : batches)
             batches_.emplace_back(b);
-        active_[0].resize(batches_.size());
-        std::iota(active_[0].begin(), active_[0].end(), 0);
+        // A level's active batches are always a subset of its parent's, so
+        // partitioning in place keeps every level a prefix of one array.
+        active_.resize(batches_.size());
+        std::iota(active_.begin(), active_.end(), 0);
+        counts_[0] = active_.size();
+        refresh();
     }
 
     size_t depth() const { return depth_; }
-
-    bool at_end() const {
-        for (int b : active_[depth_])
-            if (!batches_[b].at_end())
-                return false;
-        return true;
-    }
-
-    const V &key() const {
-        const V *best = nullptr;
-        for (int b : active_[depth_]) {
-            if (batches_[b].at_end())
-                continue;
-            const V &k = batches_[b].key();
-            if (best == nullptr || k < *best)
-                best = &k;
-        }
-        return *best;
-    }
+    bool at_end() const { return at_end_[depth_]; }
+    const V &key() const { return key_[depth_]; }
 
     void next() {
-        const V current = key();
-        for (int b : active_[depth_])
+        const V current = key_[depth_];
+        for (int b : active())
             if (!batches_[b].at_end() && batches_[b].key() == current)
                 batches_[b].next();
+        refresh();
     }
 
     void seek(const V &target) {
-        for (int b : active_[depth_])
+        for (int b : active())
             if (!batches_[b].at_end())
                 batches_[b].seek(target);
+        refresh();
     }
 
     void open() {
-        const V current = key();
-        std::vector<int> &child = active_[depth_ + 1];
-        child.clear();
-        for (int b : active_[depth_]) {
-            if (!batches_[b].at_end() && batches_[b].key() == current) {
-                batches_[b].open();
-                child.push_back(b);
-            }
-        }
-        ++depth_;
+        const V current = key_[depth_];
+        const std::span<int> level = active();
+        const auto rest =
+            std::partition(level.begin(), level.end(), [&](int b) {
+                return !batches_[b].at_end() && batches_[b].key() == current;
+            });
+        const size_t matched = std::distance(level.begin(), rest);
+        for (int b : level.first(matched))
+            batches_[b].open();
+        counts_[++depth_] = matched;
+        if (depth_ < N)
+            refresh();
     }
 
     void up() {
-        for (int b : active_[depth_])
+        for (int b : active())
             batches_[b].up();
         --depth_;
     }
 
     void rewind() {
-        for (int b : active_[depth_])
+        for (int b : active())
             batches_[b].rewind();
+        refresh();
     }
 
   private:
+    std::span<int> active() {
+        return std::span(active_).first(counts_[depth_]);
+    }
+
+    void refresh() {
+        const V *best = nullptr;
+        for (int b : active())
+            if (!batches_[b].at_end()) {
+                const V &k = batches_[b].key();
+                if (best == nullptr || k < *best)
+                    best = &k;
+            }
+        at_end_[depth_] = best == nullptr;
+        if (best != nullptr)
+            key_[depth_] = *best;
+    }
+
     std::vector<TrieIterator<V, N>> batches_;
+    std::vector<int> active_;
     size_t depth_ = 0;
 
-    std::array<std::vector<int>, N + 1> active_{};
+    std::array<size_t, N + 1> counts_{};
+    std::array<V, N + 1> key_{};
+    std::array<bool, N + 1> at_end_{};
 };
 
 template <typename V, size_t N>
@@ -182,140 +197,85 @@ reindex_rows(const std::vector<std::array<V, N>> &rows,
     return out;
 }
 
-// Type-erased trie-iterator interface so a join can mix relations of different
-// arities in one iterator list.
-template <typename V> struct AnyTrie {
-    std::function<bool()> at_end;
-    std::function<const V &()> key;
-    std::function<void()> next;
-    std::function<void(const V &)> seek;
-    std::function<void()> open;
-    std::function<void()> up;
-    std::function<void()> rewind;
-};
-
-template <typename V, size_t N> AnyTrie<V> erase_trie(TrieIterator<V, N> &it) {
-    return AnyTrie<V>{
-        [&] { return it.at_end(); }, [&]() -> const V & { return it.key(); },
-        [&] { it.next(); },          [&](const V &k) { it.seek(k); },
-        [&] { it.open(); },          [&] { it.up(); },
-        [&] { it.rewind(); }};
+// `AtomVars[atom][col]` is the join variable bound by that column of that atom,
+// ascending across columns.
+template <auto AtomVars, size_t Var> constexpr size_t count_binders() {
+    size_t count = 0;
+    for (const auto &vars : AtomVars)
+        for (int var : vars)
+            count += (var == static_cast<int>(Var));
+    return count;
 }
 
-template <typename V, size_t N>
-AnyTrie<V> erase_trie(MergedTrieIterator<V, N> &it) {
-    return AnyTrie<V>{
-        [&] { return it.at_end(); }, [&]() -> const V & { return it.key(); },
-        [&] { it.next(); },          [&](const V &k) { it.seek(k); },
-        [&] { it.open(); },          [&] { it.up(); },
-        [&] { it.rewind(); }};
+template <auto AtomVars, size_t Var> constexpr auto binders_of() {
+    std::array<size_t, count_binders<AtomVars, Var>()> binders{};
+    size_t count = 0;
+    for (size_t atom = 0; atom < AtomVars.size(); atom++)
+        for (int var : AtomVars[atom])
+            if (var == static_cast<int>(Var))
+                binders[count++] = atom;
+    return binders;
 }
 
-template <typename V>
-void leapfrog(std::vector<AnyTrie<V> *> &iters,
-              const std::function<void(const V &)> &on_match) {
-    for (AnyTrie<V> *it : iters)
-        if (it->at_end())
-            return;
+template <auto Values, size_t... Is>
+constexpr auto to_index_sequence(std::index_sequence<Is...>) {
+    return std::index_sequence<Values[Is]...>{};
+}
 
-    std::sort(iters.begin(), iters.end(),
-              [](AnyTrie<V> *a, AnyTrie<V> *b) { return a->key() < b->key(); });
-    size_t p = 0;
-    const size_t k = iters.size();
-    V high = iters[(p + k - 1) % k]->key();
+template <auto Values>
+using IndexSequenceOf = decltype(to_index_sequence<Values>(
+    std::make_index_sequence<Values.size()>{}));
 
-    while (true) {
-        const V low = iters[p]->key();
-        if (low == high) {
-            on_match(low);
-            // Advance every iterator past the low point so the next
-            // round makes progress.
-            for (AnyTrie<V> *it : iters) {
-                it->next();
-                if (it->at_end())
-                    return;
+template <auto AtomVars, size_t... Vars>
+constexpr auto binder_levels(std::index_sequence<Vars...>) {
+    return std::tuple<IndexSequenceOf<binders_of<AtomVars, Vars>()>...>{};
+}
+
+template <auto AtomVars, size_t NumVars>
+using BinderLevels =
+    decltype(binder_levels<AtomVars>(std::make_index_sequence<NumVars>{}));
+
+template <typename V, size_t NumVars, typename Levels, size_t Var,
+          typename Tries, typename Emit>
+void bind_var(Tries &tries, std::array<V, NumVars> &assignment,
+              const Emit &emit) {
+    if constexpr (Var == NumVars) {
+        emit(assignment);
+    } else if constexpr (std::tuple_element_t<Var, Levels>::size() == 0) {
+        bind_var<V, NumVars, Levels, Var + 1>(tries, assignment, emit);
+    } else {
+        [&]<size_t... Bs>(std::index_sequence<Bs...>) {
+            // Restart every participating iterator at the start of its current
+            // sub-range so a cursor consumed by a previous sibling branch at
+            // the parent level doesn't miss valid matches.
+            (std::get<Bs>(tries).rewind(), ...);
+            while (!(std::get<Bs>(tries).at_end() || ...)) {
+                // Leapfrog: everyone must reach the highest key on offer, so
+                // seek the laggards up to it
+                const std::array<V, sizeof...(Bs)> keys{
+                    std::get<Bs>(tries).key()...};
+                const V high = *std::max_element(keys.begin(), keys.end());
+                if (std::any_of(keys.begin(), keys.end(),
+                                [&](const V &k) { return k != high; })) {
+                    (std::get<Bs>(tries).seek(high), ...);
+                    continue;
+                }
+                assignment[Var] = high;
+                (std::get<Bs>(tries).open(), ...);
+                bind_var<V, NumVars, Levels, Var + 1>(tries, assignment, emit);
+                (std::get<Bs>(tries).up(), ...);
+                (std::get<Bs>(tries).next(), ...);
             }
-            std::sort(iters.begin(), iters.end(),
-                      [](AnyTrie<V> *a, AnyTrie<V> *b) {
-                          return a->key() < b->key();
-                      });
-            p = 0;
-            high = iters[k - 1]->key();
-        } else {
-            iters[p]->seek(high);
-            if (iters[p]->at_end())
-                return;
-            high = iters[p]->key();
-            p = (p + 1) % k;
-        }
+        }(std::tuple_element_t<Var, Levels>{});
     }
 }
 
-template <typename V> struct AtomPlan {
-    AnyTrie<V> *trie;
-    std::vector<int> vars;
-};
-
-// Depth-first triejoin over `num_vars` global variables bound in ascending
-// order. Each atom's `vars` must also monotically increase.
-template <typename V>
-void triejoin(int num_vars, std::vector<AtomPlan<V>> &atoms,
-              const std::function<void(const std::vector<V> &)> &emit) {
-    std::vector<V> assignment(num_vars);
-
-    std::vector<std::vector<AtomPlan<V> *>> binders(num_vars);
-    for (auto &atom : atoms)
-        if (!atom.vars.empty())
-            binders[atom.vars.front()].push_back(&atom);
-
-    std::function<void(int)> recurse = [&](int var) {
-        if (var == num_vars) {
-            emit(assignment);
-            return;
-        }
-        std::vector<AtomPlan<V> *> &here = binders[var];
-        if (here.empty()) {
-            recurse(var + 1);
-            return;
-        }
-        std::vector<AnyTrie<V> *> its;
-        its.reserve(here.size());
-        for (AtomPlan<V> *a : here)
-            its.push_back(a->trie);
-
-        // Restart every participating iterator at the start of
-        // its current sub-range so a cursor consumed by a previous sibling
-        // branch at the parent level doesn't miss valid matches
-        for (AnyTrie<V> *it : its)
-            it->rewind();
-
-        leapfrog<V>(its, [&](const V &val) {
-            assignment[var] = val;
-            // Descend every participating atom into this value.
-            for (AtomPlan<V> *a : here)
-                a->trie->open();
-            // Register each advanced atom under the next variable it binds.
-            std::vector<std::pair<int, AtomPlan<V> *>> readded;
-            for (AtomPlan<V> *a : here) {
-                auto pos = std::find(a->vars.begin(), a->vars.end(), var);
-                auto nxt = std::next(pos);
-                if (nxt != a->vars.end()) {
-                    binders[*nxt].push_back(a);
-                    readded.emplace_back(*nxt, a);
-                }
-            }
-
-            recurse(var + 1);
-            for (auto &[v, a] : readded) {
-                auto &vec = binders[v];
-                vec.erase(std::remove(vec.begin(), vec.end(), a), vec.end());
-            }
-            for (AtomPlan<V> *a : here)
-                a->trie->up();
-        });
-    };
-
-    recurse(0);
+template <typename V, size_t NumVars, auto AtomVars, typename Tries,
+          typename Emit>
+void triejoin(Tries &tries, const Emit &emit) {
+    std::array<V, NumVars> assignment{};
+    bind_var<V, NumVars, BinderLevels<AtomVars, NumVars>, 0>(tries, assignment,
+                                                             emit);
 }
 
 } // namespace df::datalog::lftj
