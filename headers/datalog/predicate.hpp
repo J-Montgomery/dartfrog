@@ -410,27 +410,23 @@ template <size_t Arity> struct TableStats {
     size_t num_tuples = 0;
     std::array<size_t, Arity> distinct_count{};
 
-    template <typename StableContainer, typename RecentContainer>
-    void analyze(const StableContainer &stable, const RecentContainer &recent) {
+    template <typename StableContainer>
+    void analyze(const StableContainer &stable) {
         num_tuples = 0;
         std::array<std::unordered_set<size_t>, Arity> unique_hashes{};
 
-        auto process_relation = [&](const auto &rel) {
-            for (const auto &tuple : rel) {
-                num_tuples++;
-                for (size_t col = 0; col < Arity; col++) {
+        for (const auto &batch : stable) {
+            for (const auto &tuple : batch) {
+                ++num_tuples;
+
+                for (size_t col = 0; col < Arity; ++col) {
                     using ValT = std::decay_t<decltype(tuple[col])>;
                     unique_hashes[col].insert(std::hash<ValT>{}(tuple[col]));
                 }
             }
-        };
-
-        for (const auto &batch : stable) {
-            process_relation(batch);
         }
-        process_relation(recent);
 
-        for (size_t col = 0; col < Arity; col++) {
+        for (size_t col = 0; col < Arity; ++col) {
             distinct_count[col] =
                 std::max<size_t>(1, unique_hashes[col].size());
         }
@@ -519,7 +515,7 @@ template <typename V, size_t N> struct Predicate {
     // Destructively return the result facts
     std::vector<TupleT> extract() { return std::move(var).complete().elements; }
 
-    void update_stats() const { stats.analyze(var.stable, var.recent_data); }
+    void update_stats() const { stats.analyze(var.stable); }
 
     size_t cardinality() const { return stats.num_tuples; }
 
