@@ -105,10 +105,20 @@ template <std::totally_ordered Tuple> class Variable {
         if (relation.empty()) {
             return;
         }
-        to_add.push_back(std::move(relation));
-        if (distinct && should_compact_pending()) {
-            compact_pending();
+        while (!to_add.empty()) {
+            const size_t previous_size = to_add.back().size();
+            const size_t incoming_size = relation.size();
+
+            if (previous_size > incoming_size &&
+                previous_size - incoming_size > incoming_size) {
+                break;
+            }
+
+            relation = std::move(to_add.back()).merge(std::move(relation));
+            to_add.pop_back();
         }
+
+        to_add.push_back(std::move(relation));
     }
 
     template <typename R> constexpr void extend(R &&range) {
