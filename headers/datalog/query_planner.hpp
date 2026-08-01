@@ -83,6 +83,14 @@ constexpr bool is_identity_perm(const std::array<int, A> &perm) {
     return true;
 }
 
+template <size_t N>
+constexpr bool is_identity_prefix(const std::array<int, N> &positions) {
+    for (size_t i = 0; i < N; i++)
+        if (positions[i] != static_cast<int>(i))
+            return false;
+    return true;
+}
+
 // make_order determines the variable binding order
 // by greedily assuming unbound variables that share
 // rules with lots of bound variables should be
@@ -96,10 +104,9 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
     std::array<int, NumVars> order{};
     std::array<bool, NumVars> bound{};
     std::array<int, NumVars> score{};
-    for (auto &flag : bound)
-        flag = false;
-    for (auto &sc : score)
-        sc = 0;
+
+    bound.fill(false);
+    score.fill(0);
 
     auto bind = [&](int var_id) {
         bound[var_id] = true;
@@ -161,12 +168,12 @@ constexpr auto level_plan(size_t src_idx, size_t bound_vars) {
     constexpr size_t NumVars = num_vars<Atoms>();
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
-    auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
+    const auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
     LevelPlan<NumAtoms> plan{};
     for (size_t atom = 0; atom < NumAtoms; atom++) {
         if (atom == src_idx)
             continue;
-        size_t arity = arities[atom];
+        const size_t arity = arities[atom];
         int propose_col = -1;
         bool prefix_ok = true;
         for (size_t col = 0; col < arity; col++) {
@@ -174,11 +181,13 @@ constexpr auto level_plan(size_t src_idx, size_t bound_vars) {
                 continue;
             }
 
-            int pos = var_positions[ids[atom][col]];
+            const int pos = var_positions[ids[atom][col]];
             if (pos == static_cast<int>(bound_vars)) {
                 propose_col = static_cast<int>(col);
                 break;
-            } else if (pos > static_cast<int>(bound_vars)) {
+            }
+
+            if (pos > static_cast<int>(bound_vars)) {
                 prefix_ok = false;
                 break;
             }
@@ -200,21 +209,23 @@ constexpr bool plan_has_scan_trap(size_t src_idx, size_t bound_vars) {
     constexpr size_t NumVars = num_vars<Atoms>();
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
-    auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
+    const auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
     for (size_t atom = 0; atom < NumAtoms; atom++) {
         if (atom == src_idx)
             continue;
-        size_t arity = arities[atom];
+        const size_t arity = arities[atom];
         int propose_col = -1;
         bool prefix_ok = true;
         for (size_t col = 0; col < arity; col++) {
             if (ids[atom][col] < 0)
                 continue;
-            int pos = var_positions[ids[atom][col]];
+            const int pos = var_positions[ids[atom][col]];
             if (pos == static_cast<int>(bound_vars)) {
                 propose_col = static_cast<int>(col);
                 break;
-            } else if (pos > static_cast<int>(bound_vars)) {
+            }
+
+            if (pos > static_cast<int>(bound_vars)) {
                 prefix_ok = false;
                 break;
             }
@@ -222,10 +233,11 @@ constexpr bool plan_has_scan_trap(size_t src_idx, size_t bound_vars) {
         if (!prefix_ok || propose_col < 0)
             continue;
         for (size_t col = static_cast<size_t>(propose_col) + 1; col < arity;
-             col++)
+             col++) {
             if (ids[atom][col] >= 0 &&
                 var_positions[ids[atom][col]] < static_cast<int>(bound_vars))
                 return true;
+        }
     }
     return false;
 }
@@ -332,7 +344,7 @@ constexpr bool has_residual_filters() {
 template <typename V, size_t K> struct ArrayAppender {
     constexpr std::array<V, K + 1> operator()(const std::array<V, K> &prefix,
                                               const V &new_val) const {
-        std::array<V, K + 1> result;
+        std::array<V, K + 1> result{};
         for (size_t i = 0; i < K; i++)
             result[i] = prefix[i];
         result[K] = new_val;
@@ -603,9 +615,23 @@ struct QueryPlanner {
             auto &b = std::get<H>(batches);
             if (b.empty())
                 return;
-            constexpr size_t head_atom = atom_traits<HeadAt<H>>::arity;
-            head_pred<H>()->insert(
-                df::Relation<std::array<V, head_atom>>::from_vec(std::move(b)));
+            constexpr size_t head_arity = atom_traits<HeadAt<H>>::arity;
+            constexpr auto var_plan = invert<NumVars>(make_order<Atoms>(S));
+            constexpr auto head_positions =
+                project<head_arity>(var_plan, atom_traits<HeadAt<H>>::var_ids);
+
+            using ResultTuple = std::array<V, head_arity>;
+            using ResultRelation = df::Relation<ResultTuple>;
+
+            if constexpr (is_identity_prefix(head_positions)) {
+                b.erase(std::unique(b.begin(), b.end()), b.end());
+
+                head_pred<H>()->insert(
+                    ResultRelation::from_sorted_unique_vec(std::move(b)));
+            } else {
+                head_pred<H>()->insert(ResultRelation::from_vec(std::move(b)));
+            }
+
             b.clear();
             b.reserve(FLUSH_ROWS);
         };
