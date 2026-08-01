@@ -251,6 +251,7 @@ template <> struct ScanTrapWarning<true> {
         "join key is in a leading column.")]] ScanTrapWarning() = default;
 };
 
+/* Negation */
 template <typename T> struct is_negated : std::false_type {};
 template <typename P, typename... Vars>
 struct is_negated<NegatedTerm<P, Vars...>> : std::true_type {};
@@ -262,6 +263,8 @@ struct negated_var_ids<NegatedTerm<P, Var<Ids>...>> {
     static constexpr std::array<int, sizeof...(Ids)> value = {Ids...};
 };
 
+/* Expression filters */
+
 template <typename T> struct is_expression_filter : std::false_type {};
 template <typename Func, int... VarIds>
 struct is_expression_filter<ExpressionFilter<Func, VarIds...>>
@@ -272,6 +275,84 @@ template <typename Func, int... VarIds>
 struct expression_filter_var_ids_impl<ExpressionFilter<Func, VarIds...>> {
     static constexpr std::array<int, sizeof...(VarIds)> value = {VarIds...};
 };
+
+/* Aggregates */
+
+template <typename T> struct is_aggregate_filter : std::false_type {};
+
+template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
+struct is_aggregate_filter<
+    AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>>
+    : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_aggregate_filter_v = is_aggregate_filter<T>::value;
+
+template <typename T> struct aggregate_traits;
+
+template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
+struct aggregate_traits<
+    AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>> {
+    using func_t = Func;
+
+    static constexpr int out_var_id = OutVarId;
+    static constexpr int value_var_id = ValueVarId;
+
+    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
+        GroupVarIds...};
+};
+
+template <typename Filters> constexpr size_t aggregate_count() {
+    return []<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
+        return (0 + ... + (is_aggregate_filter_v<Ts> ? 1 : 0));
+    }(std::type_identity<Filters>{});
+}
+
+template <typename Filters> constexpr size_t aggregate_index() {
+    size_t result = std::tuple_size_v<Filters>;
+
+    for_indices<std::tuple_size_v<Filters>>([&]<size_t I>() {
+        using Filt = std::tuple_element_t<I, Filters>;
+        if constexpr (is_aggregate_filter_v<Filt>)
+            result = I;
+    });
+
+    return result;
+}
+
+template <typename Agg> constexpr bool aggregate_group_ids_unique() {
+    constexpr auto ids = aggregate_traits<Agg>::group_var_ids;
+
+    for (size_t i = 0; i < ids.size(); i++) {
+        for (size_t j = i + 1; j < ids.size(); j++) {
+            if (ids[i] == ids[j])
+                return false;
+        }
+    }
+    return true;
+}
+
+// A quick combiner that works for any integral T
+template <typename T> constexpr T permute(T x) noexcept {
+    T b = ((x * x) | static_cast<T>(0x5)) + x;
+    return b ^ (x << 1);
+}
+
+template <typename V, size_t N> struct AggregateArrayHash {
+    size_t operator()(const std::array<V, N> &key) const
+        noexcept(noexcept(std::hash<V>{}(std::declval<const V &>()))) {
+        size_t seed = 0;
+
+        for (const auto &elem : key) {
+            size_t h = std::hash<V>{}(elem);
+            seed = permute(seed ^ h);
+        }
+
+        return seed;
+    }
+};
+
+/* Relational operators */
 
 template <typename T> struct filter_vars;
 template <Cmp Op, int A, int B>
@@ -460,6 +541,37 @@ constexpr bool all_heads_covered(std::index_sequence<Hs...>) {
             ...);
 }
 
+template <typename Head, typename Agg>
+constexpr bool one_aggregate_head_covered() {
+    for (int id : atom_traits<Head>::var_ids) {
+        if (id < 0)
+            return false;
+
+        if (id == aggregate_traits<Agg>::out_var_id)
+            continue;
+
+        bool is_group = false;
+        for (int group_id : aggregate_traits<Agg>::group_var_ids) {
+            if (id == group_id) {
+                is_group = true;
+                break;
+            }
+        }
+
+        if (!is_group)
+            return false;
+    }
+
+    return true;
+}
+
+template <typename HeadTup, typename Agg, size_t... Hs>
+constexpr bool all_aggregate_heads_covered(std::index_sequence<Hs...>) {
+    return (
+        one_aggregate_head_covered<std::tuple_element_t<Hs, HeadTup>, Agg>() &&
+        ...);
+}
+
 template <typename HeadTerm, typename Atoms, typename Filters>
 struct QueryPlanner {
     HeadTerm head;
@@ -482,6 +594,32 @@ struct QueryPlanner {
 
     template <size_t H> using HeadAt = std::tuple_element_t<H, HeadTuple>;
 
+    static constexpr size_t NumAggregates = aggregate_count<Filters>();
+    static constexpr bool HasAggregate = NumAggregates != 0;
+    static constexpr size_t AggregateIndex = aggregate_index<Filters>();
+
+    static_assert(NumAggregates <= 1, "A rule can have at most 1 aggregate");
+
+    template <bool Enabled, typename Dummy = void>
+    struct aggregate_type_holder {
+        using type = void;
+    };
+
+    template <typename Dummy> struct aggregate_type_holder<true, Dummy> {
+        using type = std::tuple_element_t<AggregateIndex, Filters>;
+    };
+
+    using Aggregate = typename aggregate_type_holder<HasAggregate>::type;
+
+    static constexpr size_t ResultNumVars = [] {
+        if constexpr (HasAggregate) {
+            return static_cast<size_t>(aggregate_traits<Aggregate>::out_var_id +
+                                       1);
+        } else {
+            return NumVars;
+        }
+    }();
+
     template <size_t H> auto *head_pred() const {
         if constexpr (is_multihead<HeadTerm>::value)
             return std::get<H>(head.heads).pred;
@@ -489,9 +627,49 @@ struct QueryPlanner {
             return head.pred;
     }
 
-    static_assert(all_heads_covered<HeadTuple, NumVars>(
-                      std::make_index_sequence<NumHeads>{}),
-                  "All head variables must appear in the body");
+    static_assert(
+        [] {
+            if constexpr (HasAggregate) {
+                return all_aggregate_heads_covered<HeadTuple, Aggregate>(
+                    std::make_index_sequence<NumHeads>{});
+            } else {
+                return all_heads_covered<HeadTuple, NumVars>(
+                    std::make_index_sequence<NumHeads>{});
+            }
+        }(),
+        "All aggregate head vars must be grouping vars "
+        "or the output var");
+
+    static_assert(
+        [] {
+            if constexpr (!HasAggregate) {
+                return true;
+            } else {
+                constexpr int out_id = aggregate_traits<Aggregate>::out_var_id;
+                constexpr int value_id =
+                    aggregate_traits<Aggregate>::value_var_id;
+
+                if (out_id != static_cast<int>(NumVars))
+                    return false;
+                if (value_id < 0 || value_id >= static_cast<int>(NumVars))
+                    return false;
+                if (out_id == value_id)
+                    return false;
+
+                for (int group_id :
+                     aggregate_traits<Aggregate>::group_var_ids) {
+                    if (group_id < 0 || group_id >= static_cast<int>(NumVars))
+                        return false;
+                    if (group_id == out_id)
+                        return false;
+                }
+
+                return aggregate_group_ids_unique<Aggregate>();
+            }
+        }(),
+        "Invalid aggregate: input and group variables must use"
+        " bound positive body atoms and group variables must be"
+        " unique");
 
     template <size_t S> static constexpr bool source_is_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
@@ -503,12 +681,38 @@ struct QueryPlanner {
 
     // Execute a semi-naive delta step over the newly produced facts
     void operator()() const {
-        for_indices<NumAtoms>([&]<size_t S>() { do_source<S>(); });
+        if constexpr (!HasAggregate) {
+            for_indices<NumAtoms>([&]<size_t S>() { do_source<S>(); });
+        }
     }
 
     // Execute a semi-naive step over all stable facts
     void eval_full() const {
-        for_indices<NumAtoms>([&]<size_t S>() { do_source_full<S>(); });
+        size_t best_source = NumAtoms;
+        size_t best_size = std::numeric_limits<size_t>::max();
+
+        for_indices<NumAtoms>([&]<size_t S>() {
+            if constexpr (source_enabled<S>()) {
+                const auto *pred = std::get<S>(atoms).pred;
+                const size_t size = pred->var.num_stable();
+
+                if (size < best_size) {
+                    best_size = size;
+                    best_source = S;
+                }
+            }
+        });
+
+        for_indices<NumAtoms>([&]<size_t S>() {
+            if constexpr (source_enabled<S>()) {
+                if (best_source == S) {
+                    if constexpr (HasAggregate)
+                        do_aggregate_source_full<S>();
+                    else
+                        do_source_full<S>();
+                }
+            }
+        });
     }
 
     template <size_t S, size_t I>
@@ -779,7 +983,9 @@ struct QueryPlanner {
     bool filter_check(const std::array<V, NumVars> &tuple,
                       const std::array<int, NumVars> &var_positions) const {
         using Filt = std::tuple_element_t<F, Filters>;
-        if constexpr (is_expression_filter<Filt>::value) {
+        if constexpr (is_aggregate_filter_v<Filt>) {
+            return true;
+        } else if constexpr (is_expression_filter<Filt>::value) {
             constexpr auto ids = expression_filter_var_ids_impl<Filt>::value;
             return [&]<size_t... Is>(std::index_sequence<Is...>) {
                 return std::get<F>(filters).func(
@@ -797,9 +1003,10 @@ struct QueryPlanner {
             constexpr int var_id_b = filter_vars<Filt>::b_id;
             static_assert(var_id_a >= 0 && var_id_b >= 0,
                           "filter variable not bound by a positive body atom");
-            int pos_a = var_positions[var_id_a],
-                pos_b = var_positions[var_id_b];
+            const int pos_a = var_positions[var_id_a];
+            const int pos_b = var_positions[var_id_b];
             constexpr Cmp op = filter_vars<Filt>::op;
+
             return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
         }
     }
@@ -818,6 +1025,162 @@ struct QueryPlanner {
                     return (filter_check<Fs>(row, var_positions) && ...);
                 }(std::make_index_sequence<std::tuple_size_v<Filters>>{});
             };
+    }
+
+    template <size_t S>
+    auto
+    apply_aggregation(const std::vector<std::array<V, NumVars>> &tuples) const {
+        static_assert(HasAggregate);
+        using AT = aggregate_traits<Aggregate>;
+        constexpr size_t NumGroups = AT::group_var_ids.size();
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+
+        using GroupKey = std::array<V, NumGroups>;
+        using ResultRow = std::array<V, ResultNumVars>;
+
+        std::unordered_map<GroupKey, std::vector<V>,
+                           AggregateArrayHash<V, NumGroups>>
+            groups;
+
+        groups.reserve(tuples.size());
+        for (const auto &tuple : tuples) {
+            GroupKey key{};
+            for (size_t i = 0; i < NumGroups; i++) {
+                const int group_id = AT::group_var_ids[i];
+
+                key[i] = tuple[var_positions[group_id]];
+            }
+
+            auto [group, inserted] = groups.try_emplace(std::move(key));
+            (void)inserted;
+            group->second.push_back(tuple[var_positions[AT::value_var_id]]);
+        }
+
+        std::vector<ResultRow> result;
+        result.reserve(groups.size());
+
+        const auto &aggregate = std::get<AggregateIndex>(filters);
+        for (auto &[key, values] : groups) {
+            ResultRow row{};
+
+            for (size_t i = 0; i < NumGroups; i++)
+                row[AT::group_var_ids[i]] = key[i];
+
+            auto value = aggregate.func(
+                std::span<const V>(values.data(), values.size()));
+
+            static_assert(std::is_convertible_v<decltype(value), V>,
+                          "Aggregate reducer result must be "
+                          "convertible to the predicate value type");
+            row[AT::out_var_id] = static_cast<V>(std::move(value));
+
+            result.push_back(std::move(row));
+        }
+
+        return result;
+    }
+
+    template <typename Rows>
+    void materialize_aggregate_heads(const Rows &rows) const {
+        for_indices<NumHeads>([&]<size_t H>() {
+            constexpr size_t HeadArity = atom_traits<HeadAt<H>>::arity;
+            constexpr auto HeadIds = atom_traits<HeadAt<H>>::var_ids;
+
+            std::vector<std::array<V, HeadArity>> output;
+            output.reserve(rows.size());
+
+            for (const auto &row : rows) {
+                std::array<V, HeadArity> projected{};
+                for (size_t col = 0; col < HeadArity; col++)
+                    projected[col] = row[HeadIds[col]];
+
+                output.push_back(std::move(projected));
+            }
+
+            head_pred<H>()->insert(
+                df::Relation<std::array<V, HeadArity>>::from_vec(
+                    std::move(output)));
+        });
+    }
+
+    template <size_t S> void do_aggregate_source_full() const {
+        static_assert(HasAggregate);
+        constexpr size_t source_arity = atom_arities<Atoms>()[S];
+
+        if constexpr (source_enabled<S>()) {
+            std::vector<std::array<V, NumVars>> joined;
+            auto *source_pred = std::get<S>(atoms).pred;
+
+            for (const auto &batch : source_pred->var.stable) {
+                collect_source_impl<S>(
+                    std::span<const std::array<V, source_arity>>(
+                        batch.elements),
+                    joined);
+            }
+
+            auto aggregated = apply_aggregation<S>(joined);
+            materialize_aggregate_heads(aggregated);
+        }
+    }
+
+    template <size_t S>
+    void collect_source_impl_lftj(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
+        std::vector<std::array<V, NumVars>> &result) const {
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+
+        auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(atom_spans<S, Is>(src)...);
+        }(std::make_index_sequence<NumAtoms>{});
+
+        auto iters = [&]<size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(
+                make_merged_iter<Is>(std::get<Is>(spans))...);
+        }(std::make_index_sequence<NumAtoms>{});
+
+        auto keep = make_filter_test<S>(var_positions);
+
+        lftj::triejoin<V, NumVars, atom_var_table<S>()>(
+            iters, [&](const std::array<V, NumVars> &row) {
+                if constexpr (std::tuple_size_v<Filters> > 0) {
+                    if (!keep(row))
+                        return;
+                }
+
+                result.push_back(row);
+            });
+    }
+
+    template <size_t S>
+    void collect_source_impl_extend(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
+        std::vector<std::array<V, NumVars>> &result) const {
+        constexpr size_t source_arity = atom_arities<Atoms>()[S];
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+
+        auto joined = extend<V, NumVars, S, source_arity>(src, atoms);
+        if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
+            result.insert(result.end(), joined.elements.begin(),
+                          joined.elements.end());
+        } else {
+            auto keep = make_residual_test<S>(var_positions);
+            for (const auto &row : joined.elements)
+                if (keep(row))
+                    result.push_back(row);
+        }
+    }
+
+    template <size_t S>
+    void collect_source_impl(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
+        std::vector<std::array<V, NumVars>> &result) const {
+        if (src.empty())
+            return;
+
+        if constexpr (has_duplicate_var_atom<Atoms>())
+            collect_source_impl_extend<S>(src, result);
+        else
+            collect_source_impl_lftj<S>(src, result);
     }
 };
 

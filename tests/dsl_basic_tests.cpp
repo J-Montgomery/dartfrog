@@ -647,3 +647,66 @@ TEST(DslIncremental, PeanoArithmetic) {
     mul_out = mul.extract();
     EXPECT_TRUE(has_fact(mul_out, {2, 2, 4})); // 2 * 2 = 4
 }
+
+TEST(DslAggregates, SumSalesByGroup) {
+    Datalog dl;
+    Predicate<int, 2> sales(dl), total_sales(dl);
+
+    Var<0> group;
+    Var<1> value;
+    Var<2> total;
+
+    dl.add_rule(total_sales(group, total) %=
+                sales(group, value) &&
+                group_by<2, 1, 0>([](std::span<const int> values) {
+                    return std::accumulate(values.begin(), values.end(), 0);
+                }));
+
+    sales.insert(rel<int>({
+        {1, 10},
+        {1, 20},
+        {1, 5},
+        {2, 7},
+        {2, 3},
+        {3, 42},
+    }));
+
+    dl.solve();
+
+    EXPECT_EQ(total_sales.extract(), (std::vector<std::array<int, 2>>{
+                                         {1, 35},
+                                         {2, 10},
+                                         {3, 42},
+                                     }));
+}
+
+TEST(DslAggregates, FiltersValuesBeforeSumming) {
+    Datalog dl;
+    Predicate<int, 2> sales(dl), total_sales(dl);
+
+    Var<0> group;
+    Var<1> value;
+    Var<2> total;
+
+    dl.add_rule(total_sales(group, total) %=
+                sales(group, value) &&
+                where<1>([](int value) { return value >= 10; }) &&
+                group_by<2, 1, 0>([](std::span<const int> values) {
+                    return std::accumulate(values.begin(), values.end(), 0);
+                }));
+
+    sales.insert(rel<int>({
+        {1, 5},
+        {1, 10},
+        {1, 20},
+        {2, 3},
+        {2, 15},
+    }));
+
+    dl.solve();
+
+    EXPECT_EQ(total_sales.extract(), (std::vector<std::array<int, 2>>{
+                                         {1, 30},
+                                         {2, 15},
+                                     }));
+}

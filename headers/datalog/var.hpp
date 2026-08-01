@@ -29,6 +29,8 @@ template <typename Head, typename Body> struct Rule {
     Body body;
 };
 
+/* Multi-Head */
+
 template <typename... Heads> struct MultiHead {
     std::tuple<Heads...> heads;
 
@@ -53,6 +55,8 @@ auto operator,(const MultiHead<Heads...> &m, const Term<P, V...> &b) {
         std::tuple_cat(m.heads, std::make_tuple(b))};
 }
 
+/* Negation */
+
 template <typename Pred, typename... Vars> struct NegatedTerm {
     Pred *pred;
 };
@@ -61,6 +65,8 @@ template <typename Pred, typename... Vars>
 auto operator!(const Term<Pred, Vars...> &t) {
     return NegatedTerm<Pred, Vars...>{t.pred};
 }
+
+/* Relational Operators */
 
 enum class Cmp { Lt, Le, Gt, Ge, Ne, Eq };
 template <Cmp Op, typename A, typename B> struct Compare {
@@ -96,6 +102,7 @@ template <class T> struct is_filter_atom : std::true_type {};
 template <class P, class... Vars>
 struct is_filter_atom<Term<P, Vars...>> : std::false_type {};
 
+/* Expression filters */
 template <typename Func, int... VarIds> struct ExpressionFilter {
     Func func;
 };
@@ -106,6 +113,34 @@ struct is_filter_atom<ExpressionFilter<Func, VarIds...>> : std::true_type {};
 template <int... VarIds, typename Func> auto where(Func f) {
     return ExpressionFilter<std::remove_cvref_t<Func>, VarIds...>{std::move(f)};
 }
+
+/* Aggregates */
+template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
+struct AggregateFilter {
+    Func func;
+
+    static constexpr int out_var_id = OutVarId;
+    static constexpr int value_var_id = ValueVarId;
+    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
+        GroupVarIds...};
+};
+
+template <int OutVarId, int ValueVarId, int... GroupVarIds, typename Func>
+auto group_by(Func &&func) {
+    using F = std::remove_cvref_t<Func>;
+    return AggregateFilter<F, OutVarId, ValueVarId, GroupVarIds...>{
+        std::forward<Func>(func)};
+}
+
+template <typename T>
+inline constexpr int var_id_v = std::remove_cvref_t<T>::id;
+
+template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
+struct is_filter_atom<
+    AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>>
+    : std::true_type {};
+
+/* Conjunctions of filters */
 
 template <class P1, class... Vars1, class P2, class... Vars2>
 auto operator&&(const Term<P1, Vars1...> &l, const Term<P2, Vars2...> &r) {
