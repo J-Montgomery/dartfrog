@@ -23,28 +23,45 @@ template <typename V, size_t N> class TrieIterator {
         pos_[0] = 0;
     }
 
-    size_t depth() const { return depth_; }
+    __attribute__((always_inline)) size_t depth() const { return depth_; }
 
     // Check if no more keys remain at the current level.
-    bool at_end() const { return pos_[depth_] >= hi_[depth_]; }
+    __attribute__((always_inline)) bool at_end() const {
+        return pos_[depth_] >= hi_[depth_];
+    }
 
-    const V &key() const { return rows_[pos_[depth_]][depth_]; }
+    __attribute__((always_inline)) const V &key() const {
+        return rows_[pos_[depth_]][depth_];
+    }
 
-    void next() {
+    __attribute__((always_inline)) void next() {
+        const size_t d = depth_;
+        if (group_end_valid_[d]) {
+            pos_[d] = group_end_[d];
+            group_end_valid_[d] = false;
+            return;
+        }
+
         const V current = key();
-        size_t p = pos_[depth_];
-        while (p < hi_[depth_] && rows_[p][depth_] == current)
+        size_t p = pos_[d];
+        const size_t limit = hi_[d];
+        while (p < limit && rows_[p][d] == current) {
             ++p;
-        pos_[depth_] = p;
+        }
+
+        pos_[d] = p;
     }
 
     // Advance to the first key >= target at the current level (galloping search
     // bounded to the current sub-range). Leaves at_end() true if none.
-    void seek(const V &target) {
+    __attribute__((always_inline)) void seek(const V &target) {
         const size_t d = depth_;
+        group_end_valid_[d] = false;
         size_t lo = pos_[d];
         const size_t hi = hi_[d];
 
+        if (lo >= hi || rows_[lo][d] >= target)
+            return;
         // Gallop from lo to bracket target, then binary search the bracket.
         size_t step = 1;
         while (lo + step < hi && rows_[lo + step][d] < target) {
@@ -62,19 +79,34 @@ template <typename V, size_t N> class TrieIterator {
         pos_[d] = lo;
     }
 
-    void open() {
-        const V current = key();
+    __attribute__((always_inline)) void open() {
         const size_t d = depth_;
-        size_t end = pos_[d];
-        while (end < hi_[d] && rows_[end][d] == current)
-            ++end;
-        lo_[d + 1] = pos_[d];
-        hi_[d + 1] = end;
-        pos_[d + 1] = pos_[d];
-        ++depth_;
+        const V current = key();
+
+        size_t end;
+        if (group_end_valid_[d]) {
+            end = group_end_[d];
+        } else {
+            end = pos_[d];
+            const size_t limit = hi_[d];
+
+            while (end < limit && rows_[end][d] == current) {
+                ++end;
+            }
+
+            group_end_[d] = end;
+            group_end_valid_[d] = true;
+        }
+
+        const size_t next_d = d + 1;
+        lo_[next_d] = pos_[d];
+        hi_[next_d] = end;
+        pos_[next_d] = pos_[d];
+        group_end_valid_[next_d] = false;
+        depth_ = next_d;
     }
 
-    void up() { --depth_; }
+    __attribute__((always_inline)) void up() { --depth_; }
 
     // Reposition to the first key of the current level's sub-range. Needed
     // before each leapfrog at a level so that an iterator whose current level
@@ -88,6 +120,9 @@ template <typename V, size_t N> class TrieIterator {
     std::array<size_t, N + 1> lo_{};
     std::array<size_t, N + 1> hi_{};
     std::array<size_t, N + 1> pos_{};
+
+    std::array<size_t, N + 1> group_end_{};
+    std::array<bool, N + 1> group_end_valid_{};
 };
 
 // A trie iterator presenting several sorted batches, so
