@@ -652,13 +652,11 @@ TEST(DslAggregates, SumSalesByGroup) {
     Datalog dl;
     Predicate<int, 2> sales(dl), total_sales(dl);
 
-    Var<0> group;
-    Var<1> value;
-    Var<2> total;
+    DL_VARS(group, value, total);
 
     dl.add_rule(total_sales(group, total) %=
                 sales(group, value) &&
-                group_by<2, 1, 0>([](std::span<const int> values) {
+                group_by<total, value, group>([](std::span<const int> values) {
                     return std::accumulate(values.begin(), values.end(), 0);
                 }));
 
@@ -691,7 +689,7 @@ TEST(DslAggregates, FiltersValuesBeforeSumming) {
     dl.add_rule(total_sales(group, total) %=
                 sales(group, value) &&
                 where<1>([](int value) { return value >= 10; }) &&
-                group_by<2, 1, 0>([](std::span<const int> values) {
+                group_by<total, value, group>([](std::span<const int> values) {
                     return std::accumulate(values.begin(), values.end(), 0);
                 }));
 

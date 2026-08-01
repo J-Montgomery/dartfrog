@@ -13,6 +13,17 @@ template <class T> struct is_var : std::false_type {};
 template <int N> struct is_var<Var<N>> : std::true_type {};
 template <class T> inline constexpr bool is_var_v = is_var<T>::value;
 
+template <std::size_t N> static constexpr auto vars() {
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        return std::make_tuple(Var<static_cast<int>(Is)>{}...);
+    }(std::make_index_sequence<N>{});
+}
+
+template <std::size_t N> inline constexpr auto vars_v = vars<N>();
+
+template <typename T>
+inline constexpr int var_id_v = std::remove_cvref_t<T>::id;
+
 template <typename Pred, typename... Vars> struct Term;
 template <typename Head, typename Body> struct Rule;
 
@@ -118,27 +129,29 @@ template <int... VarIds, typename Func> auto where(Func f) {
 template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
 struct AggregateFilter {
     Func func;
-
     static constexpr int out_var_id = OutVarId;
     static constexpr int value_var_id = ValueVarId;
-    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
+
+    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids{
         GroupVarIds...};
 };
-
-template <int OutVarId, int ValueVarId, int... GroupVarIds, typename Func>
-auto group_by(Func &&func) {
-    using F = std::remove_cvref_t<Func>;
-    return AggregateFilter<F, OutVarId, ValueVarId, GroupVarIds...>{
-        std::forward<Func>(func)};
-}
-
-template <typename T>
-inline constexpr int var_id_v = std::remove_cvref_t<T>::id;
 
 template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
 struct is_filter_atom<
     AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>>
     : std::true_type {};
+
+template <auto OutVar, auto ValueVar, auto... GroupVars, typename Func>
+    requires(is_var_v<decltype(OutVar)> && is_var_v<decltype(ValueVar)> &&
+             (is_var_v<decltype(GroupVars)> && ...))
+auto group_by(Func &&func) {
+    using F = std::remove_cvref_t<Func>;
+
+    return AggregateFilter<F, var_id_v<decltype(OutVar)>,
+                           var_id_v<decltype(ValueVar)>,
+                           var_id_v<decltype(GroupVars)>...>{
+        std::forward<Func>(func)};
+}
 
 /* Conjunctions of filters */
 
@@ -171,7 +184,7 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
 
 } // namespace df::datalog
 
-// DL_VARS(a, b, c, ...) declares up to 8 named rule variables bound to
+// DL_VARS(a, b, c, ...) declares up to 16 named rule variables bound to
 // Var<0>, Var<1>, ... in listing order, so a ported rule can name
 // its variables instead of hand-numbering positional Var<N>:
 //
@@ -186,4 +199,4 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
     N
 #define DT_DL_RSEQ_N() 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 #define DL_VARS(...)                                                           \
-    auto [__VA_ARGS__] = ::df::datalog::Datalog::vars<DT_DL_NARG(__VA_ARGS__)>()
+    auto const &[__VA_ARGS__] = ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
