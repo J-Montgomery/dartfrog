@@ -25,6 +25,32 @@ template <typename V, size_t N> class TrieIterator {
         pos_[0] = 0;
     }
 
+    __attribute__((always_inline)) size_t find_group_end(size_t d, size_t begin,
+                                                         size_t limit) const {
+        const V &value = rows_[begin][d];
+
+        size_t lo = begin;
+        size_t step = 1;
+
+        while (lo + step < limit && rows_[lo + step][d] == value) {
+            lo += step;
+            step <<= 1;
+        }
+
+        size_t hi = std::min(limit, lo + step + 1);
+
+        while (lo < hi) {
+            const size_t mid = lo + (hi - lo) / 2;
+
+            if (!(value < rows_[mid][d]))
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+
+        return lo;
+    }
+
     __attribute__((always_inline)) size_t depth() const { return depth_; }
     // Check if no more keys remain at the current level.
     __attribute__((always_inline)) bool at_end() const {
@@ -37,20 +63,12 @@ template <typename V, size_t N> class TrieIterator {
     __attribute__((always_inline)) void next() {
         const size_t d = depth_;
 
-        if (group_end_valid_[d]) {
-            pos_[d] = group_end_[d];
-            group_end_valid_[d] = false;
-            return;
+        if (!group_end_valid_[d]) {
+            group_end_[d] = find_group_end(d, pos_[d], hi_[d]);
         }
 
-        const V current = key();
-        size_t p = pos_[d];
-        const size_t limit = hi_[d];
-
-        while (p < limit && rows_[p][d] == current)
-            ++p;
-
-        pos_[d] = p;
+        pos_[d] = group_end_[d];
+        group_end_valid_[d] = false;
     }
 
     // Advance to the first key >= target at the current level
@@ -82,25 +100,15 @@ template <typename V, size_t N> class TrieIterator {
 
     __attribute__((always_inline)) void open() {
         const size_t d = depth_;
-        const V current = key();
 
-        size_t end;
-        if (group_end_valid_[d]) {
-            end = group_end_[d];
-        } else {
-            end = pos_[d];
-            const size_t limit = hi_[d];
-
-            while (end < limit && rows_[end][d] == current)
-                ++end;
-
-            group_end_[d] = end;
+        if (!group_end_valid_[d]) {
+            group_end_[d] = find_group_end(d, pos_[d], hi_[d]);
             group_end_valid_[d] = true;
         }
 
         const size_t next_d = d + 1;
         lo_[next_d] = pos_[d];
-        hi_[next_d] = end;
+        hi_[next_d] = group_end_[d];
         pos_[next_d] = pos_[d];
         group_end_valid_[next_d] = false;
         depth_ = next_d;
