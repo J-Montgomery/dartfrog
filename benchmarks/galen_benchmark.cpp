@@ -159,7 +159,14 @@ void BM_Souffle_Galen(benchmark::State &state) {
     state.counters["q"] = static_cast<double>(countLines(output_dir / "q.csv"));
 }
 
-BENCHMARK(BM_Dartfrog_Galen)->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_Souffle_Galen)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_Dartfrog_Galen)
+->MeasureProcessCPUTime()
+->UseRealTime()
+->Unit(benchmark::kMillisecond);
+
+BENCHMARK(BM_Souffle_Galen)
+->MeasureProcessCPUTime()
+->UseRealTime()
+->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();

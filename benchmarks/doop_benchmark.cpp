@@ -743,7 +743,14 @@ void BM_Souffle_Doop(benchmark::State &state) {
     state.counters["CallGraphEdge"] = static_cast<double>(countLines(output_dir / "CallGraphEdge.csv"));
 }
 
-BENCHMARK(BM_Dartfrog_Doop)->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_Souffle_Doop)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_Dartfrog_Doop)
+->MeasureProcessCPUTime()
+->UseRealTime()
+->Unit(benchmark::kMillisecond);
+
+BENCHMARK(BM_Souffle_Doop)
+->MeasureProcessCPUTime()
+->UseRealTime()
+->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();

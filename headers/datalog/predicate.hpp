@@ -5,10 +5,12 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <future>
 #include <initializer_list>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <tuple>
@@ -198,6 +200,32 @@ class Datalog {
         return result;
     }
 
+    void run_full_parallel(const std::vector<size_t> &evals) {
+        std::vector<std::future<void>> jobs;
+        jobs.reserve(evals.size());
+
+        for (size_t i : evals) {
+            jobs.emplace_back(std::async(
+                std::launch::async, [this, i] { evaluators[i].eval_full(); }));
+        }
+
+        for (auto &job : jobs)
+            job.get();
+    }
+
+    void run_delta_parallel(const std::vector<size_t> &evals) {
+        std::vector<std::future<void>> jobs;
+        jobs.reserve(evals.size());
+
+        for (size_t i : evals) {
+            jobs.emplace_back(
+                std::async(std::launch::async, [this, i] { evaluators[i](); }));
+        }
+
+        for (auto &job : jobs)
+            job.get();
+    }
+
   public:
     template <IsPredicate P> void register_predicate(P *p) {
         predicates.push_back(
@@ -347,15 +375,17 @@ class Datalog {
     }
 
     void solve() {
-        auto stratum_evals = compute_strata();
+        const auto stratum_evals = compute_strata();
+
         for (const auto &evals : stratum_evals) {
             for (auto &h : predicates)
                 h.step(h.instance);
+
             for (auto &h : predicates)
                 h.snapshot(h.instance);
+
             refresh_all_indexes();
-            for (size_t i : evals)
-                evaluators[i].eval_full();
+            run_full_parallel(evals);
             solve_stratum(evals);
         }
     }
@@ -364,16 +394,20 @@ class Datalog {
     void solve_stratum(const std::vector<size_t> &evals) {
         while (true) {
             bool changed = false;
-            for (auto &h : predicates)
+
+            for (auto &h : predicates) {
                 if (h.step(h.instance))
                     changed = true;
+            }
+
             if (!changed)
                 break;
+
             for (auto &h : predicates)
                 h.snapshot(h.instance);
+
             refresh_all_indexes();
-            for (size_t i : evals)
-                evaluators[i]();
+            run_delta_parallel(evals);
         }
     }
 
@@ -387,13 +421,20 @@ template <typename V, size_t N> struct Predicate {
     // var.recent_data holds new facts discovered in the last iteration
     // var.to_add holds newly produced facts during the iteration
     df::Variable<TupleT> var;
+    mutable std::shared_ptr<std::mutex> insertion_guard =
+        std::make_shared<std::mutex>();
 
     // Provide a default constructor so Predicate can be used as a free query
     // body
     Predicate() = default;
     Predicate(Datalog &dl) { dl.register_predicate(this); }
 
-    void insert(const df::Relation<TupleT> &rel) { var.insert(rel); }
+    void insert(const df::Relation<TupleT> &rel) {
+        if (rel.empty())
+            return;
+        std::lock_guard lock(*insertion_guard);
+        var.to_add.push_back(std::move(rel));
+    }
 
     // Promote the new facts from the last iteration
     // into var.stable
@@ -421,9 +462,11 @@ template <typename V, size_t N> struct Predicate {
     // Deduplicate the newly produced facts and promote them
     // into to recent_data
     bool step() {
+        std::lock_guard lock(*insertion_guard);
         var.recent_data = {};
         if (var.to_add.empty())
             return false;
+
         df::Relation<TupleT> incoming = std::move(var.to_add.back());
         var.to_add.pop_back();
         while (!var.to_add.empty()) {

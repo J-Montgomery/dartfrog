@@ -293,7 +293,14 @@ void BM_Souffle_CRDT(benchmark::State &state) {
 }
 
 
-BENCHMARK(BM_Dartfrog_CRDT)->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_Souffle_CRDT)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_Dartfrog_CRDT)
+->MeasureProcessCPUTime()
+->UseRealTime()
+->Unit(benchmark::kMillisecond);
+
+BENCHMARK(BM_Souffle_CRDT)
+->MeasureProcessCPUTime()
+->UseRealTime()
+->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
