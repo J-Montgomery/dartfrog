@@ -648,6 +648,92 @@ TEST(DslIncremental, PeanoArithmetic) {
     EXPECT_TRUE(has_fact(mul_out, {2, 2, 4})); // 2 * 2 = 4
 }
 
+TEST(DslProvenance, PeanoArithmeticProvenance) {
+    Datalog dl;
+    using T3 = std::array<int, 3>;
+
+    Predicate<int, 3> Succ(dl);
+    Predicate<int, 4> AddProv(dl);
+    Predicate<int, 2> StepDep(dl);
+    Predicate<int, 2> DependsOn(dl);
+    Predicate<int, 1> Num(dl);
+
+    auto zero = Const<int>({0});
+    {
+        Var<0> n;
+        dl.add_rule(Num(n) %= zero(n));
+    }
+    {
+        DL_VARS(x, sx, id);
+        dl.add_rule(Num(sx) %= Succ(x, sx, id));
+    }
+    {
+        DL_VARS(zval, y);
+        dl.add_rule(AddProv(zval, y, y, zval) %= zero(zval) && Num(y));
+    }
+    {
+        DL_VARS(sx, y, sz, x, z, id1, id2, id3);
+        dl.add_rule(AddProv(sx, y, sz, sx) %= AddProv(x, y, z, id1) &&
+                                              Succ(x, sx, id2) &&
+                                              Succ(z, sz, id3));
+    }
+    {
+        DL_VARS(sx, id1, x, y, z, id2, sz, id3);
+        dl.add_rule(StepDep(sx, id1) %= AddProv(x, y, z, id1) &&
+                                        Succ(x, sx, id2) && Succ(z, sz, id3));
+    }
+    {
+        DL_VARS(sx, id2, x, y, z, id1, sz, id3);
+        dl.add_rule(StepDep(sx, id2) %= AddProv(x, y, z, id1) &&
+                                        Succ(x, sx, id2) && Succ(z, sz, id3));
+    }
+    {
+        DL_VARS(sx, id3, x, y, z, id1, id2, sz);
+        dl.add_rule(StepDep(sx, id3) %= AddProv(x, y, z, id1) &&
+                                        Succ(x, sx, id2) && Succ(z, sz, id3));
+    }
+
+    {
+        DL_VARS(child, parent);
+        dl.add_rule(DependsOn(child, parent) %= StepDep(child, parent));
+    }
+    {
+        DL_VARS(child, ancestor, parent);
+        dl.add_rule(DependsOn(child, ancestor) %=
+                    StepDep(child, parent) && DependsOn(parent, ancestor));
+    }
+
+    Succ.insert(df::Relation<T3>::from_vec(
+        {{0, 1, 101}, {1, 2, 102}, {2, 3, 103}, {3, 4, 104}, {4, 5, 105}}));
+    Succ.commit();
+
+    dl.solve();
+
+    auto add_results = AddProv.extract();
+    bool found_sum = false;
+    int prov_id_2_plus_3 = -1;
+
+    for (const auto &row : add_results) {
+        if (row[0] == 2 && row[1] == 3 && row[2] == 5) {
+            found_sum = true;
+            prov_id_2_plus_3 = row[3];
+            break;
+        }
+    }
+    EXPECT_TRUE(found_sum);
+
+    auto lineage_results = DependsOn.extract();
+    std::set<int> contributing_facts;
+
+    for (const auto &row : lineage_results) {
+        if (row[0] == prov_id_2_plus_3) {
+            contributing_facts.insert(row[1]);
+        }
+    }
+
+    EXPECT_TRUE(contributing_facts.count(102) > 0);
+}
+
 TEST(DslAggregates, SumSalesByGroup) {
     Datalog dl;
     Predicate<int, 2> sales(dl), total_sales(dl);
