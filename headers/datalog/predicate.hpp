@@ -200,30 +200,19 @@ class Datalog {
         return result;
     }
 
-    void run_full_parallel(const std::vector<size_t> &evals) {
+    template <typename Func>
+    void run_parallel(const std::vector<size_t> &evals, Func &&func) {
         std::vector<std::future<void>> jobs;
         jobs.reserve(evals.size());
 
         for (size_t i : evals) {
             jobs.emplace_back(std::async(
-                std::launch::async, [this, i] { evaluators[i].eval_full(); }));
+                std::launch::async, [this, i, &func] { func(evaluators[i]); }));
         }
 
-        for (auto &job : jobs)
+        for (auto &job : jobs) {
             job.get();
-    }
-
-    void run_delta_parallel(const std::vector<size_t> &evals) {
-        std::vector<std::future<void>> jobs;
-        jobs.reserve(evals.size());
-
-        for (size_t i : evals) {
-            jobs.emplace_back(
-                std::async(std::launch::async, [this, i] { evaluators[i](); }));
         }
-
-        for (auto &job : jobs)
-            job.get();
     }
 
   public:
@@ -385,7 +374,7 @@ class Datalog {
                 h.snapshot(h.instance);
 
             refresh_all_indexes();
-            run_full_parallel(evals);
+            run_parallel(evals, [](auto &e) { e.eval_full(); });
             solve_stratum(evals);
         }
     }
@@ -407,7 +396,7 @@ class Datalog {
                 h.snapshot(h.instance);
 
             refresh_all_indexes();
-            run_delta_parallel(evals);
+            run_parallel(evals, [](auto &e) { e(); });
         }
     }
 
