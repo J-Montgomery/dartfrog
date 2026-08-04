@@ -794,3 +794,20 @@ TEST(DslAggregates, FiltersValuesBeforeSumming) {
                                          {2, 15},
                                      }));
 }
+
+TEST(DslRuleSyntax, TriangleTest) {
+    Datalog dl;
+    Predicate<int, 2> Edge(dl);
+    Predicate<int, 3> Tri(dl);
+
+    Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 1}, {2, 4}, {4, 5}, {5, 2}}));
+
+    DL_VARS(x, y, z);
+    RULE(Tri(x, y, z) <= Edge(x, y), Edge(y, z), Edge(z, x));
+    dl.solve();
+
+    EXPECT_EQ(
+        sorted(Tri.extract()),
+        (std::vector<std::array<int, 3>>{
+            {1, 2, 3}, {2, 3, 1}, {2, 4, 5}, {3, 1, 2}, {4, 5, 2}, {5, 2, 4}}));
+}

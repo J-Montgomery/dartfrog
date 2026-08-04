@@ -33,6 +33,9 @@ template <typename Pred, typename... Vars> struct Term {
     template <typename BodyT> auto operator%=(const BodyT &body) const {
         return Rule<Term, BodyT>{*this, body};
     }
+    template <typename BodyT> auto operator<=(const BodyT &body) const {
+        return Rule<Term, BodyT>{*this, body};
+    }
 };
 
 template <typename Head, typename Body> struct Rule {
@@ -46,6 +49,9 @@ template <typename... Heads> struct MultiHead {
     std::tuple<Heads...> heads;
 
     template <typename BodyT> auto operator%=(const BodyT &body) const {
+        return Rule<MultiHead, BodyT>{*this, body};
+    }
+    template <typename BodyT> auto operator<=(const BodyT &body) const {
         return Rule<MultiHead, BodyT>{*this, body};
     }
 };
@@ -182,6 +188,13 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
         c.pos, std::tuple_cat(c.filt, std::make_tuple(f))};
 }
 
+/* Rule conjunctions */
+
+template <typename Head, typename Body, typename Next>
+auto operator,(const Rule<Head, Body> &r, const Next &next) {
+    return Rule<Head, decltype(r.body && next)>{r.head, r.body && next};
+}
+
 } // namespace df::datalog
 
 // DL_VARS(a, b, c, ...) declares up to 16 named rule variables bound to
@@ -200,3 +213,5 @@ auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
 #define DT_DL_RSEQ_N() 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 #define DL_VARS(...)                                                           \
     auto const &[__VA_ARGS__] = ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
+
+#define RULE(...) dl.add_rule((__VA_ARGS__))
