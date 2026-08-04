@@ -214,4 +214,4 @@ auto operator,(const Rule<Head, Body> &r, const Next &next) {
 #define DL_VARS(...)                                                           \
     auto const &[__VA_ARGS__] = ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
 
-#define RULE(...) dl.add_rule((__VA_ARGS__))
+#define RULE(dl, ...) (dl).add_rule((__VA_ARGS__))

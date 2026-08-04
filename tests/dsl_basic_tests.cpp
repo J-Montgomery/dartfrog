@@ -803,7 +803,7 @@ TEST(DslRuleSyntax, TriangleTest) {
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 1}, {2, 4}, {4, 5}, {5, 2}}));
 
     DL_VARS(x, y, z);
-    RULE(Tri(x, y, z) <= Edge(x, y), Edge(y, z), Edge(z, x));
+    RULE(dl, Tri(x, y, z) <= Edge(x, y), Edge(y, z), Edge(z, x));
     dl.solve();
 
     EXPECT_EQ(
