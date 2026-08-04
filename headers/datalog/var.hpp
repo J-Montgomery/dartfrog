@@ -127,8 +127,12 @@ template <typename Func, int... VarIds> struct ExpressionFilter {
 template <typename Func, int... VarIds>
 struct is_filter_atom<ExpressionFilter<Func, VarIds...>> : std::true_type {};
 
-template <int... VarIds, typename Func> auto where(Func f) {
-    return ExpressionFilter<std::remove_cvref_t<Func>, VarIds...>{std::move(f)};
+template <auto... Vars, typename Func>
+    requires(is_var_v<decltype(Vars)> && ...)
+auto where(Func &&f) {
+    using F = std::remove_cvref_t<Func>;
+    return ExpressionFilter<F, var_id_v<decltype(Vars)>...>{
+        std::forward<Func>(f)};
 }
 
 /* Aggregates */

@@ -442,7 +442,7 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
         DL_VARS(s, t);
         dl.add_rule(subtype_of_different(s, t) %=
                     subtype_of(s, t) &&
-                    df::datalog::where<0, 1>([](int32_t a, int32_t b) { return a != b; }));
+                    df::datalog::where<s, t>([](int32_t a, int32_t b) { return a != b; }));
     }
 
     // MainMethodDeclaration.
@@ -461,11 +461,11 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
             main_class(type) && method_declaringtype_p(method, type) &&
             method_simplename_p(method, sn) && method_descriptor_p(method, desc) &&
             public_method_p(method) && static_method_p(method) &&
-            df::datalog::where<0>([excl1, excl2, excl3](int32_t m) {
+            df::datalog::where<method>([excl1, excl2, excl3](int32_t m) {
                 return m != excl1 && m != excl2 && m != excl3;
             }) &&
-            df::datalog::where<2>([main_name_id](int32_t s) { return s == main_name_id; }) &&
-            df::datalog::where<3>([main_desc_id](int32_t d) { return d == main_desc_id; }));
+            df::datalog::where<sn>([main_name_id](int32_t s) { return s == main_name_id; }) &&
+            df::datalog::where<desc>([main_desc_id](int32_t d) { return d == main_desc_id; }));
     }
 
     Predicate<int32_t, 3> formal_param_p(dl);        
@@ -610,8 +610,8 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
     { DL_VARS(s, d, type, method);
       dl.add_rule(class_initializer(type, method) %=
                   method_implemented(s, d, type, method) &&
-                  df::datalog::where<0>([clinit_id](int32_t v) { return v == clinit_id; }) &&
-                  df::datalog::where<1>([void_paren_id](int32_t v) { return v == void_paren_id; })); }
+                  df::datalog::where<s>([clinit_id](int32_t v) { return v == clinit_id; }) &&
+                  df::datalog::where<d>([void_paren_id](int32_t v) { return v == void_paren_id; })); }
     // InitializedClass(?super) :- InitializedClass(?class), DirectSuperclass(?class, ?super).
     { DL_VARS(super, klass);
       dl.add_rule(initialized_class(super) %=

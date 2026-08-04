@@ -74,7 +74,7 @@ size_t run_dartfrog_crdt(const CrdtData &data) {
     dl1.add_rule(laterChild(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
                  insert_by_parent(Var<0>{}, Var<1>{}, Var<4>{}, Var<5>{}) &&
                  insert_by_parent(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) &&
-                 where<4, 5, 2, 3>([](int c10, int c11, int c20, int c21) {
+                 where<Var<4>{}, Var<5>{}, Var<2>{}, Var<3>{}>([](int c10, int c11, int c20, int c21) {
                      return std::tie(c10, c11) > std::tie(c20, c21);
                  }));
 
@@ -84,17 +84,17 @@ size_t run_dartfrog_crdt(const CrdtData &data) {
 
     dl1.add_rule(laterSibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
                  sibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) &&
-                 where<0, 1, 2, 3>([](int a0, int a1, int b0, int b1) {
+                 where<Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}>([](int a0, int a1, int b0, int b1) {
                      return std::tie(a0, a1) > std::tie(b0, b1);
                  }));
 
     dl1.add_rule(laterSibling2(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
                  sibling(Var<0>{}, Var<1>{}, Var<4>{}, Var<5>{}) &&
                  sibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) &&
-                 where<0, 1, 4, 5>([](int a0, int a1, int b0, int b1) {
+                 where<Var<0>{}, Var<1>{}, Var<4>{}, Var<5>{}>([](int a0, int a1, int b0, int b1) {
                      return std::tie(a0, a1) > std::tie(b0, b1);
                  }) &&
-                 where<4, 5, 2, 3>([](int b0, int b1, int c0, int c1) {
+                 where<Var<4>{}, Var<5>{}, Var<2>{}, Var<3>{}>([](int b0, int b1, int c0, int c1) {
                      return std::tie(b0, b1) > std::tie(c0, c1);
                  }));
 
