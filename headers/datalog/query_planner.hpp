@@ -987,6 +987,15 @@ struct QueryPlanner {
             return true;
         } else if constexpr (is_expression_filter<Filt>::value) {
             constexpr auto ids = expression_filter_var_ids_impl<Filt>::value;
+            static_assert(
+                [ids] {
+                    for (int id : ids) {
+                        if (id < 0 || id > static_cast<int>(NumVars))
+                            return false;
+                    }
+                    return true;
+                }(),
+                "expression filter not bound by positive body atom");
             return [&]<size_t... Is>(std::index_sequence<Is...>) {
                 return std::get<F>(filters).func(
                     tuple[var_positions[ids[Is]]]...);
@@ -994,6 +1003,15 @@ struct QueryPlanner {
         } else if constexpr (is_negated<Filt>::value) {
             constexpr auto ids = negated_var_ids<Filt>::value;
             constexpr size_t arity = negated_var_ids<Filt>::arity;
+            static_assert(
+                [ids] {
+                    for (int id : ids) {
+                        if (id < 0 || id > static_cast<int>(NumVars))
+                            return false;
+                    }
+                    return true;
+                }(),
+                "negated variable not bound by positive body atom");
             std::array<V, arity> key;
             for (size_t i = 0; i < arity; i++)
                 key[i] = tuple[var_positions[ids[i]]];
@@ -1001,7 +1019,9 @@ struct QueryPlanner {
         } else {
             constexpr int var_id_a = filter_vars<Filt>::a_id;
             constexpr int var_id_b = filter_vars<Filt>::b_id;
-            static_assert(var_id_a >= 0 && var_id_b >= 0,
+            static_assert(var_id_a >= 0 && var_id_b >= 0 &&
+                              var_id_a < static_cast<int>(NumVars) &&
+                              var_id_b < static_cast<int>(NumVars),
                           "filter variable not bound by a positive body atom");
             const int pos_a = var_positions[var_id_a];
             const int pos_b = var_positions[var_id_b];
