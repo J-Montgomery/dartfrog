@@ -83,32 +83,40 @@ std::array<size_t, 2> run_dartfrog_galen(const GalenData &data) {
     dl.make_reindexed<2, 1, 0>(q_rel, q_by_yr);
     dl.make_reindexed<1, 0, 2>(q_rel, q_by_r);
 
-    // p(X,Z) :- p(X,Y), p(Y,Z)
-    dl.add_rule(p_rel(Var<0>{}, Var<2>{}) %=
-                p_by_z(Var<1>{}, Var<0>{}) && p_rel(Var<1>{}, Var<2>{}));
-
-    // q(X,R,Z) :- p(X,Y), q(Y,R,Z)
-    dl.add_rule(q_rel(Var<0>{}, Var<2>{}, Var<3>{}) %=
-                p_by_z(Var<1>{}, Var<0>{}) && q_rel(Var<1>{}, Var<2>{}, Var<3>{}));
-
-    // p(X,Z) :- p(Y,W), u(W,R,Z), q(X,R,Y)
-    dl.add_rule(p_rel(Var<4>{}, Var<3>{}) %= p_rel(Var<0>{}, Var<1>{}) &&
-                                             u_rel(Var<1>{}, Var<2>{}, Var<3>{}) &&
-                                             q_by_yr(Var<0>{}, Var<2>{}, Var<4>{}));
-
-    // p(X,Z) :- c(Y,W,Z), p(X,W), p(X,Y)
-    dl.add_rule(p_rel(Var<3>{}, Var<2>{}) %= c_rel(Var<0>{}, Var<1>{}, Var<2>{}) &&
-                                             p_by_z(Var<1>{}, Var<3>{}) &&
-                                             p_rel(Var<3>{}, Var<0>{}));
-
-    // q(X,Q,Z) :- q(X,R,Z), s(R,Q)
-    dl.add_rule(q_rel(Var<0>{}, Var<3>{}, Var<2>{}) %=
-                q_by_r(Var<1>{}, Var<0>{}, Var<2>{}) && s_rel(Var<1>{}, Var<3>{}));
-
-    // q(X,E,O) :- q(X,Y,Z), r(Y,U,E), q(Z,U,O)
-    dl.add_rule(q_rel(Var<0>{}, Var<4>{}, Var<5>{}) %= q_by_z(Var<2>{}, Var<0>{}, Var<1>{}) &&
-                                                       r_rel(Var<1>{}, Var<3>{}, Var<4>{}) &&
-                                                       q_by_r(Var<3>{}, Var<2>{}, Var<5>{}));
+    DL_VARS(X, Y, Z, R, W, Q);
+    RULE(dl,
+            p_rel(X, Z) <=
+                p_by_z(Y, X),
+                p_rel(Y, Z)
+    );
+    RULE(dl,
+            q_rel(X, Z, R) <=
+                p_by_z(Y, X),
+                q_rel(Y, Z, R)
+    );
+    RULE(dl,
+            p_rel(W, R) <=
+                p_rel(X, Y),
+                u_rel(Y, Z, R),
+                q_by_yr(X, Z, W)
+    );
+    RULE(dl,
+            p_rel(R, Z) <=
+                c_rel(X, Y, Z),
+                p_by_z(Y, R),
+                p_rel(R, X)
+    );
+    RULE(dl,
+            q_rel(X, R, Z) <=
+                q_by_r(Y, X, Z),
+                s_rel(Y, R)
+    );
+    RULE(dl,
+            q_rel(X, W, Q) <=
+                q_by_z(Z, X, Y),
+                r_rel(Y, R, W), 
+                q_by_r(R, Z, Q)
+    );
 
     p_rel.insert(df::Relation<std::array<int32_t, 2>>::from_vec(std::vector(data.p)));
     q_rel.insert(df::Relation<std::array<int32_t, 3>>::from_vec(std::vector(data.q)));
