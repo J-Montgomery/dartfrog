@@ -305,23 +305,23 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
 
     {
         DL_VARS(c);
-        dl.add_rule((is_type(c), is_reference_type(c), is_class_type(c)) %= class_type(c));
+        RULE(dl, (is_type(c), is_reference_type(c), is_class_type(c)) <= class_type(c));
     }
     {
         DL_VARS(a);
-        dl.add_rule((is_type(a), is_reference_type(a), is_array_type(a)) %= array_type(a));
+        RULE(dl, (is_type(a), is_reference_type(a), is_array_type(a)) <= array_type(a));
     }
     {
         DL_VARS(i);
-        dl.add_rule((is_type(i), is_reference_type(i), is_interface_type(i)) %= interface_type(i));
+        RULE(dl, (is_type(i), is_reference_type(i), is_interface_type(i)) <= interface_type(i));
     }
     {
         DL_VARS(t);
-        dl.add_rule((is_type(t), is_reference_type(t)) %= application_type(t));
+        RULE(dl, (is_type(t), is_reference_type(t)) <= application_type(t));
     }
     {
         DL_VARS(t);
-        dl.add_rule(is_type(t) %= normal_heap_type(t));
+        RULE(dl, is_type(t) <= normal_heap_type(t));
     }
 
     // MethodImplemented(s,d,type,m) :- Method_SimpleName(m,s), Method_Descriptor(m,d),
@@ -329,119 +329,119 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
     //                                  m).
     {
         DL_VARS(s, d, type, m);
-        dl.add_rule(method_implemented(s, d, type, m) %=
-                    method_simplename_p(m, s) && method_descriptor_p(m, d) &&
-                    method_declaringtype_p(m, type) && !abstract_method_p(m));
+        RULE(dl, method_implemented(s, d, type, m) <=
+                    method_simplename_p(m, s), method_descriptor_p(m, d),
+                    method_declaringtype_p(m, type), !abstract_method_p(m));
     }
     // MethodImplementedProj(s,d,type) :- MethodImplemented(s,d,type,_).  (wildcard m)
     {
         DL_VARS(s, d, type, m);
-        dl.add_rule(method_implemented_proj(s, d, type) %= method_implemented(s, d, type, m));
+        RULE(dl, method_implemented_proj(s, d, type) <= method_implemented(s, d, type, m));
     }
     // MethodLookup(s,d,type,m) :- MethodImplemented(s,d,type,m).
     {
         DL_VARS(s, d, type, m);
-        dl.add_rule(method_lookup(s, d, type, m) %= method_implemented(s, d, type, m));
+        RULE(dl, method_lookup(s, d, type, m) <= method_implemented(s, d, type, m));
     }
     // MethodLookup(...) :- (DirectSuperclass(type,super) ; DirectSuperinterface(type,super)),
     //                      MethodLookup(s,d,super,m), ! MethodImplementedProj(s,d,type).
     {
         DL_VARS(s, d, type, m, super);
-        dl.add_rule(method_lookup(s, d, type, m) %= direct_superclass(type, super) &&
-                                                    method_lookup(s, d, super, m) &&
+        RULE(dl, method_lookup(s, d, type, m) <= direct_superclass(type, super),
+                                                    method_lookup(s, d, super, m),
                                                     !method_implemented_proj(s, d, type));
     }
     {
         DL_VARS(s, d, type, m, super);
-        dl.add_rule(method_lookup(s, d, type, m) %= direct_superinterface(type, super) &&
-                                                    method_lookup(s, d, super, m) &&
+        RULE(dl, method_lookup(s, d, type, m) <= direct_superinterface(type, super),
+                                                    method_lookup(s, d, super, m),
                                                     !method_implemented_proj(s, d, type));
     }
     {
         DL_VARS(a, c);
-        dl.add_rule(direct_subclass(a, c) %= direct_superclass(a, c));
+        RULE(dl, direct_subclass(a, c) <= direct_superclass(a, c));
     }
     {
         DL_VARS(a, c);
-        dl.add_rule(subclass(c, a) %= direct_subclass(a, c));
+        RULE(dl, subclass(c, a) <= direct_subclass(a, c));
     }
     {
         DL_VARS(a, b, c);
-        dl.add_rule(subclass(c, a) %= subclass(b, a) && direct_subclass(b, c));
+        RULE(dl, subclass(c, a) <= subclass(b, a), direct_subclass(b, c));
     }
     {
         DL_VARS(a, c);
-        dl.add_rule(superclass(c, a) %= subclass(a, c));
+        RULE(dl, superclass(c, a) <= subclass(a, c));
     }
     {
         DL_VARS(c, k);
-        dl.add_rule(superinterface(k, c) %= direct_superinterface(c, k));
+        RULE(dl, superinterface(k, c) <= direct_superinterface(c, k));
     }
     {
         DL_VARS(c, j, k);
-        dl.add_rule(superinterface(k, c) %= direct_superinterface(c, j) && superinterface(k, j));
+        RULE(dl, superinterface(k, c) <= direct_superinterface(c, j), superinterface(k, j));
     }
     {
         DL_VARS(c, k, super);
-        dl.add_rule(superinterface(k, c) %=
-                    direct_superclass(c, super) && superinterface(k, super));
+        RULE(dl, superinterface(k, c) <=
+                    direct_superclass(c, super), superinterface(k, super));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(supertype_of(s, t) %= subtype_of(t, s));
+        RULE(dl, supertype_of(s, t) <= subtype_of(t, s));
     }
     {
         DL_VARS(s);
-        dl.add_rule(subtype_of(s, s) %= is_class_type(s));
+        RULE(dl, subtype_of(s, s) <= is_class_type(s));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %= subclass(t, s));
+        RULE(dl, subtype_of(s, t) <= subclass(t, s));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %= is_class_type(s) && superinterface(t, s));
+        RULE(dl, subtype_of(s, t) <= is_class_type(s), superinterface(t, s));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %= is_interface_type(s) && is_type(t) && object_type(t));
+        RULE(dl, subtype_of(s, t) <= is_interface_type(s), is_type(t), object_type(t));
     }
     {
         DL_VARS(s);
-        dl.add_rule(subtype_of(s, s) %= is_interface_type(s));
+        RULE(dl, subtype_of(s, s) <= is_interface_type(s));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %= is_interface_type(s) && superinterface(t, s));
+        RULE(dl, subtype_of(s, t) <= is_interface_type(s), superinterface(t, s));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %= is_array_type(s) && is_type(t) && object_type(t));
+        RULE(dl, subtype_of(s, t) <= is_array_type(s), is_type(t), object_type(t));
     }
     {
         DL_VARS(s, t, sc, tc);
-        dl.add_rule(subtype_of(s, t) %= component_type(s, sc) && component_type(t, tc) &&
-                                        is_reference_type(sc) && is_reference_type(tc) &&
+        RULE(dl, subtype_of(s, t) <= component_type(s, sc), component_type(t, tc),
+                                        is_reference_type(sc), is_reference_type(tc),
                                         subtype_of(sc, tc));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %=
-                    is_array_type(s) && is_interface_type(t) && is_type(t) && cloneable_type(t));
+        RULE(dl, subtype_of(s, t) <=
+                    is_array_type(s), is_interface_type(t), is_type(t), cloneable_type(t));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of(s, t) %=
-                    is_array_type(s) && is_interface_type(t) && is_type(t) && serializable_type(t));
+        RULE(dl, subtype_of(s, t) <=
+                    is_array_type(s), is_interface_type(t), is_type(t), serializable_type(t));
     }
     {
         DL_VARS(t);
-        dl.add_rule(subtype_of(t, t) %= is_type(t));
+        RULE(dl, subtype_of(t, t) <= is_type(t));
     }
     {
         DL_VARS(s, t);
-        dl.add_rule(subtype_of_different(s, t) %=
-                    subtype_of(s, t) &&
+        RULE(dl, subtype_of_different(s, t) <=
+                    subtype_of(s, t),
                     df::datalog::where<s, t>([](int32_t a, int32_t b) { return a != b; }));
     }
 
@@ -456,15 +456,15 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
         interner.intern("<sun.security.provider.PolicyParser: void main(java.lang.String[])>");
     {
         DL_VARS(method, type, sn, desc);
-        dl.add_rule(
-            main_method_declaration(method) %=
-            main_class(type) && method_declaringtype_p(method, type) &&
-            method_simplename_p(method, sn) && method_descriptor_p(method, desc) &&
-            public_method_p(method) && static_method_p(method) &&
+        RULE(dl, 
+            main_method_declaration(method) <=
+            main_class(type), method_declaringtype_p(method, type),
+            method_simplename_p(method, sn), method_descriptor_p(method, desc),
+            public_method_p(method), static_method_p(method),
             df::datalog::where<method>([excl1, excl2, excl3](int32_t m) {
-                return m != excl1 && m != excl2 && m != excl3;
-            }) &&
-            df::datalog::where<sn>([main_name_id](int32_t s) { return s == main_name_id; }) &&
+                return m != excl1, m != excl2, m != excl3;
+            }),
+            df::datalog::where<sn>([main_name_id](int32_t s) { return s == main_name_id; }),
             df::datalog::where<desc>([main_desc_id](int32_t d) { return d == main_desc_id; }));
     }
 
@@ -507,148 +507,148 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
     // Assign(?actual, ?formal) :- CallGraphEdge(?inv, ?method), FormalParam(?index, ?method, ?formal),
     //                             ActualParam(?index, ?inv, ?actual).
     { DL_VARS(actual, formal, inv, method, index);
-      dl.add_rule(assign(actual, formal) %=
-                  call_graph_edge(inv, method) && formal_param_p(index, method, formal) &&
+      RULE(dl, assign(actual, formal) <=
+                  call_graph_edge(inv, method), formal_param_p(index, method, formal),
                   actual_param_p(index, inv, actual)); }
     // Assign(?return, ?local) :- CallGraphEdge(?inv, ?method), ReturnVar(?return, ?method),
     //                            AssignReturnValue(?inv, ?local).
     { DL_VARS(ret, local, inv, method);
-      dl.add_rule(assign(ret, local) %=
-                  call_graph_edge(inv, method) && return_var_p(ret, method) &&
+      RULE(dl, assign(ret, local) <=
+                  call_graph_edge(inv, method), return_var_p(ret, method),
                   assign_return_value_p(inv, local)); }
     // VarPointsTo(?heap, ?var) :- AssignHeapAllocation(?heap, ?var, ?inMethod), Reachable(?inMethod).
     { DL_VARS(heap, var, in_method);
-      dl.add_rule(var_points_to(heap, var) %=
-                  assign_heap_p(heap, var, in_method) && reachable(in_method)); }
+      RULE(dl, var_points_to(heap, var) <=
+                  assign_heap_p(heap, var, in_method), reachable(in_method)); }
     // VarPointsTo(?heap, ?to) :- Assign(?from, ?to), VarPointsTo(?heap, ?from).
     { DL_VARS(heap, to, from);
-      dl.add_rule(var_points_to(heap, to) %= assign(from, to) && var_points_to(heap, from)); }
+      RULE(dl, var_points_to(heap, to) <= assign(from, to), var_points_to(heap, from)); }
     // VarPointsTo(?heap, ?to) :- Reachable(?m), AssignLocal(?from, ?to, ?m), VarPointsTo(?heap, ?from).
     { DL_VARS(heap, to, from, m);
-      dl.add_rule(var_points_to(heap, to) %=
-                  reachable(m) && assign_local_p(from, to, m) && var_points_to(heap, from)); }
+      RULE(dl, var_points_to(heap, to) <=
+                  reachable(m), assign_local_p(from, to, m), var_points_to(heap, from)); }
     // VarPointsTo(?heap, ?to) :- Reachable(?m), AssignCast(?type, ?from, ?to, ?m),
     //   basic.SupertypeOf(?type, ?heaptype), HeapAllocation_Type(?heap, ?heaptype),
     //   VarPointsTo(?heap, ?from).
     { DL_VARS(heap, to, from, m, type, heaptype);
-      dl.add_rule(var_points_to(heap, to) %=
-                  reachable(m) && assign_cast_p(type, from, to, m) && supertype_of(type, heaptype) &&
-                  heap_type_p(heap, heaptype) && var_points_to(heap, from)); }
+      RULE(dl, var_points_to(heap, to) <=
+                  reachable(m), assign_cast_p(type, from, to, m), supertype_of(type, heaptype),
+                  heap_type_p(heap, heaptype), var_points_to(heap, from)); }
     // ArrayIndexPointsTo(?baseheap, ?heap) :- Reachable(?m), StoreArrayIndex(?from, ?base, ?m),
     //   VarPointsTo(?baseheap, ?base), VarPointsTo(?heap, ?from), HeapAllocation_Type(?heap, ?ht),
     //   HeapAllocation_Type(?baseheap, ?bht), ComponentType(?bht, ?ct), basic.SupertypeOf(?ct, ?ht).
     { DL_VARS(baseheap, heap, m, from, base, ht, bht, ct);
-      dl.add_rule(array_index_points_to(baseheap, heap) %=
-                  reachable(m) && store_array_p(from, base, m) && var_points_to(baseheap, base) &&
-                  var_points_to(heap, from) && heap_type_p(heap, ht) && heap_type_p(baseheap, bht) &&
-                  component_type(bht, ct) && supertype_of(ct, ht)); }
+      RULE(dl, array_index_points_to(baseheap, heap) <=
+                  reachable(m), store_array_p(from, base, m), var_points_to(baseheap, base),
+                  var_points_to(heap, from), heap_type_p(heap, ht), heap_type_p(baseheap, bht),
+                  component_type(bht, ct), supertype_of(ct, ht)); }
     // VarPointsTo(?heap, ?to) :- Reachable(?m), LoadArrayIndex(?base, ?to, ?m),
     //   VarPointsTo(?baseheap, ?base), ArrayIndexPointsTo(?baseheap, ?heap), Var_Type(?to, ?type),
     //   HeapAllocation_Type(?baseheap, ?bht), ComponentType(?bht, ?bct), basic.SupertypeOf(?type, ?bct).
     { DL_VARS(heap, to, m, base, baseheap, type, bht, bct);
-      dl.add_rule(var_points_to(heap, to) %=
-                  reachable(m) && load_array_p(base, to, m) && var_points_to(baseheap, base) &&
-                  array_index_points_to(baseheap, heap) && var_type_p(to, type) &&
-                  heap_type_p(baseheap, bht) && component_type(bht, bct) && supertype_of(type, bct)); }
+      RULE(dl, var_points_to(heap, to) <=
+                  reachable(m), load_array_p(base, to, m), var_points_to(baseheap, base),
+                  array_index_points_to(baseheap, heap), var_type_p(to, type),
+                  heap_type_p(baseheap, bht), component_type(bht, bct), supertype_of(type, bct)); }
     // VarPointsTo(?heap, ?to) :- Reachable(?m), LoadInstanceField(?base, ?sig, ?to, ?m),
     //   VarPointsTo(?baseheap, ?base), InstanceFieldPointsTo(?heap, ?sig, ?baseheap).
     { DL_VARS(heap, to, m, base, sig, baseheap);
-      dl.add_rule(var_points_to(heap, to) %=
-                  reachable(m) && load_ifield_p(base, sig, to, m) && var_points_to(baseheap, base) &&
+      RULE(dl, var_points_to(heap, to) <=
+                  reachable(m), load_ifield_p(base, sig, to, m), var_points_to(baseheap, base),
                   instance_field_points_to(heap, sig, baseheap)); }
     // InstanceFieldPointsTo(?heap, ?fld, ?baseheap) :- Reachable(?m),
     //   StoreInstanceField(?from, ?base, ?fld, ?m), VarPointsTo(?heap, ?from), VarPointsTo(?baseheap, ?base).
     { DL_VARS(heap, fld, baseheap, m, from, base);
-      dl.add_rule(instance_field_points_to(heap, fld, baseheap) %=
-                  reachable(m) && store_ifield_p(from, base, fld, m) && var_points_to(heap, from) &&
+      RULE(dl, instance_field_points_to(heap, fld, baseheap) <=
+                  reachable(m), store_ifield_p(from, base, fld, m), var_points_to(heap, from),
                   var_points_to(baseheap, base)); }
     // VarPointsTo(?heap, ?to) :- Reachable(?m), LoadStaticField(?fld, ?to, ?m),
     //   StaticFieldPointsTo(?heap, ?fld).
     { DL_VARS(heap, to, m, fld);
-      dl.add_rule(var_points_to(heap, to) %=
-                  reachable(m) && load_sfield_p(fld, to, m) && static_field_points_to(heap, fld)); }
+      RULE(dl, var_points_to(heap, to) <=
+                  reachable(m), load_sfield_p(fld, to, m), static_field_points_to(heap, fld)); }
     // StaticFieldPointsTo(?heap, ?fld) :- Reachable(?m), StoreStaticField(?from, ?fld, ?m),
     //   VarPointsTo(?heap, ?from).
     { DL_VARS(heap, fld, m, from);
-      dl.add_rule(static_field_points_to(heap, fld) %=
-                  reachable(m) && store_sfield_p(from, fld, m) && var_points_to(heap, from)); }
+      RULE(dl, static_field_points_to(heap, fld) <=
+                  reachable(m), store_sfield_p(from, fld, m), var_points_to(heap, from)); }
     // VarPointsTo(?heap, ?this) :- Reachable(?inM), Instruction_Method(?inv, ?inM),
     //   VirtualMethodInvocation_Base(?inv, ?base), VarPointsTo(?heap, ?base),
     //   HeapAllocation_Type(?heap, ?ht), VirtualMethodInvocation_SimpleName(?inv, ?sn),
     //   VirtualMethodInvocation_Descriptor(?inv, ?d), basic.MethodLookup(?sn, ?d, ?ht, ?toM),
     //   ThisVar(?toM, ?this).
     { DL_VARS(heap, self, in_m, inv, base, ht, sn, d, to_m);
-      dl.add_rule(var_points_to(heap, self) %=
-                  reachable(in_m) && vmi_in_method_p(inv, in_m) && vmi_base_p(inv, base) &&
-                  var_points_to(heap, base) && heap_type_p(heap, ht) && vmi_simplename_p(inv, sn) &&
-                  vmi_descriptor_p(inv, d) && method_lookup(sn, d, ht, to_m) &&
+      RULE(dl, var_points_to(heap, self) <=
+                  reachable(in_m), vmi_in_method_p(inv, in_m), vmi_base_p(inv, base),
+                  var_points_to(heap, base), heap_type_p(heap, ht), vmi_simplename_p(inv, sn),
+                  vmi_descriptor_p(inv, d), method_lookup(sn, d, ht, to_m),
                   this_var_p(to_m, self)); }
     // Reachable(?toM), CallGraphEdge(?inv, ?toM) :- [same 8-way join without ThisVar].
     { DL_VARS(to_m, inv, in_m, base, heap, ht, sn, d);
-      dl.add_rule((reachable(to_m), call_graph_edge(inv, to_m)) %=
-                  reachable(in_m) && vmi_in_method_p(inv, in_m) && vmi_base_p(inv, base) &&
-                  var_points_to(heap, base) && heap_type_p(heap, ht) && vmi_simplename_p(inv, sn) &&
-                  vmi_descriptor_p(inv, d) && method_lookup(sn, d, ht, to_m)); }
+      RULE(dl, (reachable(to_m), call_graph_edge(inv, to_m)) <=
+                  reachable(in_m), vmi_in_method_p(inv, in_m), vmi_base_p(inv, base),
+                  var_points_to(heap, base), heap_type_p(heap, ht), vmi_simplename_p(inv, sn),
+                  vmi_descriptor_p(inv, d), method_lookup(sn, d, ht, to_m)); }
     // Reachable(?toM), CallGraphEdge(?inv, ?toM) :- Reachable(?inM),
     //   StaticMethodInvocation(?inv, ?toM, ?inM).
     { DL_VARS(to_m, inv, in_m);
-      dl.add_rule((reachable(to_m), call_graph_edge(inv, to_m)) %=
-                  reachable(in_m) && static_invoke_p(inv, to_m, in_m)); }
+      RULE(dl, (reachable(to_m), call_graph_edge(inv, to_m)) <=
+                  reachable(in_m), static_invoke_p(inv, to_m, in_m)); }
     // Reachable(?toM), CallGraphEdge(?inv, ?toM), VarPointsTo(?heap, ?this) :- Reachable(?inM),
     //   Instruction_Method(?inv, ?inM), SpecialMethodInvocation_Base(?inv, ?base),
     //   VarPointsTo(?heap, ?base), MethodInvocation_Method(?inv, ?toM), ThisVar(?toM, ?this).
     { DL_VARS(to_m, inv, self, heap, in_m, base);
-      dl.add_rule((reachable(to_m), call_graph_edge(inv, to_m), var_points_to(heap, self)) %=
-                  reachable(in_m) && smi_in_method_p(inv, in_m) && smi_base_p(inv, base) &&
-                  var_points_to(heap, base) && smi_method_p(inv, to_m) && this_var_p(to_m, self)); }
+      RULE(dl, (reachable(to_m), call_graph_edge(inv, to_m), var_points_to(heap, self)) <=
+                  reachable(in_m), smi_in_method_p(inv, in_m), smi_base_p(inv, base),
+                  var_points_to(heap, base), smi_method_p(inv, to_m), this_var_p(to_m, self)); }
     // Reachable(?method) :- basic.MainMethodDeclaration(?method).
-    { DL_VARS(method); dl.add_rule(reachable(method) %= main_method_declaration(method)); }
+    { DL_VARS(method); RULE(dl, reachable(method) <= main_method_declaration(method)); }
 
     const int32_t clinit_id = interner.intern("<clinit>");
     const int32_t void_paren_id = interner.intern("void()");
     // ClassInitializer(?type, ?method) :- basic.MethodImplemented("<clinit>", "void()", ?type, ?method).
     { DL_VARS(s, d, type, method);
-      dl.add_rule(class_initializer(type, method) %=
-                  method_implemented(s, d, type, method) &&
-                  df::datalog::where<s>([clinit_id](int32_t v) { return v == clinit_id; }) &&
+      RULE(dl, class_initializer(type, method) <=
+                  method_implemented(s, d, type, method),
+                  df::datalog::where<s>([clinit_id](int32_t v) { return v == clinit_id; }),
                   df::datalog::where<d>([void_paren_id](int32_t v) { return v == void_paren_id; })); }
     // InitializedClass(?super) :- InitializedClass(?class), DirectSuperclass(?class, ?super).
     { DL_VARS(super, klass);
-      dl.add_rule(initialized_class(super) %=
-                  initialized_class(klass) && direct_superclass(klass, super)); }
+      RULE(dl, initialized_class(super) <=
+                  initialized_class(klass), direct_superclass(klass, super)); }
     // InitializedClass(?super) :- InitializedClass(?ci), DirectSuperinterface(?ci, ?super).
     { DL_VARS(super, ci);
-      dl.add_rule(initialized_class(super) %=
-                  initialized_class(ci) && direct_superinterface(ci, super)); }
+      RULE(dl, initialized_class(super) <=
+                  initialized_class(ci), direct_superinterface(ci, super)); }
     // InitializedClass(?class) :- basic.MainMethodDeclaration(?method), Method_DeclaringType(?method, ?class).
     { DL_VARS(klass, method);
-      dl.add_rule(initialized_class(klass) %=
-                  main_method_declaration(method) && method_declaringtype_p(method, klass)); }
+      RULE(dl, initialized_class(klass) <=
+                  main_method_declaration(method), method_declaringtype_p(method, klass)); }
     // InitializedClass(?class) :- Reachable(?inm), AssignHeapAllocation(?heap, _, ?inm),
     //   HeapAllocation_Type(?heap, ?class).
     { DL_VARS(klass, inm, heap, to);
-      dl.add_rule(initialized_class(klass) %=
-                  reachable(inm) && assign_heap_p(heap, to, inm) && heap_type_p(heap, klass)); }
+      RULE(dl, initialized_class(klass) <=
+                  reachable(inm), assign_heap_p(heap, to, inm), heap_type_p(heap, klass)); }
     // InitializedClass(?class) :- Reachable(?inm), StaticMethodInvocation(?inv, ?sig, ?inm),
     //   Method_DeclaringType(?sig, ?class).
     { DL_VARS(klass, inm, inv, sig);
-      dl.add_rule(initialized_class(klass) %=
-                  reachable(inm) && static_invoke_p(inv, sig, inm) &&
+      RULE(dl, initialized_class(klass) <=
+                  reachable(inm), static_invoke_p(inv, sig, inm),
                   method_declaringtype_p(sig, klass)); }
     // InitializedClass(?coi) :- Reachable(?inm), StoreStaticField(_, ?sig, ?inm),
     //   Field_DeclaringType(?sig, ?coi).
     { DL_VARS(coi, inm, from, sig);
-      dl.add_rule(initialized_class(coi) %=
-                  reachable(inm) && store_sfield_p(from, sig, inm) && field_declaringtype_p(sig, coi)); }
+      RULE(dl, initialized_class(coi) <=
+                  reachable(inm), store_sfield_p(from, sig, inm), field_declaringtype_p(sig, coi)); }
     // InitializedClass(?coi) :- Reachable(?inm), LoadStaticField(?sig, _, ?inm),
     //   Field_DeclaringType(?sig, ?coi).
     { DL_VARS(coi, inm, sig, to);
-      dl.add_rule(initialized_class(coi) %=
-                  reachable(inm) && load_sfield_p(sig, to, inm) && field_declaringtype_p(sig, coi)); }
+      RULE(dl, initialized_class(coi) <=
+                  reachable(inm), load_sfield_p(sig, to, inm), field_declaringtype_p(sig, coi)); }
     // Reachable(?clinit) :- InitializedClass(?class), ClassInitializer(?class, ?clinit).
     { DL_VARS(clinit, klass);
-      dl.add_rule(reachable(clinit) %=
-                  initialized_class(klass) && class_initializer(klass, clinit)); }
+      RULE(dl, reachable(clinit) <=
+                  initialized_class(klass), class_initializer(klass, clinit)); }
 
     insert(class_type, data.class_type_in);
     insert(array_type, data.array_type_in);
