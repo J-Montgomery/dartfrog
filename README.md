@@ -90,10 +90,10 @@ Var<0> VAR1;
 Var<1> VAR2;
 ```
 
-Note that Dartfrog variables behave much differently than in Datalog. Datalog variables are  placeholder names that are unified during computation, and values are bound identically to any instance of the variable within the program. A Dartfrog variable is nothing more than a column
-index with a convenient name. Each head variable will project the indexed columns from the body atoms into the result tuple. 
+Note that Dartfrog variables behave much differently than in standard Datalog. Datalog variables are placeholder names unified during computation. Each Dartfrog variable is a column
+index with a convenient name. Each Dartfrog variable projects the indexed columns from the body atoms into the result tuple. Dartfrog variables are lexically scoped, meaning you can enclose rules in a block scope `{ ... }` with a new `DL_VARS()` to rename or reset indices for individual rules.
 
-For now we'll start our rule by declaring our predicates, their arity, and their type.
+For now we'll declare our predicates by specifying their data type and arity.
 
 ```cpp
 Predicate<int, 2> head(dl); /* head/2 */
@@ -103,7 +103,7 @@ Predicate<int, 1> bar(dl);  /* bar/1  */
 
 Next we can write our rule using our predicates and our variables
 
-```
+```cpp
 RULE(dl, head(VAR1, VAR2) <= foo(VAR1), bar(VAR2));
 ```
 
@@ -137,3 +137,34 @@ ASSERT_EQ(results, {{1, 1}, {1, 2}, {2, 1}, {2, 2}});
 ```
 
 If our rule was an equi-join instead like `head(VAR1, VAR2, VAR3) :- foo(VAR1, VAR2), bar(VAR2, VAR3).`, dartfrog would join across the shared VAR2 in both atoms. `make_reindexed` can be used to tell the engine to automatically build secondary indices to perform these kinds of equijoins faster in exchange for more memory.
+
+Negation is handled by applying the `!` operator on the relevant atom.
+
+```cpp
+RULE(dl, head(VAR1, VAR2) <= foo(VAR1), !bar(VAR2));
+```
+
+You can use filter expressions as well:
+
+```cpp
+RULE(dl, head(VAR1, VAR2) <=
+                foo(VAR1),
+                bar(VAR2),
+                where<VAR2>([](int var2) {
+                    return var2 > 1;
+                }))
+```
+
+and one aggregate per rule:
+
+```cpp
+RULE(dl, head(VAR1, VAR2) <=
+                foo(VAR1),
+                bar(VAR2),
+                where<VAR2>([](int var2) {
+                    return var2 > 1;
+                }),
+                group_by<VAR1>([](std::span<const int> values) {
+                    return std::accumulate(values.begin(), values.end(), 0);
+                }))
+```
