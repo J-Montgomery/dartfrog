@@ -37,20 +37,16 @@ transitive_closure(const std::vector<std::array<int, 2>> &edges) {
 } // namespace
 
 TEST(DatalogTests, BasicEdges) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
-
     Predicate<int, 2> Edge(dl), Edge_rev(dl), Path(dl);
 
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(Edge_rev(y, x) %= Edge(x, y));
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
-    dl.add_rule(Path(x, z) %= Edge_rev(y, x) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Edge_rev(y, x) <= Edge(x, y));
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
+    RULE(dl, Path(x, z) <= Edge_rev(y, x), Path(y, z));
 
     dl.solve();
     std::vector<std::array<int, 2>> final_paths = Path.extract();
@@ -80,15 +76,14 @@ TEST(DatalogTests, BasicEdges) {
 }
 
 TEST(DslSingleTerm, DirectCopyIsIdentity) {
-    auto x = Var<0>();
-    auto y = Var<1>();
 
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Copy(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(Copy(x, y) %= Edge(x, y));
+    DL_VARS(x, y);
+    RULE(dl, Copy(x, y) <= Edge(x, y));
     dl.solve();
 
     EXPECT_EQ(sorted(Copy.extract()),
@@ -96,15 +91,13 @@ TEST(DslSingleTerm, DirectCopyIsIdentity) {
 }
 
 TEST(DslSingleTerm, SwapReversesTuples) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-
     Datalog dl;
+    DL_VARS(x, y);
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Rev(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(Rev(y, x) %= Edge(x, y));
+    RULE(dl, Rev(y, x) <= Edge(x, y));
     dl.solve();
 
     EXPECT_EQ(sorted(Rev.extract()),
@@ -112,16 +105,13 @@ TEST(DslSingleTerm, SwapReversesTuples) {
 }
 
 TEST(DslJoin, SelfJoinTwoHopForwardHead) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> TwoHop(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(TwoHop(x, z) %= Edge(x, y) && Edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, TwoHop(x, z) <= Edge(x, y), Edge(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(TwoHop.extract()),
@@ -129,16 +119,13 @@ TEST(DslJoin, SelfJoinTwoHopForwardHead) {
 }
 
 TEST(DslJoin, SelfJoinTwoHopReversedHead) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> TwoHopRev(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(TwoHopRev(z, x) %= Edge(x, y) && Edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, TwoHopRev(z, x) <= Edge(x, y), Edge(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(TwoHopRev.extract()),
@@ -146,10 +133,6 @@ TEST(DslJoin, SelfJoinTwoHopReversedHead) {
 }
 
 TEST(DslJoin, JoinAcrossTwoDistinctPredicates) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> A(dl);
     Predicate<int, 2> B(dl);
@@ -157,7 +140,8 @@ TEST(DslJoin, JoinAcrossTwoDistinctPredicates) {
     A.insert(rel<int>({{1, 10}, {2, 20}}));
     B.insert(rel<int>({{10, 100}, {20, 200}, {30, 300}}));
 
-    dl.add_rule(AB(x, z) %= A(x, y) && B(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, AB(x, z) <= A(x, y), B(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(AB.extract()),
@@ -165,10 +149,6 @@ TEST(DslJoin, JoinAcrossTwoDistinctPredicates) {
 }
 
 TEST(DslRecursion, TransitiveClosureLineGraph) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl), Path(dl);
 
@@ -176,8 +156,9 @@ TEST(DslRecursion, TransitiveClosureLineGraph) {
         {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}};
     Edge.insert(rel<int>(edges));
 
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Path(x, y) && Edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Path(x, y), Edge(y, z));
     dl.solve();
 
     auto result = sorted(Path.extract());
@@ -186,20 +167,17 @@ TEST(DslRecursion, TransitiveClosureLineGraph) {
 }
 
 TEST(DslRecursion, TerminatesOnCycle) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl), Edge_rev(dl), Path(dl);
 
     std::vector<std::array<int, 2>> edges = {{1, 2}, {2, 3}, {3, 1}};
     Edge.insert(rel<int>(edges));
 
-    dl.add_rule(Edge_rev(y, x) %= Edge(x, y));
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
-    dl.add_rule(Path(x, z) %= Edge_rev(y, x) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Edge_rev(y, x) <= Edge(x, y));
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
+    RULE(dl, Path(x, z) <= Edge_rev(y, x), Path(y, z));
     dl.solve();
 
     auto result = sorted(Path.extract());
@@ -208,10 +186,6 @@ TEST(DslRecursion, TerminatesOnCycle) {
 }
 
 TEST(DslRecursion, SelfLoop) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Path(dl);
@@ -219,18 +193,15 @@ TEST(DslRecursion, SelfLoop) {
     std::vector<std::array<int, 2>> edges = {{1, 1}, {1, 2}};
     Edge.insert(rel<int>(edges));
 
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(Path.extract()), transitive_closure(edges));
 }
 
 TEST(DslRecursion, DisconnectedComponentsDoNotMerge) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Path(dl);
@@ -238,26 +209,24 @@ TEST(DslRecursion, DisconnectedComponentsDoNotMerge) {
     std::vector<std::array<int, 2>> edges = {{1, 2}, {3, 4}};
     Edge.insert(rel<int>(edges));
 
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(Path.extract()), transitive_closure(edges));
 }
 
 TEST(DslTypes, StringNodes) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<std::string, 2> Edge(dl), Edge_rev(dl), Path(dl);
     Edge.insert(rel<std::string>({{"a", "b"}, {"b", "c"}, {"c", "d"}}));
 
-    dl.add_rule(Edge_rev(y, x) %= Edge(x, y));
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
-    dl.add_rule(Path(x, z) %= Edge_rev(y, x) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Edge_rev(y, x) <= Edge(x, y));
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
+    RULE(dl, Path(x, z) <= Edge_rev(y, x), Path(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(Path.extract()),
@@ -270,15 +239,13 @@ TEST(DslTypes, StringNodes) {
 }
 
 TEST(DslTypes, HeterogeneousColumns) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-
     Datalog dl;
     Predicate<int, 2> Label(dl);
     Predicate<int, 2> Copy(dl);
     Label.insert(rel<int>({{1, 10}, {2, 20}}));
 
-    dl.add_rule(Copy(x, y) %= Label(x, y));
+    DL_VARS(x, y);
+    RULE(dl, Copy(x, y) <= Label(x, y));
     dl.solve();
 
     EXPECT_EQ(sorted(Copy.extract()),
@@ -286,32 +253,27 @@ TEST(DslTypes, HeterogeneousColumns) {
 }
 
 TEST(DslInvariants, InsertDeduplicates) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Copy(dl);
     Edge.insert(rel<int>({{1, 2}, {1, 2}, {2, 3}, {2, 3}, {2, 3}}));
 
-    dl.add_rule(Copy(x, y) %= Edge(x, y));
+    DL_VARS(x, y, z);
+    RULE(dl, Copy(x, y) <= Edge(x, y));
     dl.solve();
 
     EXPECT_EQ(Copy.extract().size(), 2u);
 }
 
 TEST(DslInvariants, ExtractIsSortedAndUnique) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Path(dl);
     Edge.insert(rel<int>({{3, 4}, {1, 2}, {2, 3}}));
 
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
     dl.solve();
 
     auto out = Path.extract();
@@ -322,33 +284,28 @@ TEST(DslInvariants, ExtractIsSortedAndUnique) {
 }
 
 TEST(DslEdgeCases, EmptyRelationStaysEmpty) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
-
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Path(dl);
 
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
     dl.solve();
 
     EXPECT_TRUE(Path.extract().empty());
 }
 
 TEST(DslEdgeCases, SingleEdge) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
+    DL_VARS(x, y, z);
 
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 2> Path(dl);
     Edge.insert(rel<int>({{5, 6}}));
 
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
     dl.solve();
 
     EXPECT_EQ(sorted(Path.extract()),
@@ -356,19 +313,17 @@ TEST(DslEdgeCases, SingleEdge) {
 }
 
 TEST(DslEdgeCases, SolveIsIdempotent) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
+    DL_VARS(x, y, z);
 
     Datalog dl;
     Predicate<int, 2> Edge(dl), Edge_rev(dl), Path(dl);
     std::vector<std::array<int, 2>> edges = {{1, 2}, {2, 3}, {3, 4}};
     Edge.insert(rel<int>(edges));
 
-    dl.add_rule(Edge_rev(y, x) %= Edge(x, y));
-    dl.add_rule(Path(x, y) %= Edge(x, y));
-    dl.add_rule(Path(x, z) %= Edge(x, y) && Path(y, z));
-    dl.add_rule(Path(x, z) %= Edge_rev(y, x) && Path(y, z));
+    RULE(dl, Edge_rev(y, x) <= Edge(x, y));
+    RULE(dl, Path(x, y) <= Edge(x, y));
+    RULE(dl, Path(x, z) <= Edge(x, y), Path(y, z));
+    RULE(dl, Path(x, z) <= Edge_rev(y, x), Path(y, z));
 
     dl.solve();
     dl.solve();
@@ -377,14 +332,12 @@ TEST(DslEdgeCases, SolveIsIdempotent) {
 }
 
 TEST(DslWcoj, Triangle) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
+    DL_VARS(x, y, z);
     Datalog dl;
     Predicate<int, 2> Edge(dl);
     Predicate<int, 3> Tri(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 1}, {2, 4}, {4, 5}, {5, 2}}));
-    dl.add_rule(Tri(x, y, z) %= Edge(x, y) && Edge(y, z) && Edge(z, x));
+    RULE(dl, Tri(x, y, z) <= Edge(x, y), Edge(y, z), Edge(z, x));
     dl.solve();
 
     EXPECT_EQ(
@@ -394,49 +347,43 @@ TEST(DslWcoj, Triangle) {
 }
 
 TEST(DslWcoj, ThreeHopChain) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
+    DL_VARS(x, y, z);
     auto w = Var<3>();
     Datalog dl;
     Predicate<int, 2> Edge(dl), Hop3(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}, {4, 5}}));
-    dl.add_rule(Hop3(x, w) %= Edge(x, y) && Edge(y, z) && Edge(z, w));
+    RULE(dl, Hop3(x, w) <= Edge(x, y), Edge(y, z), Edge(z, w));
     dl.solve();
     EXPECT_EQ(sorted(Hop3.extract()),
               (std::vector<std::array<int, 2>>{{1, 4}, {2, 5}}));
 }
 
 TEST(DslWcoj, TwoSharedKeysIsIntersection) {
-    auto x = Var<0>();
-    auto y = Var<1>();
+    DL_VARS(x, y);
     Datalog dl;
     Predicate<int, 2> A(dl), B(dl), C(dl);
     A.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
     B.insert(rel<int>({{2, 3}, {3, 4}, {9, 9}}));
-    dl.add_rule(C(x, y) %= A(x, y) && B(x, y));
+    RULE(dl, C(x, y) <= A(x, y), B(x, y));
     dl.solve();
     EXPECT_EQ(sorted(C.extract()),
               (std::vector<std::array<int, 2>>{{2, 3}, {3, 4}}));
 }
 
 TEST(DslWcoj, NegationEdb) {
-    auto x = Var<0>();
-    auto y = Var<1>();
+    DL_VARS(x, y);
     Datalog dl;
     Predicate<int, 2> Edge(dl), Blocked(dl), Open(dl);
     Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
     Blocked.insert(rel<int>({{2, 3}}));
-    dl.add_rule(Open(x, y) %= Edge(x, y) && !Blocked(x, y));
+    RULE(dl, Open(x, y) <= Edge(x, y), !Blocked(x, y));
     dl.solve();
     EXPECT_EQ(sorted(Open.extract()),
               (std::vector<std::array<int, 2>>{{1, 2}, {3, 4}}));
 }
 
 TEST(DslNAry, TernaryPredicateAsSource) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto z = Var<2>();
+    DL_VARS(x, y, z);
 
     Datalog dl;
 
@@ -445,8 +392,8 @@ TEST(DslNAry, TernaryPredicateAsSource) {
 
     edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(triple(x, y, z) %= edge(x, y) && edge(y, z));
-    dl.add_rule(result(x, z) %= triple(x, y, z));
+    RULE(dl, triple(x, y, z) <= edge(x, y), edge(y, z));
+    RULE(dl, result(x, z) <= triple(x, y, z));
 
     dl.solve();
 
@@ -457,13 +404,11 @@ TEST(DslNAry, TernaryPredicateAsSource) {
 TEST(DslUndirected, TCOnUndirectedGraph) {
     Datalog dl;
     Predicate<int, 2> edge(dl), tc(dl);
-    Var<0> x;
-    Var<1> y;
-    Var<2> z;
+    DL_VARS(x, y, z);
 
     dl.make_symmetric(edge);
-    dl.add_rule(tc(x, y) %= edge(x, y));
-    dl.add_rule(tc(x, z) %= tc(x, y) && edge(y, z));
+    RULE(dl, tc(x, y) <= edge(x, y));
+    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
 
     edge.insert(rel<int>({{1, 2}, {2, 3}}));
     dl.solve();
@@ -483,11 +428,10 @@ TEST(DslUndirected, TCOnUndirectedGraph) {
 TEST(DslStratification, NegationOverDerivedPredicate) {
     Datalog dl;
     Predicate<int, 2> edge(dl), heavy(dl), blocked(dl), open(dl);
-    Var<0> x;
-    Var<1> y;
+    DL_VARS(x, y);
 
-    dl.add_rule(blocked(x, y) %= edge(x, y) && heavy(x, y));
-    dl.add_rule(open(x, y) %= edge(x, y) && !blocked(x, y));
+    RULE(dl, blocked(x, y) <= edge(x, y), heavy(x, y));
+    RULE(dl, open(x, y) <= edge(x, y), !blocked(x, y));
 
     edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
     heavy.insert(rel<int>({{2, 3}}));
@@ -502,11 +446,9 @@ TEST(DslStratification, NegationOverDerivedPredicate) {
 TEST(DslQuery, QueryOverSolvedIDB) {
     Datalog dl;
     Predicate<int, 2> edge(dl), tc(dl);
-    Var<0> x;
-    Var<1> y;
-    Var<2> z;
-    dl.add_rule(tc(x, y) %= edge(x, y));
-    dl.add_rule(tc(x, z) %= tc(x, y) && edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, tc(x, y) <= edge(x, y));
+    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
     edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
     dl.solve();
 
@@ -514,7 +456,7 @@ TEST(DslQuery, QueryOverSolvedIDB) {
 
     Datalog query_dl;
     Predicate<int, 2> result(query_dl);
-    query_dl.add_rule(result(x, y) %= seed(x) && tc(x, y));
+    RULE(query_dl, result(x, y) <= seed(x), tc(x, y));
     query_dl.solve();
 
     EXPECT_EQ(sorted(result.extract()),
@@ -528,13 +470,12 @@ TEST(DslQuery, DetachedPredicateFromExternalData) {
         df::Relation<T2>::from_vec({{1, 2}, {1, 3}, {2, 3}, {2, 4}, {3, 4}}));
     graph.commit();
 
-    Datalog query_dl;
+    Datalog dl;
     auto seed = Const<int>({1});
-    Predicate<int, 2> reachable(query_dl);
-    Var<0> x;
-    Var<1> y;
-    query_dl.add_rule(reachable(x, y) %= seed(x) && graph(x, y));
-    query_dl.solve();
+    Predicate<int, 2> reachable(dl);
+    DL_VARS(x, y);
+    RULE(dl, reachable(x, y) <= seed(x), graph(x, y));
+    dl.solve();
 
     EXPECT_EQ(sorted(reachable.extract()), (std::vector<T2>{{1, 2}, {1, 3}}));
 }
@@ -542,11 +483,9 @@ TEST(DslQuery, DetachedPredicateFromExternalData) {
 TEST(DslQuery, SolveIsIdempotentOnNoNewFacts) {
     Datalog dl;
     Predicate<int, 2> edge(dl), tc(dl);
-    Var<0> x;
-    Var<1> y;
-    Var<2> z;
-    dl.add_rule(tc(x, y) %= edge(x, y));
-    dl.add_rule(tc(x, z) %= tc(x, y) && edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, tc(x, y) <= edge(x, y));
+    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
     edge.insert(rel<int>({{1, 2}, {2, 3}}));
     dl.solve();
     dl.solve();
@@ -557,11 +496,9 @@ TEST(DslQuery, SolveIsIdempotentOnNoNewFacts) {
 TEST(DslQuery, SolveSecondCallPicksUpNewFacts) {
     Datalog dl;
     Predicate<int, 2> edge(dl), tc(dl);
-    Var<0> x;
-    Var<1> y;
-    Var<2> z;
-    dl.add_rule(tc(x, y) %= edge(x, y));
-    dl.add_rule(tc(x, z) %= tc(x, y) && edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, tc(x, y) <= edge(x, y));
+    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
     edge.insert(rel<int>({{1, 2}, {2, 3}}));
     dl.solve();
     edge.insert(rel<int>({{3, 4}}));
@@ -575,11 +512,9 @@ TEST(DslQuery, SolveSecondCallPicksUpNewFacts) {
 TEST(DslIncremental, UpdateAddsNewFacts) {
     Datalog dl;
     Predicate<int, 2> edge(dl), tc(dl);
-    Var<0> x;
-    Var<1> y;
-    Var<2> z;
-    dl.add_rule(tc(x, y) %= edge(x, y));
-    dl.add_rule(tc(x, z) %= tc(x, y) && edge(y, z));
+    DL_VARS(x, y, z);
+    RULE(dl, tc(x, y) <= edge(x, y));
+    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
 
     edge.insert(rel<int>({{1, 2}, {2, 3}}));
     dl.solve();
@@ -595,11 +530,7 @@ TEST(DslIncremental, UpdateAddsNewFacts) {
 }
 
 TEST(DslIncremental, PeanoArithmetic) {
-    auto x = Var<0>();
-    auto y = Var<1>();
-    auto y_next = Var<2>();
-    auto res = Var<3>();
-    auto res_next = Var<4>();
+    DL_VARS(x, y, y_next, res, res_next);
 
     Datalog dl;
 
@@ -613,17 +544,17 @@ TEST(DslIncremental, PeanoArithmetic) {
     // The domain of numbers we'll compute over
     succ.insert(rel<int>({{0, 1}, {1, 2}, {2, 3}, {3, 4}}));
 
-    dl.add_rule(num(x) %= zero(x));
-    dl.add_rule(num(x) %= succ(x, y));
-    dl.add_rule(num(y) %= succ(x, y));
+    RULE(dl, num(x) <= zero(x));
+    RULE(dl, num(x) <= succ(x, y));
+    RULE(dl, num(y) <= succ(x, y));
 
-    dl.add_rule(add(x, y, x) %= num(x) && zero(y));
-    dl.add_rule(add(x, y_next, res_next) %=
-                add(x, y, res) && succ(y, y_next) && succ(res, res_next));
+    RULE(dl, add(x, y, x) <= num(x), zero(y));
+    RULE(dl, add(x, y_next, res_next) <= add(x, y, res), succ(y, y_next),
+         succ(res, res_next));
 
-    dl.add_rule(mul(x, y, y) %= num(x) && zero(y));
-    dl.add_rule(mul(x, y_next, res_next) %=
-                mul(x, y, res) && succ(y, y_next) && add(x, res, res_next));
+    RULE(dl, mul(x, y, y) <= num(x), zero(y));
+    RULE(dl, mul(x, y_next, res_next) <= mul(x, y, res), succ(y, y_next),
+         add(x, res, res_next));
 
     dl.solve();
 
@@ -661,46 +592,45 @@ TEST(DslProvenance, PeanoArithmeticProvenance) {
     auto zero = Const<int>({0});
     {
         Var<0> n;
-        dl.add_rule(Num(n) %= zero(n));
+        RULE(dl, Num(n) <= zero(n));
     }
     {
         DL_VARS(x, sx, id);
-        dl.add_rule(Num(sx) %= Succ(x, sx, id));
+        RULE(dl, Num(sx) <= Succ(x, sx, id));
     }
     {
         DL_VARS(zval, y);
-        dl.add_rule(AddProv(zval, y, y, zval) %= zero(zval) && Num(y));
+        RULE(dl, AddProv(zval, y, y, zval) <= zero(zval), Num(y));
     }
     {
         DL_VARS(sx, y, sz, x, z, id1, id2, id3);
-        dl.add_rule(AddProv(sx, y, sz, sx) %= AddProv(x, y, z, id1) &&
-                                              Succ(x, sx, id2) &&
-                                              Succ(z, sz, id3));
+        RULE(dl, AddProv(sx, y, sz, sx) <= AddProv(x, y, z, id1),
+             Succ(x, sx, id2), Succ(z, sz, id3));
     }
     {
         DL_VARS(sx, id1, x, y, z, id2, sz, id3);
-        dl.add_rule(StepDep(sx, id1) %= AddProv(x, y, z, id1) &&
-                                        Succ(x, sx, id2) && Succ(z, sz, id3));
+        RULE(dl, StepDep(sx, id1) <= AddProv(x, y, z, id1), Succ(x, sx, id2),
+             Succ(z, sz, id3));
     }
     {
         DL_VARS(sx, id2, x, y, z, id1, sz, id3);
-        dl.add_rule(StepDep(sx, id2) %= AddProv(x, y, z, id1) &&
-                                        Succ(x, sx, id2) && Succ(z, sz, id3));
+        RULE(dl, StepDep(sx, id2) <= AddProv(x, y, z, id1), Succ(x, sx, id2),
+             Succ(z, sz, id3));
     }
     {
         DL_VARS(sx, id3, x, y, z, id1, id2, sz);
-        dl.add_rule(StepDep(sx, id3) %= AddProv(x, y, z, id1) &&
-                                        Succ(x, sx, id2) && Succ(z, sz, id3));
+        RULE(dl, StepDep(sx, id3) <= AddProv(x, y, z, id1), Succ(x, sx, id2),
+             Succ(z, sz, id3));
     }
 
     {
         DL_VARS(child, parent);
-        dl.add_rule(DependsOn(child, parent) %= StepDep(child, parent));
+        RULE(dl, DependsOn(child, parent) <= StepDep(child, parent));
     }
     {
         DL_VARS(child, ancestor, parent);
-        dl.add_rule(DependsOn(child, ancestor) %=
-                    StepDep(child, parent) && DependsOn(parent, ancestor));
+        RULE(dl, DependsOn(child, ancestor) <= StepDep(child, parent),
+             DependsOn(parent, ancestor));
     }
 
     Succ.insert(df::Relation<T3>::from_vec(
@@ -740,11 +670,10 @@ TEST(DslAggregates, SumSalesByGroup) {
 
     DL_VARS(group, value, total);
 
-    dl.add_rule(total_sales(group, total) %=
-                sales(group, value) &&
-                group_by<total, value, group>([](std::span<const int> values) {
-                    return std::accumulate(values.begin(), values.end(), 0);
-                }));
+    RULE(dl, total_sales(group, total) <= sales(group, value),
+         group_by<total, value, group>([](std::span<const int> values) {
+             return std::accumulate(values.begin(), values.end(), 0);
+         }));
 
     sales.insert(rel<int>({
         {1, 10},
