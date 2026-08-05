@@ -47,9 +47,9 @@ std::set<Edge> dartfrog_sg(const std::vector<Edge> &edges) {
     Datalog dl;
     Predicate<int32_t, 2> edge(dl);
     Predicate<int32_t, 2> tc(dl);
-    dl.add_rule(tc(Var<0>{}, Var<1>{}) %= edge(Var<0>{}, Var<1>{}));
-    dl.add_rule(tc(Var<0>{}, Var<2>{}) %=
-                edge(Var<0>{}, Var<1>{}) && tc(Var<1>{}, Var<2>{}));
+    DL_VARS(A, B, C);
+    RULE(dl, tc(A, B) <= edge(A, B));
+    RULE(dl, tc(A, C) <= edge(A, B), tc(B, C));
     edge.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(edges)));
     dl.solve();
     const std::vector<Edge> out = tc.extract();
@@ -87,10 +87,9 @@ std::set<Edge> dartfrog_sg(const std::vector<Edge> &up,
     Predicate<int32_t, 2> down_p(dl);
     Predicate<int32_t, 2> flat_p(dl);
     Predicate<int32_t, 2> sg(dl);
-    dl.add_rule(sg(Var<0>{}, Var<1>{}) %= flat_p(Var<0>{}, Var<1>{}));
-    dl.add_rule(sg(Var<0>{}, Var<3>{}) %= up_p(Var<0>{}, Var<1>{}) &&
-                                          sg(Var<1>{}, Var<2>{}) &&
-                                          down_p(Var<2>{}, Var<3>{}));
+    DL_VARS(A, B, C, D);
+    RULE(dl, sg(A, B) <= flat_p(A, B));
+    RULE(dl, sg(A, D) <= up_p(A, B), sg(B, C), down_p(C, D));
     up_p.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(up)));
     down_p.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(down)));
     flat_p.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(flat)));
@@ -114,9 +113,8 @@ std::set<Triple> dartfrog_tri(const std::vector<Edge> &edges) {
     Datalog dl;
     Predicate<int32_t, 2> e(dl);
     Predicate<int32_t, 3> tri(dl);
-    dl.add_rule(tri(Var<0>{}, Var<1>{}, Var<2>{}) %= e(Var<0>{}, Var<1>{}) &&
-                                                     e(Var<1>{}, Var<2>{}) &&
-                                                     e(Var<0>{}, Var<2>{}));
+    DL_VARS(A, B, C);
+    RULE(dl, tri(A, B, C) <= e(A, B), e(B, C), e(A, C));
     e.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(edges)));
     dl.solve();
     const std::vector<Triple> out = tri.extract();
