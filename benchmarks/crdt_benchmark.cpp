@@ -56,53 +56,54 @@ size_t countLines(const std::string& filename) {
 size_t run_dartfrog_crdt(const CrdtData &data) {
     using namespace df::datalog;
 
-    Datalog dl1;
-    Predicate<int32_t, 4> insert_rel(dl1);
-    Predicate<int32_t, 4> insert_by_parent(dl1);
-    Predicate<int32_t, 4> laterChild(dl1);
-    Predicate<int32_t, 4> sibling(dl1);
-    Predicate<int32_t, 4> laterSibling(dl1);
-    Predicate<int32_t, 4> laterSibling2(dl1);
-    Predicate<int32_t, 2> hasChild(dl1);
-    Predicate<int32_t, 2> hasNextSibling(dl1);
+    Datalog dl;
+    Predicate<int32_t, 4> insert_rel(dl);
+    Predicate<int32_t, 4> insert_by_parent(dl);
+    Predicate<int32_t, 4> laterChild(dl);
+    Predicate<int32_t, 4> sibling(dl);
+    Predicate<int32_t, 4> laterSibling(dl);
+    Predicate<int32_t, 4> laterSibling2(dl);
+    Predicate<int32_t, 2> hasChild(dl);
+    Predicate<int32_t, 2> hasNextSibling(dl);
 
-    dl1.make_reindexed<2, 3, 0, 1>(insert_rel, insert_by_parent);
+    dl.make_reindexed<2, 3, 0, 1>(insert_rel, insert_by_parent);
 
-    dl1.add_rule(hasChild(Var<0>{}, Var<1>{}) %=
-                 insert_by_parent(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}));
+    DL_VARS(A, B, C, D, E, F);
+    RULE(dl, hasChild(A, B) <=
+                 insert_by_parent(A, B, C, D));
 
-    dl1.add_rule(laterChild(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
-                 insert_by_parent(Var<0>{}, Var<1>{}, Var<4>{}, Var<5>{}) &&
-                 insert_by_parent(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) &&
-                 where<Var<4>{}, Var<5>{}, Var<2>{}, Var<3>{}>([](int c10, int c11, int c20, int c21) {
+    RULE(dl, laterChild(A, B, C, D) <=
+                 insert_by_parent(A, B, E, F),
+                 insert_by_parent(A, B, C, D),
+                 where<E, F, C, D>([](int c10, int c11, int c20, int c21) {
                      return std::tie(c10, c11) > std::tie(c20, c21);
                  }));
 
-    dl1.add_rule(sibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
-                 insert_by_parent(Var<4>{}, Var<5>{}, Var<0>{}, Var<1>{}) &&
-                 insert_by_parent(Var<4>{}, Var<5>{}, Var<2>{}, Var<3>{}));
+    RULE(dl, sibling(A, B, C, D) <=
+                 insert_by_parent(E, F, A, B),
+                 insert_by_parent(E, F, C, D));
 
-    dl1.add_rule(laterSibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
-                 sibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) &&
-                 where<Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}>([](int a0, int a1, int b0, int b1) {
+    RULE(dl, laterSibling(A, B, C, D) <=
+                 sibling(A, B, C, D),
+                 where<A, B, C, D>([](int a0, int a1, int b0, int b1) {
                      return std::tie(a0, a1) > std::tie(b0, b1);
                  }));
 
-    dl1.add_rule(laterSibling2(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) %=
-                 sibling(Var<0>{}, Var<1>{}, Var<4>{}, Var<5>{}) &&
-                 sibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}) &&
-                 where<Var<0>{}, Var<1>{}, Var<4>{}, Var<5>{}>([](int a0, int a1, int b0, int b1) {
+    RULE(dl, laterSibling2(A, B, C, D) <=
+                 sibling(A, B, E, F),
+                 sibling(A, B, C, D),
+                 where<A, B, E, F>([](int a0, int a1, int b0, int b1) {
                      return std::tie(a0, a1) > std::tie(b0, b1);
-                 }) &&
-                 where<Var<4>{}, Var<5>{}, Var<2>{}, Var<3>{}>([](int b0, int b1, int c0, int c1) {
+                 }),
+                 where<E, F, C, D>([](int b0, int b1, int c0, int c1) {
                      return std::tie(b0, b1) > std::tie(c0, c1);
                  }));
 
-    dl1.add_rule(hasNextSibling(Var<0>{}, Var<1>{}) %=
-                 laterSibling(Var<0>{}, Var<1>{}, Var<2>{}, Var<3>{}));
+    RULE(dl, hasNextSibling(A, B) <=
+                 laterSibling(A, B, C, D));
 
     insert_rel.insert(df::Relation<std::array<int32_t, 4>>::from_vec(std::vector(data.inserts)));
-    dl1.solve();
+    dl.solve();
 
     const auto lc = laterChild.extract();
     const auto ls = laterSibling.extract();
