@@ -7,7 +7,6 @@ project(
     LANGUAGES CXX
 )
 
-include(ProcessorCount)
 find_package(GTest REQUIRED)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
@@ -19,13 +18,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g1")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -Wall")
 endif()
-
-# ProcessorCount(n)
-# if(NOT n EQUAL 0)
-#     set(SOUFFLE_PARALLEL_N -j${n})
-# else()
-#     set(SOUFFLE_PARALLEL_N -j1)
-# endif()
 
 set(SOUFFLE_PARALLEL_N -j1)
 
@@ -52,8 +44,28 @@ endfunction()
 file(GLOB_RECURSE ALL_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/headers/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/*.hpp)
 add_custom_target(format COMMAND clang-format-18 -i ${ALL_SOURCE_FILES})
 
+if(POLICY CMP0090)
+    cmake_policy(SET CMP0090 NEW)
+endif()
+set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+
+
 add_library(dartfrog INTERFACE)
-target_include_directories(dartfrog INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/headers)
+target_include_directories(dartfrog INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/headers>
+)
+
+export(TARGETS dartfrog FILE "${CMAKE_CURRENT_BINARY_DIR}/dartfrogTargets.cmake")
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/dartfrogConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/dartfrogConfig.cmake"
+    @ONLY
+)
+
+export(PACKAGE dartfrog)
+
+#####################################
 
 add_executable(dartfrog_tests)
 target_link_libraries(dartfrog_tests dartfrog GTest::gtest_main)

@@ -1,0 +1,4 @@
+@PACKAGE_INIT@
+
+include("@CMAKE_CURRENT_BINARY_DIR@/dartfrogTargets.cmake")
+set(dartfrog_INCLUDE_DIRS "@CMAKE_CURRENT_SOURCE_DIR@/headers")
