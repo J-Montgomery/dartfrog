@@ -990,7 +990,7 @@ struct QueryPlanner {
             static_assert(
                 [ids] {
                     for (int id : ids) {
-                        if (id < 0 || id > static_cast<int>(NumVars))
+                        if (id < 0 || id >= static_cast<int>(NumVars))
                             return false;
                     }
                     return true;
@@ -1006,7 +1006,7 @@ struct QueryPlanner {
             static_assert(
                 [ids] {
                     for (int id : ids) {
-                        if (id < 0 || id > static_cast<int>(NumVars))
+                        if (id < 0 || id >= static_cast<int>(NumVars))
                             return false;
                     }
                     return true;

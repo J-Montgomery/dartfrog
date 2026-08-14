@@ -6,6 +6,7 @@
 namespace df::datalog {
 
 template <int N> struct Var {
+    static_assert(N >= 0, "Var must be a non-negative index");
     static constexpr int id = N;
 };
 
