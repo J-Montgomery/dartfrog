@@ -493,6 +493,46 @@ TEST(DslQuery, SolveIsIdempotentOnNoNewFacts) {
               (std::vector<std::array<int, 2>>{{1, 2}, {1, 3}, {2, 3}}));
 }
 
+TEST(DslQuery, CommittedFactsVisibleThroughReindex) {
+    Datalog dl;
+    Predicate<int, 2> aa(dl), bb(dl);
+    Predicate<int, 3> c(dl);
+    DL_VARS(x, y, z);
+    RULE(dl, c(x, y, z) <= aa(x, y), bb(y, z));
+
+    aa.insert(rel<int>({{2, 1}, {3, 2}}));
+    bb.insert(rel<int>({{1, 10}}));
+    aa.commit();
+    bb.commit();
+    dl.solve();
+
+    EXPECT_EQ(sorted(c.extract()),
+              (std::vector<std::array<int, 3>>{{2, 1, 10}}));
+}
+
+TEST(DslQuery, FactsCommittedBetweenSolvesVisibleThroughReindex) {
+    Datalog dl;
+    Predicate<int, 2> aa(dl), bb(dl);
+    Predicate<int, 3> c(dl);
+    DL_VARS(x, y, z);
+    RULE(dl, c(x, y, z) <= aa(x, y), bb(y, z));
+
+    aa.insert(rel<int>({{2, 1}, {3, 2}}));
+    bb.insert(rel<int>({{1, 10}}));
+    aa.commit();
+    bb.commit();
+    dl.solve();
+
+    aa.insert(rel<int>({{4, 3}}));
+    bb.insert(rel<int>({{3, 30}}));
+    aa.commit();
+    bb.commit();
+    dl.solve();
+
+    EXPECT_EQ(sorted(c.extract()),
+              (std::vector<std::array<int, 3>>{{2, 1, 10}, {4, 3, 30}}));
+}
+
 TEST(DslQuery, SolveSecondCallPicksUpNewFacts) {
     Datalog dl;
     Predicate<int, 2> edge(dl), tc(dl);

@@ -30,24 +30,23 @@ template <typename V, size_t N> struct ReindexedIndex {
     std::array<int, N> perm;
     std::vector<std::vector<std::array<V, N>>> batches;
 
-    void refresh() {
-        const auto &delta = base->recent_data.elements;
-        if (delta.empty())
-            return;
-        std::vector<std::array<V, N>> incoming;
-        incoming.reserve(delta.size());
-        for (const auto &r : delta) {
+    template <typename Range>
+    void append_permuted(const Range &src, std::vector<std::array<V, N>> &dst) {
+        dst.reserve(dst.size() + src.size());
+        for (const auto &r : src) {
             std::array<V, N> t{};
             for (size_t k = 0; k < N; k++)
                 t[k] = r[perm[k]];
-            incoming.push_back(t);
+            dst.push_back(t);
         }
+    }
+
+    void fold(std::vector<std::array<V, N>> incoming) {
+        if (incoming.empty())
+            return;
         std::sort(incoming.begin(), incoming.end());
         incoming.erase(std::unique(incoming.begin(), incoming.end()),
                        incoming.end());
-        // fold the new delta into trailing batches while they are within 8x its
-        // size, so the amortized maintenance cost is O(total facts * log) over
-        // the whole solve rather than O(rounds * total facts)
         while (!batches.empty() &&
                batches.back().size() <= 8 * incoming.size()) {
             std::vector<std::array<V, N>> last = std::move(batches.back());
@@ -59,6 +58,22 @@ template <typename V, size_t N> struct ReindexedIndex {
             incoming.swap(merged);
         }
         batches.push_back(std::move(incoming));
+    }
+
+    // fold the delta set into the index
+    void refresh() {
+        std::vector<std::array<V, N>> incoming;
+        append_permuted(base->recent_data.elements, incoming);
+        fold(std::move(incoming));
+    }
+
+    // fold the entire fact set into the index
+    void prime() {
+        std::vector<std::array<V, N>> incoming;
+        for (const auto &batch : base->stable)
+            append_permuted(batch.elements, incoming);
+        append_permuted(base->recent_data.elements, incoming);
+        fold(std::move(incoming));
     }
 };
 
@@ -110,6 +125,7 @@ class Datalog {
     struct IndexEntry {
         std::unique_ptr<void, void (*)(void *)> storage;
         void (*refresh)(void *);
+        void (*prime)(void *);
         const void *batches_ptr;
     };
     std::vector<IndexEntry> indexes;
@@ -118,6 +134,11 @@ class Datalog {
     void refresh_all_indexes() {
         for (auto &e : indexes)
             e.refresh(e.storage.get());
+    }
+
+    void prime_indices() {
+        for (auto &e : indexes)
+            e.prime(e.storage.get());
     }
 
     size_t get_or_add_pred(const void *p) {
@@ -227,6 +248,7 @@ class Datalog {
             {ri,
              +[](void *p) { delete static_cast<ReindexedIndex<V, N> *>(p); }},
             +[](void *p) { static_cast<ReindexedIndex<V, N> *>(p)->refresh(); },
+            +[](void *p) { static_cast<ReindexedIndex<V, N> *>(p)->prime(); },
             &ri->batches});
         index_registry[key] = indexes.size() - 1;
         return &ri->batches;
@@ -349,6 +371,8 @@ class Datalog {
 
     void solve() {
         const auto stratum_evals = compute_strata();
+
+        prime_all_indexes();
 
         for (const auto &evals : stratum_evals) {
             for (auto &h : predicates)
