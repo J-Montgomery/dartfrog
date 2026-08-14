@@ -164,6 +164,31 @@ auto group_by(Func &&func) {
         std::forward<Func>(func)};
 }
 
+template <typename Func, int OutVarId, int... GroupVarIds>
+struct AggregateRowsFilter {
+    Func func;
+    static constexpr int out_var_id = OutVarId;
+    static constexpr int value_var_id = -1;
+
+    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids{
+        GroupVarIds...};
+};
+
+template <typename Func, int OutVarId, int... GroupVarIds>
+struct is_filter_atom<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
+    : std::true_type {};
+
+template <auto OutVar, auto... GroupVars, typename Func>
+    requires(is_var_v<decltype(OutVar)> &&
+             (is_var_v<decltype(GroupVars)> && ...))
+auto group_by_rows(Func &&func) {
+    using F = std::remove_cvref_t<Func>;
+
+    return AggregateRowsFilter<F, var_id_v<decltype(OutVar)>,
+                               var_id_v<decltype(GroupVars)>...>{
+        std::forward<Func>(func)};
+}
+
 /* Conjunctions of filters */
 
 template <class P1, class... Vars1, class P2, class... Vars2>

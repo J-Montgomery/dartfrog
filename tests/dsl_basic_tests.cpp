@@ -821,6 +821,84 @@ TEST(DslAggregates, AggregateValuesAccumulate) {
               (std::vector<std::array<int, 2>>{{1, 2}, {1, 3}, {1, 4}}));
 }
 
+TEST(DslAggregates, RowReductionArithmetic) {
+    Datalog dl;
+    Predicate<int, 3> a(dl);
+    Predicate<int, 2> g(dl);
+
+    DL_VARS(x, y, w, t);
+    RULE(dl, g(x, t) <= a(x, y, w),
+         group_by_rows<t, x>([](std::span<const std::array<int, 3>> rows) {
+             int sum = 0;
+             for (const auto &row : rows)
+                 sum += row[1] / row[2];
+             return sum;
+         }));
+
+    a.insert(df::Relation<std::array<int, 3>>::from_vec(
+        {{1, 4, 2}, {1, 1, 1}, {2, 5, 5}}));
+    dl.solve();
+
+    EXPECT_EQ(sorted(g.extract()),
+              (std::vector<std::array<int, 2>>{{1, 3}, {2, 1}}));
+}
+
+TEST(DslAggregates, PageRank) {
+    Datalog dl;
+    Predicate<double, 2> link(dl), outdeg(dl), succ(dl);
+    Predicate<double, 3> rank(dl);
+
+    {
+        DL_VARS(q, w, d);
+        RULE(dl, outdeg(q, d) <= link(q, w),
+             group_by<d, w, q>([](std::span<const double> values) {
+                 return static_cast<double>(values.size());
+             }));
+    }
+    {
+        DL_VARS(k2, k, q, p, rq, dq, r);
+        RULE(dl, rank(k2, p, r) <= rank(k, q, rq), succ(k2, k), link(q, p),
+             outdeg(q, dq),
+             group_by_rows<r, p, k2>(
+                 [](std::span<const std::array<double, 6>> rows) {
+                     double sum = 0.0;
+                     for (const auto &row : rows)
+                         sum += row[4] / row[5];
+                     return 1.0 / 6.0 + 0.5 * sum;
+                 }));
+    }
+
+    link.insert(df::Relation<std::array<double, 2>>::from_vec(
+        {{1, 2}, {2, 1}, {2, 3}, {3, 2}}));
+    succ.insert(
+        df::Relation<std::array<double, 2>>::from_vec({{1, 0}, {2, 1}}));
+    rank.insert(df::Relation<std::array<double, 3>>::from_vec(
+        {{0, 1, 1.0 / 3}, {0, 2, 1.0 / 3}, {0, 3, 1.0 / 3}}));
+    dl.solve();
+
+    auto layer = [&](double k) {
+        std::vector<std::array<double, 3>> rows;
+        for (const auto &row : rank.peek())
+            if (row[0] == k)
+                rows.push_back(row);
+        std::sort(rows.begin(), rows.end());
+        return rows;
+    };
+
+    constexpr double epsilon = 1e-9;
+    auto l1 = layer(1.0);
+    ASSERT_EQ(l1.size(), 3);
+    EXPECT_NEAR(l1[0][2], 0.25, epsilon);
+    EXPECT_NEAR(l1[1][2], 0.5, epsilon);
+    EXPECT_NEAR(l1[2][2], 0.25, epsilon);
+
+    auto l2 = layer(2.0);
+    ASSERT_EQ(l2.size(), 3);
+    EXPECT_NEAR(l2[0][2], 7.0 / 24, epsilon);
+    EXPECT_NEAR(l2[1][2], 5.0 / 12, epsilon);
+    EXPECT_NEAR(l2[2][2], 7.0 / 24, epsilon);
+}
+
 TEST(DslRuleSyntax, TriangleTest) {
     Datalog dl;
     Predicate<int, 2> Edge(dl);

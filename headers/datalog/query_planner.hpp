@@ -285,6 +285,10 @@ struct is_aggregate_filter<
     AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>>
     : std::true_type {};
 
+template <typename Func, int OutVarId, int... GroupVarIds>
+struct is_aggregate_filter<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
+    : std::true_type {};
+
 template <typename T>
 inline constexpr bool is_aggregate_filter_v = is_aggregate_filter<T>::value;
 
@@ -297,6 +301,17 @@ struct aggregate_traits<
 
     static constexpr int out_var_id = OutVarId;
     static constexpr int value_var_id = ValueVarId;
+
+    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
+        GroupVarIds...};
+};
+
+template <typename Func, int OutVarId, int... GroupVarIds>
+struct aggregate_traits<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>> {
+    using func_t = Func;
+
+    static constexpr int out_var_id = OutVarId;
+    static constexpr int value_var_id = -1;
 
     static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
         GroupVarIds...};
@@ -651,7 +666,7 @@ struct QueryPlanner {
 
                 if (out_id != static_cast<int>(NumVars))
                     return false;
-                if (value_id < 0 || value_id >= static_cast<int>(NumVars))
+                if (value_id >= 0 && value_id >= static_cast<int>(NumVars))
                     return false;
                 if (out_id == value_id)
                     return false;
@@ -1064,11 +1079,14 @@ struct QueryPlanner {
         using AT = aggregate_traits<Aggregate>;
         constexpr size_t NumGroups = AT::group_var_ids.size();
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+        constexpr bool rows_reduction = AT::value_var_id < 0;
 
         using GroupKey = std::array<V, NumGroups>;
         using ResultRow = std::array<V, ResultNumVars>;
+        using AggValue =
+            std::conditional_t<rows_reduction, std::array<V, NumVars>, V>;
 
-        std::unordered_map<GroupKey, std::vector<V>,
+        std::unordered_map<GroupKey, std::vector<AggValue>,
                            AggregateArrayHash<V, NumGroups>>
             groups;
 
@@ -1083,7 +1101,16 @@ struct QueryPlanner {
 
             auto [group, inserted] = groups.try_emplace(std::move(key));
             (void)inserted;
-            group->second.push_back(tuple[var_positions[AT::value_var_id]]);
+            if constexpr (rows_reduction) {
+                // Present rows in variable-id order so the reducer can
+                // index independentl from the join binding order.
+                std::array<V, NumVars> row{};
+                for (size_t id = 0; id < NumVars; id++)
+                    row[id] = tuple[var_positions[id]];
+                group->second.push_back(std::move(row));
+            } else {
+                group->second.push_back(tuple[var_positions[AT::value_var_id]]);
+            }
         }
 
         std::vector<ResultRow> result;
@@ -1097,7 +1124,7 @@ struct QueryPlanner {
                 row[AT::group_var_ids[i]] = key[i];
 
             auto value = aggregate.func(
-                std::span<const V>(values.data(), values.size()));
+                std::span<const AggValue>(values.data(), values.size()));
 
             static_assert(std::is_convertible_v<decltype(value), V>,
                           "Aggregate reducer result must be "
