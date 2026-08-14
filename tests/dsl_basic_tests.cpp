@@ -768,6 +768,59 @@ TEST(DslAggregates, FiltersValuesBeforeSumming) {
                                      }));
 }
 
+TEST(DslAggregates, RecomputesInLaterRound) {
+    Datalog dl;
+    Predicate<int, 1> seed(dl), s(dl);
+    Predicate<int, 2> v(dl);
+    Predicate<int, 2> big(dl);
+
+    DL_VARS(x, y);
+    Var<2> t;
+    RULE(dl, s(x) <= seed(x));
+    RULE(dl, big(x, t) <= s(x), v(x, y),
+         group_by<t, y, x>([](std::span<const int> values) {
+             int sum = 0;
+             for (int value : values)
+                 sum += value;
+             return sum;
+         }));
+
+    seed.insert(df::Relation<std::array<int, 1>>::from_vec({{1}}));
+    v.insert(rel<int>({{1, 10}}));
+    dl.solve();
+
+    EXPECT_EQ(big.extract(), (std::vector<std::array<int, 2>>{{1, 10}}));
+}
+
+TEST(DslAggregates, AggregateValuesAccumulate) {
+    Datalog dl;
+    Predicate<int, 2> base(dl), edge(dl), tc(dl);
+    Predicate<int, 2> big(dl);
+
+    DL_VARS(x, y, z);
+    Var<2> t;
+    RULE(dl, tc(x, y) <= base(x, y));
+    RULE(dl, tc(x, y) <= tc(x, z), edge(z, y));
+    RULE(dl, big(x, t) <= tc(x, y),
+         group_by<t, y, x>([](std::span<const int> values) {
+             int sum = 0;
+             for (int value : values)
+                 sum += value;
+             return sum;
+         }));
+
+    base.insert(rel<int>({{1, 2}}));
+    edge.insert(rel<int>({{2, 3}, {3, 4}}));
+    dl.solve();
+
+    // Test that each of the values produced by the aggregate accumulate
+    // across rounds
+    EXPECT_EQ(sorted(big.extract()),
+              (std::vector<std::array<int, 2>>{{1, 2}, {1, 5}, {1, 9}}));
+    EXPECT_EQ(sorted(tc.extract()),
+              (std::vector<std::array<int, 2>>{{1, 2}, {1, 3}, {1, 4}}));
+}
+
 TEST(DslRuleSyntax, TriangleTest) {
     Datalog dl;
     Predicate<int, 2> Edge(dl);

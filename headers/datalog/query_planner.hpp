@@ -683,6 +683,16 @@ struct QueryPlanner {
     void operator()() const {
         if constexpr (!HasAggregate) {
             for_indices<NumAtoms>([&]<size_t S>() { do_source<S>(); });
+        } else {
+            bool recomputed = false;
+            for_indices<NumAtoms>([&]<size_t S>() {
+                if constexpr (source_enabled<S>())
+                    if (!recomputed &&
+                        !std::get<S>(atoms).pred->var.recent().empty()) {
+                        recomputed = true;
+                        do_aggregate_source_full<S>();
+                    }
+            });
         }
     }
 

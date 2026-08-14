@@ -136,7 +136,7 @@ class Datalog {
             e.refresh(e.storage.get());
     }
 
-    void prime_indices() {
+    void prime_all_indexes() {
         for (auto &e : indexes)
             e.prime(e.storage.get());
     }
