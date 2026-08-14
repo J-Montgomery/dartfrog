@@ -25,22 +25,6 @@
 
 namespace df::datalog {
 
-// An automatically-maintained reindexed view of a base predicate's fact set,
-// used by the LFTJ planner so an atom can be read pre-sorted in a source's
-// binding order instead of being re-sorted every round.
-//
-// `perm` is the column permutation (output column k is input column perm[k]).
-// `batches` holds the reindexed fact set as a list of sorted, duplicate-free
-// batches (mirroring datatoad's own stable-batch layout so MergedTrieIterator
-// can consume it directly and deduplicate across batches).
-//
-// refresh() folds the base's current-round delta (`recent_data`) into the
-// index. It is driven by Datalog once per solve round, after snapshot and
-// before evaluators run. Because every fact passes through `recent_data`
-// exactly once (the round it is discovered) and refresh runs every round of
-// every stratum, `batches` accumulates exactly the base's full fact set with
-// no maintenance lag — at evaluator time the index already reflects every fact
-// the base has, matching the semantics of reading the base's stable directly.
 template <typename V, size_t N> struct ReindexedIndex {
     df::Variable<std::array<V, N>> *base;
     std::array<int, N> perm;
