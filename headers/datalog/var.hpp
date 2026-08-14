@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 
@@ -8,6 +9,10 @@ namespace df::datalog {
 template <int N> struct Var {
     static_assert(N >= 0, "Var must be a non-negative index");
     static constexpr int id = N;
+
+    constexpr operator size_t() const noexcept {
+        return static_cast<size_t>(N);
+    }
 };
 
 template <class T> struct is_var : std::false_type {};

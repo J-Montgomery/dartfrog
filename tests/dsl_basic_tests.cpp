@@ -828,10 +828,10 @@ TEST(DslAggregates, RowReductionArithmetic) {
 
     DL_VARS(x, y, w, t);
     RULE(dl, g(x, t) <= a(x, y, w),
-         group_by_rows<t, x>([](std::span<const std::array<int, 3>> rows) {
+         group_by_rows<t, x>([y, w](std::span<const std::array<int, 3>> rows) {
              int sum = 0;
              for (const auto &row : rows)
-                 sum += row[1] / row[2];
+                 sum += row[y] / row[w];
              return sum;
          }));
 
@@ -860,10 +860,10 @@ TEST(DslAggregates, PageRank) {
         RULE(dl, rank(k2, p, r) <= rank(k, q, rq), succ(k2, k), link(q, p),
              outdeg(q, dq),
              group_by_rows<r, p, k2>(
-                 [](std::span<const std::array<double, 6>> rows) {
+                 [rq, dq](std::span<const std::array<double, 6>> rows) {
                      double sum = 0.0;
                      for (const auto &row : rows)
-                         sum += row[4] / row[5];
+                         sum += row[rq] / row[dq];
                      return 1.0 / 6.0 + 0.5 * sum;
                  }));
     }
