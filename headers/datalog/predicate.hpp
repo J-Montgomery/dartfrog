@@ -418,7 +418,7 @@ template <typename V, size_t N> struct Predicate {
     Predicate() = default;
     Predicate(Datalog &dl) { dl.register_predicate(this); }
 
-    void insert(const df::Relation<TupleT> &rel) {
+    void insert(df::Relation<TupleT> rel) {
         if (rel.empty())
             return;
         std::lock_guard lock(*insertion_guard);
