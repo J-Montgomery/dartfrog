@@ -686,6 +686,16 @@ struct QueryPlanner {
         " bound positive body atoms and group variables must be"
         " unique");
 
+    static_assert(
+        [] {
+            if constexpr (has_duplicate_var_atom<Atoms>()) {
+                return false;
+            } else {
+                return true;
+            }
+        }(),
+        "Duplicated vars currently unsupported");
+
     template <size_t S> static constexpr bool source_is_viable() {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
         for (size_t K = source_arity; K < NumVars; K++)
