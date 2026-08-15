@@ -746,13 +746,13 @@ struct QueryPlanner {
         constexpr size_t a = atom_arities<Atoms>()[I];
         constexpr auto ids = atom_ids<Atoms>();
         constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+
         std::array<int, a> perm{};
-        for (size_t i = 0; i < a; i++)
-            perm[i] = static_cast<int>(i);
-        for (size_t i = 0; i < a; i++)
-            for (size_t j = i + 1; j < a; j++)
-                if (vp[ids[I][perm[j]]] < vp[ids[I][perm[i]]])
-                    std::swap(perm[i], perm[j]);
+        std::iota(perm.begin(), perm.end(), 0);
+
+        std::sort(perm.begin(), perm.end(),
+                  [&](int i, int j) { return vp[ids[I][i]] < vp[ids[I][j]]; });
+
         return perm;
     }
 
