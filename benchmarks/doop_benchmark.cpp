@@ -462,7 +462,7 @@ std::array<size_t, 3> run_dartfrog_doop(const DoopData &data, StringInterner &in
             method_simplename_p(method, sn), method_descriptor_p(method, desc),
             public_method_p(method), static_method_p(method),
             df::datalog::where<method>([excl1, excl2, excl3](int32_t m) {
-                return m != excl1, m != excl2, m != excl3;
+                return m != excl1 && m != excl2 && m != excl3;
             }),
             df::datalog::where<sn>([main_name_id](int32_t s) { return s == main_name_id; }),
             df::datalog::where<desc>([main_desc_id](int32_t d) { return d == main_desc_id; }));
