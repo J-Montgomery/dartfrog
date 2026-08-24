@@ -58,8 +58,8 @@ Predicate<int, 2> Edge(dl), Path(dl);
 std::vector<std::array<int, 2>> edges = {{1, 2}, {2, 3}};
 Edge.insert(rel<int>(edges));
 
-dl.add_rule(Path(x, y) %= Edge(x, y));
-dl.add_rule(Path(x, z) %= Path(x, y) && Edge(y, z));
+dl.add_rule(Path(x, y) <= Edge(x, y));
+dl.add_rule(Path(x, z) <= Path(x, y), Edge(y, z));
 dl.solve();
 
 auto result = Path.extract();
