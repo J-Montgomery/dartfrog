@@ -90,8 +90,7 @@ Var<0> VAR1;
 Var<1> VAR2;
 ```
 
-Note that Dartfrog variables behave much differently than in standard Datalog. Datalog variables are placeholder names unified during computation. Each Dartfrog variable is a column
-index with a convenient name. Each Dartfrog variable projects the indexed columns from the body atoms into the result tuple. Dartfrog variables are lexically scoped, meaning you can enclose rules in a block scope `{ ... }` with a new `DL_VARS()` to rename or reset indices for individual rules.
+Note an important difference between variables in Dartfrog and standard Datalog. Datalog variables are placeholder names unified during computation and isolated to each rule. Each Dartfrog variable is a named wrapper over a column index. Each Dartfrog variable projects the indexed columns from the body atoms into the result tuple. Dartfrog variables are lexically scoped, meaning you can enclose rules in a block scope `{ ... }` with a new `DL_VARS()` to rename or reset indices for individual rules.
 
 For now we'll declare our predicates by specifying their data type and arity.
 
