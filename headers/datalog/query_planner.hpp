@@ -715,7 +715,7 @@ struct QueryPlanner {
                     if (!recomputed &&
                         !std::get<S>(atoms).pred->var.recent().empty()) {
                         recomputed = true;
-                        do_aggregate_source_full<S>();
+                        do_agg_source_full<S>();
                     }
             });
         }
@@ -742,7 +742,7 @@ struct QueryPlanner {
             if constexpr (source_enabled<S>()) {
                 if (best_source == S) {
                     if constexpr (HasAggregate)
-                        do_aggregate_source_full<S>();
+                        do_agg_source_full<S>();
                     else
                         do_source_full<S>();
                 }
@@ -1082,52 +1082,57 @@ struct QueryPlanner {
             };
     }
 
-    template <size_t S>
-    auto
-    apply_aggregation(const std::vector<std::array<V, NumVars>> &tuples) const {
+    auto make_agg_groups() const {
         static_assert(HasAggregate);
         using AT = aggregate_traits<Aggregate>;
         constexpr size_t NumGroups = AT::group_var_ids.size();
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
         constexpr bool rows_reduction = AT::value_var_id < 0;
-
         using GroupKey = std::array<V, NumGroups>;
-        using ResultRow = std::array<V, ResultNumVars>;
         using AggValue =
             std::conditional_t<rows_reduction, std::array<V, NumVars>, V>;
 
-        std::unordered_map<GroupKey, std::vector<AggValue>,
-                           AggregateArrayHash<V, NumGroups>>
-            groups;
+        return std::unordered_map<GroupKey, std::vector<AggValue>,
+                                  AggregateArrayHash<V, NumGroups>>{};
+    }
 
-        groups.reserve(tuples.size());
-        for (const auto &tuple : tuples) {
-            GroupKey key{};
-            for (size_t i = 0; i < NumGroups; i++) {
-                const int group_id = AT::group_var_ids[i];
+    template <size_t S, typename Groups>
+    void collect_agg_row(const std::array<V, NumVars> &tuple,
+                             Groups &groups) const {
+        using AT = aggregate_traits<Aggregate>;
+        constexpr size_t NumGroups = AT::group_var_ids.size();
+        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
 
-                key[i] = tuple[var_positions[group_id]];
-            }
+        typename Groups::key_type key{};
+        for (size_t i = 0; i < NumGroups; i++)
+            key[i] = tuple[var_positions[AT::group_var_ids[i]]];
 
-            auto [group, inserted] = groups.try_emplace(std::move(key));
-            (void)inserted;
-            if constexpr (rows_reduction) {
-                // Present rows in variable-id order so the reducer can
-                // index independentl from the join binding order.
-                std::array<V, NumVars> row{};
-                for (size_t id = 0; id < NumVars; id++)
-                    row[id] = tuple[var_positions[id]];
-                group->second.push_back(std::move(row));
-            } else {
-                group->second.push_back(tuple[var_positions[AT::value_var_id]]);
-            }
+        auto [group, inserted] = groups.try_emplace(std::move(key));
+        (void)inserted;
+        if constexpr (AT::value_var_id < 0) {
+            // Present rows in variable-id order so the reducer can
+            // index independentl from the join binding order.
+            std::array<V, NumVars> row{};
+            for (size_t id = 0; id < NumVars; id++)
+                row[id] = tuple[var_positions[id]];
+            group->second.push_back(std::move(row));
+        } else {
+            group->second.push_back(tuple[var_positions[AT::value_var_id]]);
         }
+    }
+
+    template <typename Groups>
+    auto apply_agg(const Groups &groups) const {
+        static_assert(HasAggregate);
+        using AT = aggregate_traits<Aggregate>;
+        constexpr size_t NumGroups = AT::group_var_ids.size();
+        using ResultRow = std::array<V, ResultNumVars>;
+        using AggValue = typename Groups::mapped_type::value_type;
 
         std::vector<ResultRow> result;
         result.reserve(groups.size());
 
         const auto &aggregate = std::get<AggregateIndex>(filters);
-        for (auto &[key, values] : groups) {
+        for (const auto &[key, values] : groups) {
             ResultRow row{};
 
             for (size_t i = 0; i < NumGroups; i++)
@@ -1148,7 +1153,7 @@ struct QueryPlanner {
     }
 
     template <typename Rows>
-    void materialize_aggregate_heads(const Rows &rows) const {
+    void materialize_agg_heads(const Rows &rows) const {
         for_indices<NumHeads>([&]<size_t H>() {
             constexpr size_t HeadArity = atom_traits<HeadAt<H>>::arity;
             constexpr auto HeadIds = atom_traits<HeadAt<H>>::var_ids;
@@ -1170,30 +1175,30 @@ struct QueryPlanner {
         });
     }
 
-    template <size_t S> void do_aggregate_source_full() const {
+    template <size_t S> void do_agg_source_full() const {
         static_assert(HasAggregate);
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
 
         if constexpr (source_enabled<S>()) {
-            std::vector<std::array<V, NumVars>> joined;
+            auto groups = make_agg_groups();
             auto *source_pred = std::get<S>(atoms).pred;
 
             for (const auto &batch : source_pred->var.stable) {
                 collect_source_impl<S>(
                     std::span<const std::array<V, source_arity>>(
                         batch.elements),
-                    joined);
+                    groups);
             }
 
-            auto aggregated = apply_aggregation<S>(joined);
-            materialize_aggregate_heads(aggregated);
+            auto aggregated = apply_agg(groups);
+            materialize_agg_heads(aggregated);
         }
     }
 
-    template <size_t S>
+    template <size_t S, typename Groups>
     void collect_source_impl_lftj(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
-        std::vector<std::array<V, NumVars>> &result) const {
+        Groups &groups) const {
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
 
         auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
@@ -1214,40 +1219,40 @@ struct QueryPlanner {
                         return;
                 }
 
-                result.push_back(row);
+                collect_agg_row<S>(row, groups);
             });
     }
 
-    template <size_t S>
+    template <size_t S, typename Groups>
     void collect_source_impl_extend(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
-        std::vector<std::array<V, NumVars>> &result) const {
+        Groups &groups) const {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
 
         auto joined = extend<V, NumVars, S, source_arity>(src, atoms);
         if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
-            result.insert(result.end(), joined.elements.begin(),
-                          joined.elements.end());
+            for (const auto &row : joined.elements)
+                collect_agg_row<S>(row, groups);
         } else {
             auto keep = make_residual_test<S>(var_positions);
             for (const auto &row : joined.elements)
                 if (keep(row))
-                    result.push_back(row);
+                    collect_agg_row<S>(row, groups);
         }
     }
 
-    template <size_t S>
+    template <size_t S, typename Groups>
     void collect_source_impl(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
-        std::vector<std::array<V, NumVars>> &result) const {
+        Groups &groups) const {
         if (src.empty())
             return;
 
         if constexpr (has_duplicate_var_atom<Atoms>())
-            collect_source_impl_extend<S>(src, result);
+            collect_source_impl_extend<S>(src, groups);
         else
-            collect_source_impl_lftj<S>(src, result);
+            collect_source_impl_lftj<S>(src, groups);
     }
 };
 
