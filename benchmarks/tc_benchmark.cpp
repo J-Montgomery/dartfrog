@@ -49,8 +49,8 @@ static size_t run_tc(const df::Relation<std::array<int, 2>> &graph) {
     Var<1> y;
     Var<2> z;
 
-    dl.add_rule(tc(x, y) <= edge(x, y));
-    dl.add_rule(tc(x, z) <= tc(x, y) && edge(y, z));
+    RULE(dl, tc(x, y) <= edge(x, y));
+    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
     edge.insert(graph);
     dl.solve();
 
@@ -107,8 +107,8 @@ static size_t run_tc_magic(const df::Relation<std::array<int, 2>> &graph,
     Var<1> y;
     Var<2> z;
 
-    dl.add_rule(tc(x, y) %= magic_tc(x) && edge(x, y));
-    dl.add_rule(tc(x, z) %= magic_tc(x) && tc(x, y) && edge(y, z));
+    RULE(dl, tc(x, y) <= magic_tc(x), edge(x, y));
+    RULE(dl, tc(x, z) <= magic_tc(x), tc(x, y), edge(y, z));
     edge.insert(graph);
     magic_tc.insert(df::Relation<std::array<int, 1>>::from_vec({{{start}}}));
     dl.solve();
