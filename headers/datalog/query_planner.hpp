@@ -817,12 +817,15 @@ struct QueryPlanner {
             };
     }
 
-    template <size_t I>
-    static lftj::MergedTrieIterator<V, atom_arities<Atoms>()[I]>
-    make_merged_iter(
+    template <size_t S, size_t I>
+    static auto make_query_iter(
         const std::vector<
             std::span<const std::array<V, atom_arities<Atoms>()[I]>>> &spans) {
-        return lftj::MergedTrieIterator<V, atom_arities<Atoms>()[I]>(spans);
+        if constexpr (I == S) {
+            return lftj::TrieIterator<V, atom_arities<Atoms>()[I]>(spans.front());
+        } else {
+            return lftj::MergedTrieIterator<V, atom_arities<Atoms>()[I]>(spans);
+        }
     }
 
     // Depth-first LFTJ over all body atoms, reindexed to the source binding
@@ -837,7 +840,7 @@ struct QueryPlanner {
         }(std::make_index_sequence<NumAtoms>{});
         auto iters = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(
-                make_merged_iter<Is>(std::get<Is>(spans))...);
+                make_query_iter<S, Is>(std::get<Is>(spans))...);
         }(std::make_index_sequence<NumAtoms>{});
 
         [[maybe_unused]] auto keep = make_filter_test<S>(var_positions);
@@ -1207,7 +1210,7 @@ struct QueryPlanner {
 
         auto iters = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(
-                make_merged_iter<Is>(std::get<Is>(spans))...);
+                make_query_iter<S, Is>(std::get<Is>(spans))...);
         }(std::make_index_sequence<NumAtoms>{});
 
         auto keep = make_filter_test<S>(var_positions);
