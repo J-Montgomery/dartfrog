@@ -5,7 +5,6 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <future>
 #include <initializer_list>
 #include <iterator>
 #include <map>
@@ -20,6 +19,7 @@
 
 #include "dartfrog/relation.hpp"
 #include "dartfrog/variable.hpp"
+#include "datalog/executor.hpp"
 #include "datalog/query_planner.hpp"
 #include "datalog/var.hpp"
 
@@ -119,6 +119,14 @@ class Datalog {
     std::vector<std::vector<DepEdge>> dep_edges;
     std::vector<size_t> eval_head_idx;
 
+    struct RuleAccess {
+        std::vector<size_t> inputs;
+        std::vector<size_t> outputs;
+    };
+    std::vector<RuleAccess> rule_access;
+    std::vector<size_t> registered_pred_ids;
+    size_t worker_count = std::max(1u, std::thread::hardware_concurrency());
+
     // Type-erased registry of maintained reindexed indexes
     // A given (predicate, order) should only be materialized once
     // and shared across every rule that needs it.
@@ -127,9 +135,16 @@ class Datalog {
         void (*refresh)(void *);
         void (*prime)(void *);
         const void *batches_ptr;
+        const void *base;
     };
     std::vector<IndexEntry> indexes;
     std::map<std::pair<const void *, uint64_t>, size_t> index_registry;
+
+    struct PassGraph {
+        std::vector<ThreadExecutor::Task> tasks;
+        // input, current pass outputs, next pass outputs
+        std::vector<std::array<unsigned char, 3>> changed;
+    };
 
     void refresh_all_indexes() {
         for (auto &e : indexes)
@@ -205,23 +220,87 @@ class Datalog {
         return result;
     }
 
-    template <typename Func>
-    void run_parallel(const std::vector<size_t> &evals, Func &&func) {
-        std::vector<std::future<void>> jobs;
-        jobs.reserve(evals.size());
-
-        for (size_t i : evals) {
-            jobs.emplace_back(std::async(
-                std::launch::async, [this, i, &func] { func(evaluators[i]); }));
-        }
-
-        for (auto &job : jobs) {
-            job.get();
+    void build_pass_graph(PassGraph &graph, const std::vector<size_t> &evals) {
+        const size_t count = evals.size();
+        const size_t width = count + predicates.size();
+        graph.tasks.resize(2 * width);
+        graph.changed.resize(next_idx);
+        auto link = [&](size_t from, size_t to) {
+            graph.tasks[from].successors.push_back(to);
+            ++graph.tasks[to].prerequisites;
+        };
+        for (size_t pass = 0; pass < 2; ++pass) {
+            const size_t offset = pass * width;
+            for (size_t r = 0; r < count; ++r) {
+                const size_t rule = evals[r];
+                graph.tasks[offset + r].call = [this, &graph, rule, pass] {
+                    bool active = false;
+                    for (size_t input : rule_access[rule].inputs)
+                        active = active || graph.changed[input][pass];
+                    if (active)
+                        evaluators[rule]();
+                };
+            }
+            for (size_t p = 0; p < predicates.size(); ++p) {
+                const size_t id = registered_pred_ids[p];
+                const size_t publish = offset + count + p;
+                graph.tasks[publish].call = [this, &graph, p, id, pass] {
+                    auto &predicate = predicates[p];
+                    const bool changed = predicate.step(predicate.instance);
+                    graph.changed[id][pass + 1] = changed;
+                    if (changed) {
+                        predicate.snapshot(predicate.instance);
+                        for (auto &index : indexes)
+                            if (index.base == predicate.instance)
+                                index.refresh(index.storage.get());
+                    }
+                };
+                for (size_t r = 0; r < count; ++r) {
+                    const auto &access = rule_access[evals[r]];
+                    const bool reads = std::find(
+                        access.inputs.begin(), access.inputs.end(), id) !=
+                            access.inputs.end();
+                    const bool writes = std::find(
+                        access.outputs.begin(), access.outputs.end(), id) !=
+                            access.outputs.end();
+                    if (reads || writes) {
+                        link(offset + r, publish);
+                        if (pass == 0)
+                            link(publish, width + r);
+                    }
+                }
+                if (pass == 0)
+                    link(publish, width + count + p);
+            }
+            if (pass == 0)
+                for (size_t r = 0; r < count; ++r)
+                    link(r, width + r);
         }
     }
 
+    void run_parallel(ThreadExecutor &executor,
+                  const std::vector<size_t> &evals) {
+        std::vector<ThreadExecutor::Task> tasks(evals.size());
+        for (size_t r = 0; r < evals.size(); ++r)
+            tasks[r].call = [this, rule = evals[r]] {
+                evaluators[rule].eval_full();
+            };
+        executor.run(tasks);
+    }
+
   public:
+    Datalog() = default;
+    explicit Datalog(size_t workers)
+        : worker_count(std::max<size_t>(1, workers)) {}
+
     template <IsPredicate P> void register_predicate(P *p) {
+        const size_t id = get_or_add_pred(p);
+        if (std::find(
+            registered_pred_ids.begin(), registered_pred_ids.end(), id) !=
+                registered_pred_ids.end()) {
+            return;
+        }
+        registered_pred_ids.push_back(id);
         predicates.push_back(
             {p, +[](void *x) { return static_cast<P *>(x)->step(); },
              +[](void *x) { static_cast<P *>(x)->snapshot(); }});
@@ -231,7 +310,8 @@ class Datalog {
     // first request.
     template <int... Perm, typename V, size_t N>
     const std::vector<std::vector<std::array<V, N>>> *
-    get_or_make_index(df::Variable<std::array<V, N>> *base) {
+    get_or_make_index(df::Variable<std::array<V, N>> *base,
+                      const void *owner = nullptr) {
         static_assert(sizeof...(Perm) == N,
                       "permutation width must equal the predicate arity");
         uint64_t code = N;
@@ -239,17 +319,20 @@ class Datalog {
               (code << 4) | static_cast<uint64_t>(static_cast<unsigned>(Perm))),
          ...);
         const auto key = std::make_pair(static_cast<const void *>(base), code);
-        if (auto it = index_registry.find(key); it != index_registry.end())
+        if (auto it = index_registry.find(key); it != index_registry.end()) {
+            if (owner != nullptr)
+                indexes[it->second].base = owner;
             return static_cast<
                 const std::vector<std::vector<std::array<V, N>>> *>(
                 indexes[it->second].batches_ptr);
+        }
         auto *ri = new ReindexedIndex<V, N>{base, {Perm...}, {}};
         indexes.push_back(IndexEntry{
             {ri,
              +[](void *p) { delete static_cast<ReindexedIndex<V, N> *>(p); }},
             +[](void *p) { static_cast<ReindexedIndex<V, N> *>(p)->refresh(); },
             +[](void *p) { static_cast<ReindexedIndex<V, N> *>(p)->prime(); },
-            &ri->batches});
+            &ri->batches, owner});
         index_registry[key] = indexes.size() - 1;
         return &ri->batches;
     }
@@ -266,7 +349,7 @@ class Datalog {
                         p.index_batches[S][I] =
                             [&]<size_t... Ks>(
                                 std::index_sequence<Ks...>) -> const void * {
-                            return get_or_make_index<perm[Ks]...>(&base->var);
+                            return get_or_make_index<perm[Ks]...>(&base->var, base);
                         }(std::make_index_sequence<perm.size()>{});
                     }
                 }
@@ -287,7 +370,10 @@ class Datalog {
         if constexpr (sizeof...(HeadVars) == sizeof...(BodyVars)) {
             if constexpr ((std::is_same_v<HeadVars, BodyVars> && ...)) {
                 size_t head_idx = get_or_add_pred(rule.head.pred);
-                add_dep(get_or_add_pred(rule.body.pred), head_idx, false);
+                const size_t body_idx = get_or_add_pred(rule.body.pred);
+                add_dep(body_idx, head_idx, false);
+
+                rule_access.push_back({{body_idx}, {head_idx}});
                 eval_head_idx.push_back(head_idx);
                 struct IdentityEval {
                     HeadPred *head;
@@ -332,6 +418,18 @@ class Datalog {
             add_dep(head_idxs[0], head_idxs[k], false);
             add_dep(head_idxs[k], head_idxs[0], false);
         }
+
+        RuleAccess access{{}, {head_idxs.begin(), head_idxs.end()}};
+        for_indices<std::tuple_size_v<Atoms>>([&]<size_t I>() {
+            access.inputs.push_back(get_or_add_pred(std::get<I>(body.pos).pred));
+        });
+        for_indices<std::tuple_size_v<Filters>>([&]<size_t F>() {
+            if constexpr (is_negated<std::tuple_element_t<F, Filters>>::value)
+                access.inputs.push_back(
+                    get_or_add_pred(std::get<F>(body.filt).pred));
+        });
+        rule_access.push_back(std::move(access));
+
         eval_head_idx.push_back(head_idxs[0]);
         QueryPlanner<decltype(heads), Atoms, Filters> runner{
             std::move(heads), body.pos, body.filt};
@@ -341,6 +439,8 @@ class Datalog {
 
     void solve() {
         const auto stratum_evals = compute_strata();
+        ThreadExecutor executor(
+            std::min(worker_count, std::max<size_t>(1, evaluators.size())));
 
         prime_all_indexes();
 
@@ -352,29 +452,36 @@ class Datalog {
                 h.snapshot(h.instance);
 
             refresh_all_indexes();
-            run_parallel(evals, [](auto &e) { e.eval_full(); });
-            solve_stratum(evals);
+            run_parallel(executor, evals);
+            solve_stratum(executor, evals);
         }
     }
 
   private:
-    void solve_stratum(const std::vector<size_t> &evals) {
-        while (true) {
-            bool changed = false;
+    void solve_stratum(ThreadExecutor &executor,
+                       const std::vector<size_t> &evals) {
+        PassGraph graph;
+        build_pass_graph(graph, evals);
+        bool changed = false;
+        for (size_t p = 0; p < predicates.size(); ++p) {
+            auto &predicate = predicates[p];
+            const bool advanced = predicate.step(predicate.instance);
+            graph.changed[registered_pred_ids[p]][0] = advanced;
+            changed = changed || advanced;
+            predicate.snapshot(predicate.instance);
+        }
+        refresh_all_indexes();
+        while (changed) {
+            executor.run(graph.tasks);
+            changed = false;
 
-            for (auto &h : predicates) {
-                if (h.step(h.instance))
-                    changed = true;
+            // Move the accumulated outputs from the next round
+            // down into the current round
+            for (auto &state : graph.changed) {
+                state[0] = state[2];
+                state[1] = state[2] = 0;
+                changed = changed || state[0];
             }
-
-            if (!changed)
-                break;
-
-            for (auto &h : predicates)
-                h.snapshot(h.instance);
-
-            refresh_all_indexes();
-            run_parallel(evals, [](auto &e) { e(); });
         }
     }
 
