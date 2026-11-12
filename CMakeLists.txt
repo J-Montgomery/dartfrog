@@ -19,7 +19,11 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g1")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -Wall")
 endif()
 
-set(SOUFFLE_PARALLEL_N -j1)
+cmake_host_system_information(RESULT num_cores QUERY NUMBER_OF_LOGICAL_CORES)
+if(NOT num_cores)
+  set(num_cores 1)
+endif()
+set(SOUFFLE_PARALLEL_N "-j${num_cores}")
 
 find_program(SOUFFLE_EXECUTABLE NAMES souffle)
 function(add_souffle_benchmark TARGET_NAME DL_FILE DATA_DIR BENCHMARK_TARGET)
@@ -41,8 +45,19 @@ function(add_souffle_benchmark TARGET_NAME DL_FILE DATA_DIR BENCHMARK_TARGET)
     add_dependencies(${BENCHMARK_TARGET} ${TARGET_NAME}_target unzip_${BENCH_NAME})
 endfunction()
 
+# find_program(CLANG_TIDY NAMES clang-tidy)
+find_program(CLANG_FORMAT NAMES clang-format)
+
 file(GLOB_RECURSE ALL_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/headers/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/*.hpp)
-add_custom_target(format COMMAND clang-format-18 -i ${ALL_SOURCE_FILES})
+if(CLANG_FORMAT)
+    add_custom_target(format
+        COMMAND ${CLANG_FORMAT} -i ${ALL_SOURCE_FILES}
+        COMMENT "Formatting..."
+        VERBATIM)
+else()
+    message(STATUS "clang-format not found. Disabling format target")
+endif()
+
 
 if(POLICY CMP0090)
     cmake_policy(SET CMP0090 NEW)
