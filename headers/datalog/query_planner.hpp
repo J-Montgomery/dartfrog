@@ -8,8 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "dartfrog/join.hpp"
-#include "dartfrog/leapers.hpp"
+#include "dartfrog/relation.hpp"
 #include "datalog/lftj.hpp"
 #include "datalog/var.hpp"
 
@@ -148,108 +147,6 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
     }
     return order;
 }
-
-struct ExtSpec {
-    size_t atom;
-    size_t propose_col;
-};
-
-template <size_t NumAtoms> struct LevelPlan {
-    std::array<ExtSpec, NumAtoms> entries{};
-    size_t count = 0;
-};
-
-// Generate an execution plan for a single stratum
-// Variables are ordered and greedily bound to determine which
-// atom relations that will be proposed by the leaper when we solve()
-template <typename Atoms>
-constexpr auto level_plan(size_t src_idx, size_t bound_vars) {
-    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
-    constexpr size_t NumVars = num_vars<Atoms>();
-    constexpr auto ids = atom_ids<Atoms>();
-    constexpr auto arities = atom_arities<Atoms>();
-    const auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
-    LevelPlan<NumAtoms> plan{};
-    for (size_t atom = 0; atom < NumAtoms; atom++) {
-        if (atom == src_idx)
-            continue;
-        const size_t arity = arities[atom];
-        int propose_col = -1;
-        bool prefix_ok = true;
-        for (size_t col = 0; col < arity; col++) {
-            if (ids[atom][col] < 0) {
-                continue;
-            }
-
-            const int pos = var_positions[ids[atom][col]];
-            if (pos == static_cast<int>(bound_vars)) {
-                propose_col = static_cast<int>(col);
-                break;
-            }
-
-            if (pos > static_cast<int>(bound_vars)) {
-                prefix_ok = false;
-                break;
-            }
-        }
-        if (!prefix_ok || propose_col < 0) {
-            continue;
-        }
-        plan.entries[plan.count++] = {atom, static_cast<size_t>(propose_col)};
-    }
-    return plan;
-}
-
-// When a bound variable (var_positions[id] < bound_vars)
-// sits at a column *after* propose_col, the leaper cannot form a prefix key
-// and enumerates the entire relation.
-template <typename Atoms>
-constexpr bool plan_has_scan_trap(size_t src_idx, size_t bound_vars) {
-    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
-    constexpr size_t NumVars = num_vars<Atoms>();
-    constexpr auto ids = atom_ids<Atoms>();
-    constexpr auto arities = atom_arities<Atoms>();
-    const auto var_positions = invert<NumVars>(make_order<Atoms>(src_idx));
-    for (size_t atom = 0; atom < NumAtoms; atom++) {
-        if (atom == src_idx)
-            continue;
-        const size_t arity = arities[atom];
-        int propose_col = -1;
-        bool prefix_ok = true;
-        for (size_t col = 0; col < arity; col++) {
-            if (ids[atom][col] < 0)
-                continue;
-            const int pos = var_positions[ids[atom][col]];
-            if (pos == static_cast<int>(bound_vars)) {
-                propose_col = static_cast<int>(col);
-                break;
-            }
-
-            if (pos > static_cast<int>(bound_vars)) {
-                prefix_ok = false;
-                break;
-            }
-        }
-        if (!prefix_ok || propose_col < 0)
-            continue;
-        for (size_t col = static_cast<size_t>(propose_col) + 1; col < arity;
-             col++) {
-            if (ids[atom][col] >= 0 &&
-                var_positions[ids[atom][col]] < static_cast<int>(bound_vars))
-                return true;
-        }
-    }
-    return false;
-}
-
-template <bool Trap> struct ScanTrapWarning {};
-template <> struct ScanTrapWarning<true> {
-    [[deprecated(
-        "query plan requires a full scan because a bound variable "
-        "appears after the declared column. This probably isn't what you want. "
-        "Reindex the relation with make_reindexed so the "
-        "join key is in a leading column.")]] ScanTrapWarning() = default;
-};
 
 /* Negation */
 template <typename T> struct is_negated : std::false_type {};
@@ -402,133 +299,6 @@ template <Cmp op, typename T> constexpr bool cmp_apply(const T &x, const T &y) {
         return x != y;
     else
         return x == y;
-}
-
-template <size_t S, typename Atoms, typename Filters>
-constexpr bool has_residual_filters() {
-    if constexpr (std::tuple_size_v<Filters> > 0) {
-        return true;
-    } else {
-        constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
-        constexpr size_t NumVars = num_vars<Atoms>();
-        constexpr auto ids = atom_ids<Atoms>();
-        constexpr auto arities = atom_arities<Atoms>();
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-        for (size_t atom = 0; atom < NumAtoms; atom++) {
-            if (atom == S)
-                continue;
-            size_t arity = arities[atom];
-
-            for (size_t col = 0; col < arity; col++)
-                for (size_t d = col + 1; d < arity; d++)
-                    if (ids[atom][col] == ids[atom][d])
-                        return true;
-
-            bool forward = true;
-            for (size_t col = 1; col < arity; col++)
-                if (ids[atom][col] < 0 ||
-                    var_positions[ids[atom][col]] <=
-                        var_positions[ids[atom][col - 1]]) {
-                    forward = false;
-                    break;
-                }
-            if (!forward)
-                return true;
-
-            // All vars are bound in the source prefix
-            constexpr size_t src_arity = atom_arities<Atoms>()[S];
-            int max_pos = -1;
-            for (size_t col = 0; col < arity; col++)
-                if (ids[atom][col] >= 0 &&
-                    var_positions[ids[atom][col]] > max_pos)
-                    max_pos = var_positions[ids[atom][col]];
-            if (max_pos < (int)src_arity)
-                return true;
-        }
-        return false;
-    }
-}
-
-template <typename V, size_t K> struct ArrayAppender {
-    constexpr std::array<V, K + 1> operator()(const std::array<V, K> &prefix,
-                                              const V &new_val) const {
-        std::array<V, K + 1> result{};
-        for (size_t i = 0; i < K; i++)
-            result[i] = prefix[i];
-        result[K] = new_val;
-        return result;
-    }
-};
-
-template <size_t Atom, size_t ProposeCol, typename V, size_t K, typename Atoms,
-          size_t NumVars>
-auto make_ext(const Atoms &atoms,
-              const std::array<int, NumVars> &var_positions) {
-    constexpr auto ids = atom_ids<Atoms>();
-    constexpr auto arities = atom_arities<Atoms>();
-    constexpr size_t N = arities[Atom];
-
-    std::array<int, ProposeCol> key_positions{};
-    for (size_t col = 0; col < ProposeCol; col++)
-        key_positions[col] = var_positions[ids[Atom][col]];
-
-    auto *pred = std::get<Atom>(atoms).pred;
-    df::PrefixExtractor<V, K, ProposeCol> extractor{key_positions};
-    return df::TupleLeaper<V, N, ProposeCol,
-                           df::PrefixExtractor<V, K, ProposeCol>>{
-        &pred->var.stable, std::move(extractor)};
-}
-
-template <typename V, size_t K, typename... Exts>
-auto to_coll(std::tuple<Exts...> &&t) {
-    return df::LeaperCollection<std::array<V, K>, V, Exts...>{std::move(t)};
-}
-
-template <typename V, size_t K, size_t S, size_t Klvl, typename Atoms,
-          size_t... Js>
-auto build_exts(const Atoms &atoms, std::index_sequence<Js...>) {
-    constexpr auto plan = level_plan<Atoms>(S, Klvl);
-    [[maybe_unused]] ScanTrapWarning<plan_has_scan_trap<Atoms>(S, Klvl)>
-        scan_trap_check{};
-    constexpr size_t NumVars = num_vars<Atoms>();
-    constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-    return std::make_tuple(
-        make_ext<plan.entries[Js].atom, plan.entries[Js].propose_col, V, K>(
-            atoms, var_positions)...);
-}
-
-template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
-df::Relation<std::array<V, NumVars>>
-extend(df::Relation<std::array<V, K>> prefix, const Atoms &atoms) {
-    if constexpr (K == NumVars) {
-        return std::move(prefix);
-    } else {
-        constexpr auto plan = level_plan<Atoms>(S, K);
-        auto extractors = build_exts<V, K, S, K, Atoms>(
-            atoms, std::make_index_sequence<plan.count>{});
-        auto leapers = to_coll<V, K>(std::move(extractors));
-        auto next =
-            df::leapjoin(std::span<const std::array<V, K>>(prefix.elements),
-                         leapers, ArrayAppender<V, K>{});
-        return extend<V, NumVars, S, K + 1>(std::move(next), atoms);
-    }
-}
-
-template <typename V, size_t NumVars, size_t S, size_t K, typename Atoms>
-df::Relation<std::array<V, NumVars>>
-extend(std::span<const std::array<V, K>> src, const Atoms &atoms) {
-    if constexpr (K == NumVars) {
-
-        return df::Relation<std::array<V, NumVars>>{
-            std::vector<std::array<V, NumVars>>(src.begin(), src.end())};
-    } else {
-        constexpr auto plan = level_plan<Atoms>(S, K);
-        auto extractors = build_exts<V, K, S, K, Atoms>(
-            atoms, std::make_index_sequence<plan.count>{});
-        auto leapers = to_coll<V, K>(std::move(extractors));
-        auto next = df::leapjoin(src, leapers, ArrayAppender<V, K>{});
-        return extend<V, NumVars, S, K + 1>(std::move(next), atoms);
-    }
 }
 
 template <typename Atoms> constexpr bool has_duplicate_var_atom() {
@@ -708,14 +478,6 @@ struct QueryPlanner {
         }(),
         "Duplicated vars currently unsupported");
 
-    template <size_t S> static constexpr bool source_is_viable() {
-        constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        for (size_t K = source_arity; K < NumVars; K++)
-            if (level_plan<Atoms>(S, K).count == 0)
-                return false;
-        return true;
-    }
-
     // Execute a semi-naive delta step over the newly produced facts
     void operator()() const {
         if constexpr (!HasAggregate) {
@@ -723,12 +485,10 @@ struct QueryPlanner {
         } else {
             bool recomputed = false;
             for_indices<NumAtoms>([&]<size_t S>() {
-                if constexpr (source_enabled<S>())
-                    if (!recomputed &&
-                        !std::get<S>(atoms).pred->var.recent().empty()) {
-                        recomputed = true;
-                        do_agg_source_full<S>();
-                    }
+                if (!recomputed && !std::get<S>(atoms).pred->var.recent().empty()) {
+                    recomputed = true;
+                    do_agg_source_full<S>();
+                }
             });
         }
     }
@@ -739,25 +499,20 @@ struct QueryPlanner {
         size_t best_size = std::numeric_limits<size_t>::max();
 
         for_indices<NumAtoms>([&]<size_t S>() {
-            if constexpr (source_enabled<S>()) {
-                const auto *pred = std::get<S>(atoms).pred;
-                const size_t size = pred->var.num_stable();
-
-                if (size < best_size) {
-                    best_size = size;
-                    best_source = S;
-                }
+            const auto *pred = std::get<S>(atoms).pred;
+            const size_t size = pred->var.num_stable();
+            if (size < best_size) {
+                best_size = size;
+                best_source = S;
             }
         });
 
         for_indices<NumAtoms>([&]<size_t S>() {
-            if constexpr (source_enabled<S>()) {
-                if (best_source == S) {
-                    if constexpr (HasAggregate)
-                        do_agg_source_full<S>();
-                    else
-                        do_source_full<S>();
-                }
+            if (best_source == S) {
+                if constexpr (HasAggregate)
+                    do_agg_source_full<S>();
+                else
+                    do_source_full<S>();
             }
         });
     }
@@ -875,8 +630,11 @@ struct QueryPlanner {
     // Depth-first LFTJ over all body atoms, reindexed to the source binding
     // order
     template <size_t S>
-    void do_source_impl_lftj(
+    void do_source_impl(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
+        if (src.empty()) {
+            return;
+        }
 
         auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(atom_spans<S, Is>(src)...);
@@ -940,122 +698,20 @@ struct QueryPlanner {
             [&]<size_t H>() { flush_head.template operator()<H>(); });
     }
 
-    // Breadth-first fallback (materializes each level) for rules with repeated
-    // variables
-    template <size_t S>
-    void do_source_impl_extend(
-        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
-        constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        auto joined_tuples = extend<V, NumVars, S, source_arity>(src, atoms);
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-
-        if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
-            for_indices<NumHeads>([&]<size_t H>() {
-                constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
-                constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
-                constexpr auto hpos =
-                    project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
-                head_pred<H>()->insert(
-                    df::Relation<std::array<V, ha>>::from_map(
-                        joined_tuples, [&](const std::array<V, NumVars> &row) {
-                            return project<ha>(row, hpos);
-                        }));
-            });
-        } else {
-            auto keep = make_residual_test<S>(var_positions);
-            std::vector<std::array<V, NumVars>> kept;
-            kept.reserve(joined_tuples.elements.size());
-            for (const auto &row : joined_tuples.elements)
-                if (keep(row))
-                    kept.push_back(row);
-            for_indices<NumHeads>([&]<size_t H>() {
-                constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
-                constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
-                constexpr auto hpos =
-                    project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
-                std::vector<std::array<V, ha>> result;
-                result.reserve(kept.size());
-                for (const auto &row : kept)
-                    result.push_back(project<ha>(row, hpos));
-                head_pred<H>()->insert(
-                    df::Relation<std::array<V, ha>>::from_vec(
-                        std::move(result)));
-            });
-        }
-    }
-
-    template <size_t S>
-    void do_source_impl(
-        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
-        if (src.empty())
-            return;
-        if constexpr (has_duplicate_var_atom<Atoms>())
-            do_source_impl_extend<S>(src);
-        else
-            do_source_impl_lftj<S>(src);
-    }
-
-    template <size_t S> static constexpr bool source_enabled() {
-        return !has_duplicate_var_atom<Atoms>() || source_is_viable<S>();
-    }
-
     template <size_t S> void do_source() const {
-        if constexpr (source_enabled<S>()) {
-            auto *source_pred = std::get<S>(atoms).pred;
-            do_source_impl<S>(source_pred->var.recent());
-        }
+        auto *source_pred = std::get<S>(atoms).pred;
+        do_source_impl<S>(source_pred->var.recent());
     }
 
     // When starting a new stratum we need to iterate over all
     // the committed facts recorded in var.stable
     template <size_t S> void do_source_full() const {
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        if constexpr (source_enabled<S>()) {
-            auto *source_pred = std::get<S>(atoms).pred;
-            for (const auto &batch : source_pred->var.stable)
-                do_source_impl<S>(std::span<const std::array<V, source_arity>>(
-                    batch.elements));
+        auto *source_pred = std::get<S>(atoms).pred;
+        for (const auto &batch : source_pred->var.stable) {
+            do_source_impl<S>(std::span<const std::array<V, source_arity>>(
+                batch.elements));
         }
-    }
-
-    template <size_t S, size_t I>
-    static constexpr bool atom_needs_semijoin_check() {
-        if constexpr (I == S)
-            return false;
-        constexpr auto ids = atom_ids<Atoms>();
-        constexpr auto arities = atom_arities<Atoms>();
-        constexpr size_t source_arity = arities[S];
-        constexpr size_t arity = arities[I];
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-        bool forward = true;
-        for (size_t col = 1; col < arity; col++)
-            if (ids[I][col] < 0 ||
-                var_positions[ids[I][col]] <= var_positions[ids[I][col - 1]]) {
-                forward = false;
-                break;
-            }
-        if (!forward)
-            return true;
-        int max_pos = -1;
-        for (size_t col = 0; col < arity; col++)
-            if (ids[I][col] >= 0 && var_positions[ids[I][col]] > max_pos)
-                max_pos = var_positions[ids[I][col]];
-        return max_pos < (int)source_arity;
-    }
-
-    template <size_t S, size_t I>
-    bool semijoin_check(const std::array<V, NumVars> &tuple,
-                        const std::array<int, NumVars> &var_positions) const {
-        if constexpr (atom_needs_semijoin_check<S, I>()) {
-            constexpr auto ids = atom_ids<Atoms>();
-            constexpr auto arities = atom_arities<Atoms>();
-            constexpr size_t arity = arities[I];
-            std::array<V, arity> key;
-            for (size_t col = 0; col < arity; col++)
-                key[col] = tuple[var_positions[ids[I][col]]];
-            return std::get<I>(atoms).pred->stable_contains(key);
-        }
-        return true;
     }
 
     template <size_t F>
@@ -1108,22 +764,6 @@ struct QueryPlanner {
 
             return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
         }
-    }
-
-    template <size_t S>
-    auto
-    make_residual_test(const std::array<int, NumVars> &var_positions) const {
-        return
-            [this, var_positions](const std::array<V, NumVars> &row) -> bool {
-                bool passes = [&]<size_t... Is>(std::index_sequence<Is...>) {
-                    return (semijoin_check<S, Is>(row, var_positions) && ...);
-                }(std::make_index_sequence<NumAtoms>{});
-                if (!passes)
-                    return false;
-                return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
-                    return (filter_check<Fs>(row, var_positions) && ...);
-                }(std::make_index_sequence<std::tuple_size_v<Filters>>{});
-            };
     }
 
     auto make_agg_groups() const {
@@ -1223,26 +863,26 @@ struct QueryPlanner {
         static_assert(HasAggregate);
         constexpr size_t source_arity = atom_arities<Atoms>()[S];
 
-        if constexpr (source_enabled<S>()) {
-            auto groups = make_agg_groups();
-            auto *source_pred = std::get<S>(atoms).pred;
-
-            for (const auto &batch : source_pred->var.stable) {
-                collect_source_impl<S>(
-                    std::span<const std::array<V, source_arity>>(
-                        batch.elements),
-                    groups);
-            }
-
-            auto aggregated = apply_agg(groups);
-            materialize_agg_heads(aggregated);
+        auto groups = make_agg_groups();
+        auto *source_pred = std::get<S>(atoms).pred;
+        for (const auto &batch : source_pred->var.stable) {
+            collect_source_impl<S>(
+                std::span<const std::array<V, source_arity>>(batch.elements),
+                groups);
         }
+
+        auto aggregated = apply_agg(groups);
+        materialize_agg_heads(aggregated);
     }
 
     template <size_t S, typename Groups>
-    void collect_source_impl_lftj(
+    void collect_source_impl(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
         Groups &groups) const {
+        
+        if (src.empty()) {
+            return;
+        }
 
         auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(atom_spans<S, Is>(src)...);
@@ -1259,38 +899,6 @@ struct QueryPlanner {
             iters, [&](const std::array<V, NumVars> &row) {
                 collect_agg_row<S>(row, groups);
             }, keep);
-    }
-
-    template <size_t S, typename Groups>
-    void collect_source_impl_extend(
-        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
-        Groups &groups) const {
-        constexpr size_t source_arity = atom_arities<Atoms>()[S];
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
-
-        auto joined = extend<V, NumVars, S, source_arity>(src, atoms);
-        if constexpr (!has_residual_filters<S, Atoms, Filters>()) {
-            for (const auto &row : joined.elements)
-                collect_agg_row<S>(row, groups);
-        } else {
-            auto keep = make_residual_test<S>(var_positions);
-            for (const auto &row : joined.elements)
-                if (keep(row))
-                    collect_agg_row<S>(row, groups);
-        }
-    }
-
-    template <size_t S, typename Groups>
-    void collect_source_impl(
-        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
-        Groups &groups) const {
-        if (src.empty())
-            return;
-
-        if constexpr (has_duplicate_var_atom<Atoms>())
-            collect_source_impl_extend<S>(src, groups);
-        else
-            collect_source_impl_lftj<S>(src, groups);
     }
 };
 
