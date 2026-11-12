@@ -153,25 +153,12 @@ template <typename T> struct is_negated : std::false_type {};
 template <typename P, typename... Vars>
 struct is_negated<NegatedTerm<P, Vars...>> : std::true_type {};
 
-template <typename T> struct negated_var_ids;
-template <typename P, int... Ids>
-struct negated_var_ids<NegatedTerm<P, Var<Ids>...>> {
-    static constexpr size_t arity = sizeof...(Ids);
-    static constexpr std::array<int, sizeof...(Ids)> value = {Ids...};
-};
-
 /* Expression filters */
 
 template <typename T> struct is_expression_filter : std::false_type {};
 template <typename Func, int... VarIds>
 struct is_expression_filter<ExpressionFilter<Func, VarIds...>>
     : std::true_type {};
-
-template <typename T> struct expression_filter_var_ids_impl;
-template <typename Func, int... VarIds>
-struct expression_filter_var_ids_impl<ExpressionFilter<Func, VarIds...>> {
-    static constexpr std::array<int, sizeof...(VarIds)> value = {VarIds...};
-};
 
 /* Aggregates */
 
@@ -188,31 +175,6 @@ struct is_aggregate_filter<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
 
 template <typename T>
 inline constexpr bool is_aggregate_filter_v = is_aggregate_filter<T>::value;
-
-template <typename T> struct aggregate_traits;
-
-template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
-struct aggregate_traits<
-    AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>> {
-    using func_t = Func;
-
-    static constexpr int out_var_id = OutVarId;
-    static constexpr int value_var_id = ValueVarId;
-
-    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
-        GroupVarIds...};
-};
-
-template <typename Func, int OutVarId, int... GroupVarIds>
-struct aggregate_traits<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>> {
-    using func_t = Func;
-
-    static constexpr int out_var_id = OutVarId;
-    static constexpr int value_var_id = -1;
-
-    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids = {
-        GroupVarIds...};
-};
 
 template <typename Filters> constexpr size_t aggregate_count() {
     return []<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
@@ -233,7 +195,7 @@ template <typename Filters> constexpr size_t aggregate_index() {
 }
 
 template <typename Agg> constexpr bool aggregate_group_ids_unique() {
-    constexpr auto ids = aggregate_traits<Agg>::group_var_ids;
+    constexpr auto ids = Agg::group_var_ids;
 
     for (size_t i = 0; i < ids.size(); i++) {
         for (size_t j = i + 1; j < ids.size(); j++) {
@@ -266,25 +228,56 @@ template <typename V, size_t N> struct AggregateArrayHash {
 
 /* Relational operators */
 
-template <typename T> struct filter_vars;
+template <typename T> struct filter_traits;
+template <typename Func, int... VarIds>
+struct filter_traits<ExpressionFilter<Func, VarIds...>> {
+    static constexpr std::array<int, sizeof...(VarIds)> var_ids = {VarIds...};
+};
+template <typename P, int... Ids>
+struct filter_traits<NegatedTerm<P, Var<Ids>...>> {
+    static constexpr std::array<int, sizeof...(Ids)> var_ids = {Ids...};
+};
 template <Cmp Op, int A, int B>
-struct filter_vars<Compare<Op, Var<A>, Var<B>>> {
-    static constexpr int a_id = A;
-    static constexpr int b_id = B;
+struct filter_traits<Compare<Op, Var<A>, Var<B>>> {
+    static constexpr std::array<int, 2> var_ids = {A, B};
     static constexpr Cmp op = Op;
 };
 
-template <typename T> struct filter_var_ids;
-template <typename Func, int... VarIds>
-struct filter_var_ids<ExpressionFilter<Func, VarIds...>> :
-    expression_filter_var_ids_impl<ExpressionFilter<Func, VarIds...>> {};
-template <typename P, int... Ids>
-    struct filter_var_ids<NegatedTerm<P, Var<Ids>...>> :
-    negated_var_ids<NegatedTerm<P, Var<Ids>...>> {};
-template <Cmp Op, int A, int B>
-struct filter_var_ids<Compare<Op, Var<A>, Var<B>>> {
-    static constexpr std::array<int, 2> value = {A, B};
-};
+template <size_t NumVars, size_t N>
+constexpr bool vars_bound(const std::array<int, N> &ids) {
+    for (int id : ids)
+        if (id < 0 || id >= static_cast<int>(NumVars))
+            return false;
+    return true;
+}
+
+template <typename Agg, size_t NumVars>
+constexpr bool aggregate_inputs_valid() {
+    return Agg::out_var_id == static_cast<int>(NumVars) &&
+           (Agg::value_var_id < 0 ||
+            Agg::value_var_id < static_cast<int>(NumVars)) &&
+           vars_bound<NumVars>(Agg::group_var_ids) &&
+           aggregate_group_ids_unique<Agg>();
+}
+
+template <typename Filt, size_t NumVars>
+constexpr bool validate_filter_vars() {
+    if constexpr (!is_aggregate_filter_v<Filt>) {
+        constexpr bool bound = vars_bound<NumVars>(filter_traits<Filt>::var_ids);
+        if constexpr (is_expression_filter<Filt>::value)
+            static_assert(bound,
+                          "expression filter not bound by body atom");
+        else if constexpr (is_negated<Filt>::value)
+            static_assert(bound,
+                          "negated variable not bound by body atom");
+        else
+            static_assert(bound,
+                          "filter variable not bound by a body atom");
+        return bound;
+    }
+    return true;
+}
+
 
 template <Cmp op, typename T> constexpr bool cmp_apply(const T &x, const T &y) {
     if constexpr (op == Cmp::Lt)
@@ -315,10 +308,7 @@ template <typename Atoms> constexpr bool has_duplicate_var_atom() {
 
 // True iff Head references only variable ids in [0, NumVars).
 template <typename Head, size_t NumVars> constexpr bool one_head_covered() {
-    for (int id : atom_traits<Head>::var_ids)
-        if (id < 0 || id >= static_cast<int>(NumVars))
-            return false;
-    return true;
+    return vars_bound<NumVars>(atom_traits<Head>::var_ids);
 }
 
 // True iff every head in HeadTup references only variable ids in [0, NumVars).
@@ -334,11 +324,11 @@ constexpr bool one_aggregate_head_covered() {
         if (id < 0)
             return false;
 
-        if (id == aggregate_traits<Agg>::out_var_id)
+        if (id == Agg::out_var_id)
             continue;
 
         bool is_group = false;
-        for (int group_id : aggregate_traits<Agg>::group_var_ids) {
+        for (int group_id : Agg::group_var_ids) {
             if (id == group_id) {
                 is_group = true;
                 break;
@@ -398,8 +388,7 @@ struct QueryPlanner {
 
     static constexpr size_t ResultNumVars = [] {
         if constexpr (HasAggregate) {
-            return static_cast<size_t>(aggregate_traits<Aggregate>::out_var_id +
-                                       1);
+            return static_cast<size_t>(Aggregate::out_var_id + 1);
         } else {
             return NumVars;
         }
@@ -424,44 +413,21 @@ struct QueryPlanner {
 
     static_assert(
         [] {
-            if constexpr (!HasAggregate) {
-                return true;
-            } else {
-                constexpr int out_id = aggregate_traits<Aggregate>::out_var_id;
-                constexpr int value_id =
-                    aggregate_traits<Aggregate>::value_var_id;
-
-                if (out_id != static_cast<int>(NumVars))
-                    return false;
-                if (value_id >= 0 && value_id >= static_cast<int>(NumVars))
-                    return false;
-                if (out_id == value_id)
-                    return false;
-
-                for (int group_id :
-                     aggregate_traits<Aggregate>::group_var_ids) {
-                    if (group_id < 0 || group_id >= static_cast<int>(NumVars))
-                        return false;
-                    if (group_id == out_id)
-                        return false;
-                }
-
-                return aggregate_group_ids_unique<Aggregate>();
-            }
+            if constexpr (HasAggregate)
+                return aggregate_inputs_valid<Aggregate, NumVars>();
+            return true;
         }(),
         "Invalid aggregate: input and group variables must use"
         " bound positive body atoms and group variables must be"
         " unique");
 
-    static_assert(
-        [] {
-            if constexpr (has_duplicate_var_atom<Atoms>()) {
-                return false;
-            } else {
-                return true;
-            }
-        }(),
-        "Duplicated vars currently unsupported");
+    static_assert(!has_duplicate_var_atom<Atoms>(),
+                  "Duplicated vars currently unsupported");
+
+    static_assert([]<size_t... Fs>(std::index_sequence<Fs...>) {
+        return (validate_filter_vars<std::tuple_element_t<Fs, Filters>,
+                                     NumVars>() && ...);
+    }(std::make_index_sequence<std::tuple_size_v<Filters>>{}));
 
     // Execute a semi-naive delta step over the newly produced facts
     void operator()() const {
@@ -564,16 +530,7 @@ struct QueryPlanner {
         if constexpr (is_aggregate_filter_v<Filt>) {
             return NumVars;
         } else {
-            constexpr auto ids = filter_var_ids<Filt>::value;
-            static_assert(
-                [ids] {
-                    for (int id : ids) {
-                        if (id < 0 || id >= static_cast<int>(NumVars))
-                            return false;
-                    }
-                    return true;
-                }(),
-                "filter var not bound by body atom");
+            constexpr auto ids = filter_traits<Filt>::var_ids;
             constexpr auto var_pos = invert<NumVars>(make_order<Atoms>(S));
             size_t bound = 0;
             for (int id : ids)
@@ -714,56 +671,28 @@ struct QueryPlanner {
         if constexpr (is_aggregate_filter_v<Filt>) {
             return true;
         } else if constexpr (is_expression_filter<Filt>::value) {
-            constexpr auto ids = expression_filter_var_ids_impl<Filt>::value;
-            static_assert(
-                [ids] {
-                    for (int id : ids) {
-                        if (id < 0 || id >= static_cast<int>(NumVars))
-                            return false;
-                    }
-                    return true;
-                }(),
-                "expression filter not bound by positive body atom");
+            constexpr auto ids = filter_traits<Filt>::var_ids;
             return [&]<size_t... Is>(std::index_sequence<Is...>) {
                 return std::get<F>(filters).func(
                     tuple[var_positions[ids[Is]]]...);
             }(std::make_index_sequence<ids.size()>{});
         } else if constexpr (is_negated<Filt>::value) {
-            constexpr auto ids = negated_var_ids<Filt>::value;
-            constexpr size_t arity = negated_var_ids<Filt>::arity;
-            static_assert(
-                [ids] {
-                    for (int id : ids) {
-                        if (id < 0 || id >= static_cast<int>(NumVars))
-                            return false;
-                    }
-                    return true;
-                }(),
-                "negated variable not bound by positive body atom");
-            std::array<V, arity> key;
-            for (size_t i = 0; i < arity; i++)
+            constexpr auto ids = filter_traits<Filt>::var_ids;
+            std::array<V, ids.size()> key;
+            for (size_t i = 0; i < ids.size(); i++)
                 key[i] = tuple[var_positions[ids[i]]];
             return !std::get<F>(filters).pred->stable_contains(key);
         } else {
-            constexpr int var_id_a = filter_vars<Filt>::a_id;
-            constexpr int var_id_b = filter_vars<Filt>::b_id;
-            static_assert(var_id_a >= 0 && var_id_b >= 0 &&
-                              var_id_a < static_cast<int>(NumVars) &&
-                              var_id_b < static_cast<int>(NumVars),
-                          "filter variable not bound by a positive body atom");
-            const int pos_a = var_positions[var_id_a];
-            const int pos_b = var_positions[var_id_b];
-            constexpr Cmp op = filter_vars<Filt>::op;
-
-            return cmp_apply<op>(tuple[pos_a], tuple[pos_b]);
+            constexpr auto ids = filter_traits<Filt>::var_ids;
+            return cmp_apply<filter_traits<Filt>::op>(
+                tuple[var_positions[ids[0]]], tuple[var_positions[ids[1]]]);
         }
     }
 
     auto make_agg_groups() const {
         static_assert(HasAggregate);
-        using AT = aggregate_traits<Aggregate>;
-        constexpr size_t NumGroups = AT::group_var_ids.size();
-        constexpr bool rows_reduction = AT::value_var_id < 0;
+        constexpr size_t NumGroups = Aggregate::group_var_ids.size();
+        constexpr bool rows_reduction = Aggregate::value_var_id < 0;
         using GroupKey = std::array<V, NumGroups>;
         using AggValue =
             std::conditional_t<rows_reduction, std::array<V, NumVars>, V>;
@@ -775,17 +704,16 @@ struct QueryPlanner {
     template <size_t S, typename Groups>
     void collect_agg_row(const std::array<V, NumVars> &tuple,
                              Groups &groups) const {
-        using AT = aggregate_traits<Aggregate>;
-        constexpr size_t NumGroups = AT::group_var_ids.size();
+        constexpr size_t NumGroups = Aggregate::group_var_ids.size();
         constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
 
         typename Groups::key_type key{};
         for (size_t i = 0; i < NumGroups; i++)
-            key[i] = tuple[var_positions[AT::group_var_ids[i]]];
+            key[i] = tuple[var_positions[Aggregate::group_var_ids[i]]];
 
         auto [group, inserted] = groups.try_emplace(std::move(key));
         (void)inserted;
-        if constexpr (AT::value_var_id < 0) {
+        if constexpr (Aggregate::value_var_id < 0) {
             // Present rows in variable-id order so the reducer can
             // index independentl from the join binding order.
             std::array<V, NumVars> row{};
@@ -793,15 +721,14 @@ struct QueryPlanner {
                 row[id] = tuple[var_positions[id]];
             group->second.push_back(std::move(row));
         } else {
-            group->second.push_back(tuple[var_positions[AT::value_var_id]]);
+            group->second.push_back(tuple[var_positions[Aggregate::value_var_id]]);
         }
     }
 
     template <typename Groups>
     auto apply_agg(const Groups &groups) const {
         static_assert(HasAggregate);
-        using AT = aggregate_traits<Aggregate>;
-        constexpr size_t NumGroups = AT::group_var_ids.size();
+        constexpr size_t NumGroups = Aggregate::group_var_ids.size();
         using ResultRow = std::array<V, ResultNumVars>;
         using AggValue = typename Groups::mapped_type::value_type;
 
@@ -813,7 +740,7 @@ struct QueryPlanner {
             ResultRow row{};
 
             for (size_t i = 0; i < NumGroups; i++)
-                row[AT::group_var_ids[i]] = key[i];
+                row[Aggregate::group_var_ids[i]] = key[i];
 
             auto value = aggregate.func(
                 std::span<const AggValue>(values.data(), values.size()));
@@ -821,7 +748,7 @@ struct QueryPlanner {
             static_assert(std::is_convertible_v<decltype(value), V>,
                           "Aggregate reducer result must be "
                           "convertible to the predicate value type");
-            row[AT::out_var_id] = static_cast<V>(std::move(value));
+            row[Aggregate::out_var_id] = static_cast<V>(std::move(value));
 
             result.push_back(std::move(row));
         }
