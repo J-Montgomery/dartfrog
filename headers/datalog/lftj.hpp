@@ -307,13 +307,15 @@ using BinderLevels =
     decltype(binder_levels<AtomVars>(std::make_index_sequence<NumVars>{}));
 
 template <typename V, size_t NumVars, typename Levels, size_t Var,
-          typename Tries, typename Emit>
+          typename Tries, typename Emit, typename PrefixTest>
 void bind_var(Tries &tries, std::array<V, NumVars> &assignment,
-              const Emit &emit) {
+              const Emit &emit, const PrefixTest &keep) {
     if constexpr (Var == NumVars) {
         emit(assignment);
     } else if constexpr (std::tuple_element_t<Var, Levels>::size() == 0) {
-        bind_var<V, NumVars, Levels, Var + 1>(tries, assignment, emit);
+        if(keep.template operator()<Var + 1>(assignment)) {
+            bind_var<V, NumVars, Levels, Var + 1>(tries, assignment, emit, keep);
+        }
     } else {
         [&]<size_t... Bs>(std::index_sequence<Bs...>) {
             // Restart every participating iterator at the start of its current
@@ -332,9 +334,11 @@ void bind_var(Tries &tries, std::array<V, NumVars> &assignment,
                     continue;
                 }
                 assignment[Var] = high;
-                (std::get<Bs>(tries).open(), ...);
-                bind_var<V, NumVars, Levels, Var + 1>(tries, assignment, emit);
-                (std::get<Bs>(tries).up(), ...);
+                if (keep.template operator()<Var + 1>(assignment)) {
+                    (std::get<Bs>(tries).open(), ...);
+                    bind_var<V, NumVars, Levels, Var + 1>(tries, assignment, emit, keep);
+                    (std::get<Bs>(tries).up(), ...);
+                }
                 (std::get<Bs>(tries).next(), ...);
             }
         }(std::tuple_element_t<Var, Levels>{});
@@ -342,11 +346,21 @@ void bind_var(Tries &tries, std::array<V, NumVars> &assignment,
 }
 
 template <typename V, size_t NumVars, auto AtomVars, typename Tries,
+          typename Emit, typename PrefixTest>
+void triejoin(Tries &tries, const Emit &emit, const PrefixTest &keep) {
+    std::array<V, NumVars> assignment{};
+    if (keep.template operator()<0>(assignment))
+        bind_var<V, NumVars, BinderLevels<AtomVars, NumVars>, 0>(
+            tries, assignment, emit, keep);
+}
+
+template <typename V, size_t NumVars, auto AtomVars, typename Tries,
           typename Emit>
 void triejoin(Tries &tries, const Emit &emit) {
     std::array<V, NumVars> assignment{};
+    auto prefix_test = []<size_t>(const std::array<V, NumVars> &) { return true; };
     bind_var<V, NumVars, BinderLevels<AtomVars, NumVars>, 0>(tries, assignment,
-                                                             emit);
+                                                             emit, prefix_test);
 }
 
 } // namespace df::datalog::lftj

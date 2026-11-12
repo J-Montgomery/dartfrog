@@ -377,6 +377,18 @@ struct filter_vars<Compare<Op, Var<A>, Var<B>>> {
     static constexpr Cmp op = Op;
 };
 
+template <typename T> struct filter_var_ids;
+template <typename Func, int... VarIds>
+struct filter_var_ids<ExpressionFilter<Func, VarIds...>> :
+    expression_filter_var_ids_impl<ExpressionFilter<Func, VarIds...>> {};
+template <typename P, int... Ids>
+    struct filter_var_ids<NegatedTerm<P, Var<Ids>...>> :
+    negated_var_ids<NegatedTerm<P, Var<Ids>...>> {};
+template <Cmp Op, int A, int B>
+struct filter_var_ids<Compare<Op, Var<A>, Var<B>>> {
+    static constexpr std::array<int, 2> value = {A, B};
+};
+
 template <Cmp op, typename T> constexpr bool cmp_apply(const T &x, const T &y) {
     if constexpr (op == Cmp::Lt)
         return x < y;
@@ -807,12 +819,44 @@ struct QueryPlanner {
         return spans;
     }
 
+    template <size_t S, size_t F> static constexpr size_t filter_bound() {
+        using Filt = std::tuple_element_t<F, Filters>;
+        if constexpr (is_aggregate_filter_v<Filt>) {
+            return NumVars;
+        } else {
+            constexpr auto ids = filter_var_ids<Filt>::value;
+            static_assert(
+                [ids] {
+                    for (int id : ids) {
+                        if (id < 0 || id >= static_cast<int>(NumVars))
+                            return false;
+                    }
+                    return true;
+                }(),
+                "filter var not bound by body atom");
+            constexpr auto var_pos = invert<NumVars>(make_order<Atoms>(S));
+            size_t bound = 0;
+            for (int id : ids)
+                bound = std::max(
+                    bound, static_cast<size_t>(var_pos[id] + 1));
+            return bound;
+        }
+    }
+
     template <size_t S>
-    auto make_filter_test(const std::array<int, NumVars> &var_positions) const {
+    auto make_filter_test() const {
         return
-            [this, var_positions](const std::array<V, NumVars> &row) -> bool {
-                return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
-                    return (filter_check<Fs>(row, var_positions) && ...);
+            [this]<size_t BoundVars>(const std::array<V, NumVars> &row) {
+                    return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
+                        return ([&] {
+                            if constexpr (filter_bound<S, Fs>() == BoundVars) {
+                                constexpr auto var_positions =
+                                    invert<NumVars>(make_order<Atoms>(S));
+                                return filter_check<Fs>(row, var_positions);
+                            } else {
+                                return true;
+                            }
+                    }() && ...);
                 }(std::make_index_sequence<std::tuple_size_v<Filters>>{});
             };
     }
@@ -833,7 +877,6 @@ struct QueryPlanner {
     template <size_t S>
     void do_source_impl_lftj(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
 
         auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(atom_spans<S, Is>(src)...);
@@ -843,7 +886,7 @@ struct QueryPlanner {
                 make_query_iter<S, Is>(std::get<Is>(spans))...);
         }(std::make_index_sequence<NumAtoms>{});
 
-        [[maybe_unused]] auto keep = make_filter_test<S>(var_positions);
+        auto keep = make_filter_test<S>();
         constexpr size_t FLUSH_ROWS = size_t{1} << 16;
         auto batches = [&]<size_t... Hs>(std::index_sequence<Hs...>) {
             return std::make_tuple(
@@ -879,11 +922,8 @@ struct QueryPlanner {
         };
 
         lftj::triejoin<V, NumVars, atom_var_table<S>()>(
-            iters, [&](const std::array<V, NumVars> &row) {
-                // Check if the rule has any remaining filters to check
-                if constexpr (std::tuple_size_v<Filters> > 0)
-                    if (!keep(row))
-                        return;
+            iters,
+            [&](const std::array<V, NumVars> &row) {
                 for_indices<NumHeads>([&]<size_t H>() {
                     constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
                     constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
@@ -894,7 +934,8 @@ struct QueryPlanner {
                     if (b.size() >= FLUSH_ROWS)
                         flush_head.template operator()<H>();
                 });
-            });
+            },
+            keep);
         for_indices<NumHeads>(
             [&]<size_t H>() { flush_head.template operator()<H>(); });
     }
@@ -1202,7 +1243,6 @@ struct QueryPlanner {
     void collect_source_impl_lftj(
         std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
         Groups &groups) const {
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
 
         auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(atom_spans<S, Is>(src)...);
@@ -1213,17 +1253,12 @@ struct QueryPlanner {
                 make_query_iter<S, Is>(std::get<Is>(spans))...);
         }(std::make_index_sequence<NumAtoms>{});
 
-        auto keep = make_filter_test<S>(var_positions);
+        auto keep = make_filter_test<S>();
 
         lftj::triejoin<V, NumVars, atom_var_table<S>()>(
             iters, [&](const std::array<V, NumVars> &row) {
-                if constexpr (std::tuple_size_v<Filters> > 0) {
-                    if (!keep(row))
-                        return;
-                }
-
                 collect_agg_row<S>(row, groups);
-            });
+            }, keep);
     }
 
     template <size_t S, typename Groups>
