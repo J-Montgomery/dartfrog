@@ -62,9 +62,14 @@ template <typename... Heads> struct MultiHead {
     }
 };
 
-template <typename T> struct is_multihead : std::false_type {};
+template <typename P, typename... Vars>
+auto heads_as_tuple(const Term<P, Vars...> &head) {
+    return std::make_tuple(head);
+}
 template <typename... Heads>
-struct is_multihead<MultiHead<Heads...>> : std::true_type {};
+auto heads_as_tuple(const MultiHead<Heads...> &head) {
+    return head.heads;
+}
 
 // Yes, overriding the comma operator is awful and should never be done,
 // but it looks so much better than the alternatives I've come up with
@@ -120,6 +125,17 @@ template <typename PosTuple, typename FilterTuple> struct Conjunction {
     PosTuple pos;
     FilterTuple filt;
 };
+
+template <typename P, typename... Vars>
+auto body_as_conjunction(const Term<P, Vars...> &body) {
+    return Conjunction<std::tuple<Term<P, Vars...>>, std::tuple<>>{
+        std::make_tuple(body), {}};
+}
+template <typename Pos, typename Filt>
+const auto &body_as_conjunction(const Conjunction<Pos, Filt> &body) {
+    return body;
+}
+
 
 template <class T> struct is_filter_atom : std::true_type {};
 template <class P, class... Vars>

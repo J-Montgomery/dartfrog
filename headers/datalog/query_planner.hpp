@@ -313,16 +313,6 @@ template <typename Atoms> constexpr bool has_duplicate_var_atom() {
     return false;
 }
 
-// Normalize a rule's head spec to a tuple of head Terms, so
-// a single Term<...> becomes a one-element tuple and
-// a MultiHead<Hs...> unwraps to its heads.
-template <typename H> struct head_tuple_of {
-    using type = std::tuple<H>;
-};
-template <typename... Hs> struct head_tuple_of<MultiHead<Hs...>> {
-    using type = std::tuple<Hs...>;
-};
-
 // True iff Head references only variable ids in [0, NumVars).
 template <typename Head, size_t NumVars> constexpr bool one_head_covered() {
     for (int id : atom_traits<Head>::var_ids)
@@ -369,9 +359,9 @@ constexpr bool all_aggregate_heads_covered(std::index_sequence<Hs...>) {
         ...);
 }
 
-template <typename HeadTerm, typename Atoms, typename Filters>
+template <typename HeadTuple, typename Atoms, typename Filters>
 struct QueryPlanner {
-    HeadTerm head;
+    HeadTuple heads;
     Atoms atoms;
     Filters filters;
 
@@ -385,8 +375,6 @@ struct QueryPlanner {
 
     static constexpr size_t NumVars = num_vars<Atoms>();
     static constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
-
-    using HeadTuple = typename head_tuple_of<HeadTerm>::type;
     static constexpr size_t NumHeads = std::tuple_size_v<HeadTuple>;
 
     template <size_t H> using HeadAt = std::tuple_element_t<H, HeadTuple>;
@@ -418,10 +406,7 @@ struct QueryPlanner {
     }();
 
     template <size_t H> auto *head_pred() const {
-        if constexpr (is_multihead<HeadTerm>::value)
-            return std::get<H>(head.heads).pred;
-        else
-            return head.pred;
+        return std::get<H>(heads).pred;
     }
 
     static_assert(
@@ -627,11 +612,10 @@ struct QueryPlanner {
         }
     }
 
-    // Depth-first LFTJ over all body atoms, reindexed to the source binding
-    // order
-    template <size_t S>
-    void do_source_impl(
-        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
+    template <size_t S, typename Emit>
+    void for_each_match(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
+        const Emit &emit) const {
         if (src.empty()) {
             return;
         }
@@ -644,7 +628,19 @@ struct QueryPlanner {
                 make_query_iter<S, Is>(std::get<Is>(spans))...);
         }(std::make_index_sequence<NumAtoms>{});
 
-        auto keep = make_filter_test<S>();
+        lftj::triejoin<V, NumVars, atom_var_table<S>()>(
+            iters, emit, make_filter_test<S>());
+    }
+
+    // Depth-first LFTJ over all body atoms, reindexed to the source binding
+    // order
+    template <size_t S>
+    void do_source_impl(
+        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src) const {
+        if (src.empty()) {
+            return;
+        }
+
         constexpr size_t FLUSH_ROWS = size_t{1} << 16;
         auto batches = [&]<size_t... Hs>(std::index_sequence<Hs...>) {
             return std::make_tuple(
@@ -679,21 +675,18 @@ struct QueryPlanner {
             b.reserve(FLUSH_ROWS);
         };
 
-        lftj::triejoin<V, NumVars, atom_var_table<S>()>(
-            iters,
-            [&](const std::array<V, NumVars> &row) {
-                for_indices<NumHeads>([&]<size_t H>() {
-                    constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
-                    constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
-                    constexpr auto hpos =
-                        project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
-                    auto &b = std::get<H>(batches);
-                    b.push_back(project<ha>(row, hpos));
-                    if (b.size() >= FLUSH_ROWS)
-                        flush_head.template operator()<H>();
-                });
-            },
-            keep);
+        for_each_match<S>(src, [&](const std::array<V, NumVars> &row) {
+            for_indices<NumHeads>([&]<size_t H>() {
+                constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
+                constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
+                constexpr auto hpos =
+                    project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
+                auto &b = std::get<H>(batches);
+                b.push_back(project<ha>(row, hpos));
+                if (b.size() >= FLUSH_ROWS)
+                    flush_head.template operator()<H>();
+            });
+        });
         for_indices<NumHeads>(
             [&]<size_t H>() { flush_head.template operator()<H>(); });
     }
@@ -866,39 +859,15 @@ struct QueryPlanner {
         auto groups = make_agg_groups();
         auto *source_pred = std::get<S>(atoms).pred;
         for (const auto &batch : source_pred->var.stable) {
-            collect_source_impl<S>(
+            for_each_match<S>(
                 std::span<const std::array<V, source_arity>>(batch.elements),
-                groups);
+                [&](const std::array<V, NumVars> &row) {
+                    collect_agg_row<S>(row, groups);
+                });
         }
 
         auto aggregated = apply_agg(groups);
         materialize_agg_heads(aggregated);
-    }
-
-    template <size_t S, typename Groups>
-    void collect_source_impl(
-        std::span<const std::array<V, atom_arities<Atoms>()[S]>> src,
-        Groups &groups) const {
-        
-        if (src.empty()) {
-            return;
-        }
-
-        auto spans = [&]<size_t... Is>(std::index_sequence<Is...>) {
-            return std::make_tuple(atom_spans<S, Is>(src)...);
-        }(std::make_index_sequence<NumAtoms>{});
-
-        auto iters = [&]<size_t... Is>(std::index_sequence<Is...>) {
-            return std::make_tuple(
-                make_query_iter<S, Is>(std::get<Is>(spans))...);
-        }(std::make_index_sequence<NumAtoms>{});
-
-        auto keep = make_filter_test<S>();
-
-        lftj::triejoin<V, NumVars, atom_var_table<S>()>(
-            iters, [&](const std::array<V, NumVars> &row) {
-                collect_agg_row<S>(row, groups);
-            }, keep);
     }
 };
 
