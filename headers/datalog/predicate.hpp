@@ -541,8 +541,26 @@ template <typename V, size_t N> struct Predicate {
         if (var.to_add.empty())
             return false;
 
-        df::Relation<TupleT> incoming = std::move(var.to_add.back());
-        var.to_add.pop_back();
+        // Pairwise merge
+        while (var.to_add.size() > 1) {
+            size_t write = 0;
+            for(size_t read = 0; read + 1 < var.to_add.size(); read += 2) {
+                var.to_add[write] = std::move(var.to_add[read]).merge(
+                    std::move(var.to_add[read + 1]));
+                    write += 1;
+            }
+
+            if (var.to_add.size() % 2 != 0) {
+                // merge odd leftovers
+                var.to_add[write] = std::move(var.to_add.back());
+                write += 1;
+            }
+            var.to_add.resize(write);
+        }
+
+        df::Relation<TupleT> incoming = std::move(var.to_add.front());
+        var.to_add.clear();
+
         while (!var.to_add.empty()) {
             incoming = std::move(incoming).merge(std::move(var.to_add.back()));
             var.to_add.pop_back();
