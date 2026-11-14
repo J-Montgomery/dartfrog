@@ -602,14 +602,14 @@ template <typename V, size_t N> struct Predicate {
 template <typename V> void Datalog::make_symmetric(Predicate<V, 2> &pred) {
     Var<0> x;
     Var<1> y;
-    add_rule(pred(y, x) %= pred(x, y));
+    add_rule(pred(y, x) <= pred(x, y));
 }
 
 template <int... Cols, typename V, size_t N>
     requires(sizeof...(Cols) == N)
 void Datalog::make_reindexed(Predicate<V, N> &source, Predicate<V, N> &target) {
     [&]<size_t... Js>(std::index_sequence<Js...>) {
-        add_rule(target(Var<Cols>{}...) %= source(Var<(int)Js>{}...));
+        add_rule(target(Var<Cols>{}...) <= source(Var<(int)Js>{}...));
     }(std::make_index_sequence<N>{});
 }
 

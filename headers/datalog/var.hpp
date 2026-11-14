@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace df::datalog {
 
@@ -36,9 +37,6 @@ template <typename Head, typename Body> struct Rule;
 template <typename Pred, typename... Vars> struct Term {
     Pred *pred;
 
-    template <typename BodyT> auto operator%=(const BodyT &body) const {
-        return Rule<Term, BodyT>{*this, body};
-    }
     template <typename BodyT> auto operator<=(const BodyT &body) const {
         return Rule<Term, BodyT>{*this, body};
     }
@@ -54,9 +52,6 @@ template <typename Head, typename Body> struct Rule {
 template <typename... Heads> struct MultiHead {
     std::tuple<Heads...> heads;
 
-    template <typename BodyT> auto operator%=(const BodyT &body) const {
-        return Rule<MultiHead, BodyT>{*this, body};
-    }
     template <typename BodyT> auto operator<=(const BodyT &body) const {
         return Rule<MultiHead, BodyT>{*this, body};
     }
@@ -136,7 +131,6 @@ const auto &body_as_conjunction(const Conjunction<Pos, Filt> &body) {
     return body;
 }
 
-
 template <class T> struct is_filter_atom : std::true_type {};
 template <class P, class... Vars>
 struct is_filter_atom<Term<P, Vars...>> : std::false_type {};
@@ -212,38 +206,26 @@ auto group_by_rows(Func &&func) {
 
 /* Conjunctions of filters */
 
-template <class P1, class... Vars1, class P2, class... Vars2>
-auto operator&&(const Term<P1, Vars1...> &l, const Term<P2, Vars2...> &r) {
-    return Conjunction<std::tuple<Term<P1, Vars1...>, Term<P2, Vars2...>>,
-                       std::tuple<>>{std::make_tuple(l, r), {}};
-}
-
-template <class P, class... Vars, class F>
-    requires is_filter_atom<F>::value
-auto operator&&(const Term<P, Vars...> &l, const F &f) {
-    return Conjunction<std::tuple<Term<P, Vars...>>, std::tuple<F>>{
-        std::make_tuple(l), std::make_tuple(f)};
-}
-
-template <class Pos, class Filt, class P, class... Vars>
-auto operator&&(const Conjunction<Pos, Filt> &c, const Term<P, Vars...> &r) {
-    return Conjunction<decltype(std::tuple_cat(c.pos, std::make_tuple(r))),
-                       Filt>{std::tuple_cat(c.pos, std::make_tuple(r)), c.filt};
-}
-
-template <class Pos, class Filt, class F>
-    requires is_filter_atom<F>::value
-auto operator&&(const Conjunction<Pos, Filt> &c, const F &f) {
-    return Conjunction<Pos,
-                       decltype(std::tuple_cat(c.filt, std::make_tuple(f)))>{
-        c.pos, std::tuple_cat(c.filt, std::make_tuple(f))};
+template <class Pos, class Filt, class Next>
+auto append_body(const Conjunction<Pos, Filt> &body, const Next &next) {
+    if constexpr (is_filter_atom<Next>::value) {
+        return Conjunction<Pos, decltype(std::tuple_cat(
+                                    body.filt, std::make_tuple(next)))>{
+            body.pos, std::tuple_cat(body.filt, std::make_tuple(next))};
+    } else {
+        return Conjunction<
+            decltype(std::tuple_cat(body.pos, std::make_tuple(next))), Filt>{
+            std::tuple_cat(body.pos, std::make_tuple(next)), body.filt};
+    }
 }
 
 /* Rule conjunctions */
 
 template <typename Head, typename Body, typename Next>
 auto operator,(const Rule<Head, Body> &r, const Next &next) {
-    return Rule<Head, decltype(r.body && next)>{r.head, r.body && next};
+    const auto body = body_as_conjunction(r.body);
+    auto appended = append_body(body, next);
+    return Rule<Head, decltype(appended)>{r.head, std::move(appended)};
 }
 
 } // namespace df::datalog
@@ -253,7 +235,7 @@ auto operator,(const Rule<Head, Body> &r, const Next &next) {
 // its variables instead of hand-numbering positional Var<N>:
 //
 //   DL_VARS(x, y, z);
-//   dl.add_rule(Foo(c, y) %= Bar(z, y) && Baz(x, z));
+//   dl.add_rule(Foo(c, y) <= Bar(z, y), Baz(x, z));
 //
 // To improve performance, list variables in the order they appear in columns
 #define DT_DL_NARG(...) DT_DL_NARG_IMPL(__VA_ARGS__, DT_DL_RSEQ_N())

@@ -45,7 +45,7 @@ def build_rule(all_edges, n):
     atoms = []
     for a, b in all_edges:
         atoms.append("edge(Var<%d>{}, Var<%d>{})" % (a, b))
-    body = " && ".join(atoms)
+    body = ", ".join(atoms)
     return head, body
 
 
@@ -124,7 +124,7 @@ def generate_test_func(n, partition, idx):
         return None
 
     head, body = result
-    rule = "%s %%= %s" % (head, body)
+    rule = "(%s <= %s)" % (head, body)
 
     parts_str = "_".join("_".join(str(v) for v in sorted(b)) for b in partition)
     func_name = "n%d_p%d_%s" % (n, idx, parts_str)
