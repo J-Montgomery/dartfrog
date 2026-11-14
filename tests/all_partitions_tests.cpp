@@ -52,7 +52,10 @@ TEST(AllPartitions, n4_p1_0_1_2_3) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 4>> expected = {{0, 1, 0, 1}, {0, 1, 1002, 1003}, {1002, 1003, 0, 1}, {1002, 1003, 1002, 1003}};
+    std::vector<std::array<int32_t, 4>> expected = {{0, 1, 0, 1},
+                                                    {0, 1, 1002, 1003},
+                                                    {1002, 1003, 0, 1},
+                                                    {1002, 1003, 1002, 1003}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -67,7 +70,10 @@ TEST(AllPartitions, n4_p2_1_2_0_3) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 4>> expected = {{1, 1, 2, 2}, {1, 1000, 1003, 2}, {1000, 1, 2, 1003}, {1000, 1000, 1003, 1003}};
+    std::vector<std::array<int32_t, 4>> expected = {{1, 1, 2, 2},
+                                                    {1, 1000, 1003, 2},
+                                                    {1000, 1, 2, 1003},
+                                                    {1000, 1000, 1003, 1003}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -82,7 +88,10 @@ TEST(AllPartitions, n4_p3_0_2_1_3) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 4>> expected = {{0, 0, 2, 2}, {0, 1001, 2, 1003}, {1001, 0, 1003, 2}, {1001, 1001, 1003, 1003}};
+    std::vector<std::array<int32_t, 4>> expected = {{0, 0, 2, 2},
+                                                    {0, 1001, 2, 1003},
+                                                    {1001, 0, 1003, 2},
+                                                    {1001, 1001, 1003, 1003}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -112,7 +121,9 @@ TEST(AllPartitions, n5_p1_0_1_2_3_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{0, 1, 1002, 1003, 1004}, {1002, 1003, 1002, 1003, 1004}, {1003, 1004, 1002, 1003, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{0, 1, 1002, 1003, 1004},
+                                                    {1002, 1003, 1002, 1003, 1004},
+                                                    {1003, 1004, 1002, 1003, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -127,7 +138,9 @@ TEST(AllPartitions, n5_p2_0_1_2_3_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{0, 1, 2, 0, 1}, {0, 1, 2, 1, 2}, {0, 1, 2, 1003, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{0, 1, 2, 0, 1},
+                                                    {0, 1, 2, 1, 2},
+                                                    {0, 1, 2, 1003, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -142,7 +155,9 @@ TEST(AllPartitions, n5_p3_1_2_0_3_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{1000, 1, 2, 1003, 1004}, {1000, 1000, 1003, 1003, 1004}, {1000, 1003, 1004, 1003, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{1000, 1, 2, 1003, 1004},
+                                                    {1000, 1000, 1003, 1003, 1004},
+                                                    {1000, 1003, 1004, 1003, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -157,7 +172,9 @@ TEST(AllPartitions, n5_p4_0_2_1_3_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{0, 1001, 2, 1003, 1004}, {1001, 1001, 1003, 1003, 1004}, {1003, 1001, 1004, 1003, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{0, 1001, 2, 1003, 1004},
+                                                    {1001, 1001, 1003, 1003, 1004},
+                                                    {1003, 1001, 1004, 1003, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -172,7 +189,9 @@ TEST(AllPartitions, n5_p5_1_2_3_0_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{1, 1, 2, 3, 2}, {2, 1, 2, 3, 3}, {1000, 1, 2, 3, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{1, 1, 2, 3, 2},
+                                                    {2, 1, 2, 3, 3},
+                                                    {1000, 1, 2, 3, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -187,7 +206,9 @@ TEST(AllPartitions, n5_p6_0_2_3_1_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{0, 0, 2, 3, 2}, {0, 2, 2, 3, 3}, {0, 1001, 2, 3, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{0, 0, 2, 3, 2},
+                                                    {0, 2, 2, 3, 3},
+                                                    {0, 1001, 2, 3, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -202,7 +223,9 @@ TEST(AllPartitions, n5_p7_2_3_0_1_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{1000, 1001, 2, 3, 1004}, {1000, 1001, 1000, 1001, 1004}, {1000, 1001, 1001, 1004, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{1000, 1001, 2, 3, 1004},
+                                                    {1000, 1001, 1000, 1001, 1004},
+                                                    {1000, 1001, 1001, 1004, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -217,7 +240,9 @@ TEST(AllPartitions, n5_p8_0_1_3_2_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{0, 1, 0, 3, 1}, {0, 1, 1, 3, 3}, {0, 1, 1002, 3, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{0, 1, 0, 3, 1},
+                                                    {0, 1, 1, 3, 3},
+                                                    {0, 1, 1002, 3, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -232,7 +257,9 @@ TEST(AllPartitions, n5_p9_1_3_0_2_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{1000, 1, 1002, 3, 1004}, {1000, 1000, 1002, 1002, 1004}, {1000, 1002, 1002, 1004, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{1000, 1, 1002, 3, 1004},
+                                                    {1000, 1000, 1002, 1002, 1004},
+                                                    {1000, 1002, 1002, 1004, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -247,7 +274,9 @@ TEST(AllPartitions, n5_p10_0_3_1_2_4) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 5>> expected = {{0, 1001, 1002, 3, 1004}, {1001, 1001, 1002, 1002, 1004}, {1002, 1001, 1002, 1004, 1004}};
+    std::vector<std::array<int32_t, 5>> expected = {{0, 1001, 1002, 3, 1004},
+                                                    {1001, 1001, 1002, 1002, 1004},
+                                                    {1002, 1001, 1002, 1004, 1004}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -277,7 +306,10 @@ TEST(AllPartitions, n6_p1_0_1_2_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 1002, 1003, 1004, 1005}, {1002, 1003, 1002, 1003, 1004, 1005}, {1003, 1004, 1002, 1003, 1004, 1005}, {1004, 1005, 1002, 1003, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 1002, 1003, 1004, 1005},
+                                                    {1002, 1003, 1002, 1003, 1004, 1005},
+                                                    {1003, 1004, 1002, 1003, 1004, 1005},
+                                                    {1004, 1005, 1002, 1003, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -292,7 +324,10 @@ TEST(AllPartitions, n6_p2_0_1_2_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 2, 0, 1, 2}, {0, 1, 2, 1003, 1004, 1005}, {1003, 1004, 1005, 0, 1, 2}, {1003, 1004, 1005, 1003, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 2, 0, 1, 2},
+                                                    {0, 1, 2, 1003, 1004, 1005},
+                                                    {1003, 1004, 1005, 0, 1, 2},
+                                                    {1003, 1004, 1005, 1003, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -307,7 +342,10 @@ TEST(AllPartitions, n6_p3_1_2_0_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1000, 1, 2, 1003, 1004, 1005}, {1000, 1000, 1003, 1003, 1004, 1005}, {1000, 1003, 1004, 1003, 1004, 1005}, {1000, 1004, 1005, 1003, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1000, 1, 2, 1003, 1004, 1005},
+                                                    {1000, 1000, 1003, 1003, 1004, 1005},
+                                                    {1000, 1003, 1004, 1003, 1004, 1005},
+                                                    {1000, 1004, 1005, 1003, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -322,7 +360,10 @@ TEST(AllPartitions, n6_p4_0_2_1_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1001, 2, 1003, 1004, 1005}, {1001, 1001, 1003, 1003, 1004, 1005}, {1003, 1001, 1004, 1003, 1004, 1005}, {1004, 1001, 1005, 1003, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1001, 2, 1003, 1004, 1005},
+                                                    {1001, 1001, 1003, 1003, 1004, 1005},
+                                                    {1003, 1001, 1004, 1003, 1004, 1005},
+                                                    {1004, 1001, 1005, 1003, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -337,7 +378,10 @@ TEST(AllPartitions, n6_p5_0_1_2_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 2, 3, 0, 1}, {0, 1, 2, 3, 1, 2}, {0, 1, 2, 3, 2, 3}, {0, 1, 2, 3, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 2, 3, 0, 1},
+                                                    {0, 1, 2, 3, 1, 2},
+                                                    {0, 1, 2, 3, 2, 3},
+                                                    {0, 1, 2, 3, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -352,7 +396,10 @@ TEST(AllPartitions, n6_p6_1_2_3_0_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 3, 2, 3}, {1, 1000, 1004, 1005, 2, 3}, {1000, 1, 2, 3, 1004, 1005}, {1000, 1000, 1004, 1005, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 3, 2, 3},
+                                                    {1, 1000, 1004, 1005, 2, 3},
+                                                    {1000, 1, 2, 3, 1004, 1005},
+                                                    {1000, 1000, 1004, 1005, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -367,7 +414,10 @@ TEST(AllPartitions, n6_p7_0_2_3_1_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 3, 2, 3}, {0, 1001, 2, 3, 1004, 1005}, {1001, 0, 1004, 1005, 2, 3}, {1001, 1001, 1004, 1005, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 3, 2, 3},
+                                                    {0, 1001, 2, 3, 1004, 1005},
+                                                    {1001, 0, 1004, 1005, 2, 3},
+                                                    {1001, 1001, 1004, 1005, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -382,7 +432,10 @@ TEST(AllPartitions, n6_p8_2_3_0_1_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1000, 1001, 2, 3, 1004, 1005}, {1000, 1001, 1000, 1001, 1004, 1005}, {1000, 1001, 1001, 1004, 1004, 1005}, {1000, 1001, 1004, 1005, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1000, 1001, 2, 3, 1004, 1005},
+                                                    {1000, 1001, 1000, 1001, 1004, 1005},
+                                                    {1000, 1001, 1001, 1004, 1004, 1005},
+                                                    {1000, 1001, 1004, 1005, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -397,7 +450,33 @@ TEST(AllPartitions, n6_p9_0_1_2_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 1, 0, 1}, {0, 1, 0, 1, 1002, 1003}, {0, 1, 0, 1, 2004, 2005}, {0, 1, 1002, 1003, 0, 1}, {0, 1, 1002, 1003, 1002, 1003}, {0, 1, 1002, 1003, 2004, 2005}, {0, 1, 2004, 2005, 0, 1}, {0, 1, 2004, 2005, 1002, 1003}, {0, 1, 2004, 2005, 2004, 2005}, {1002, 1003, 0, 1, 0, 1}, {1002, 1003, 0, 1, 1002, 1003}, {1002, 1003, 0, 1, 2004, 2005}, {1002, 1003, 1002, 1003, 0, 1}, {1002, 1003, 1002, 1003, 1002, 1003}, {1002, 1003, 1002, 1003, 2004, 2005}, {1002, 1003, 2004, 2005, 0, 1}, {1002, 1003, 2004, 2005, 1002, 1003}, {1002, 1003, 2004, 2005, 2004, 2005}, {2004, 2005, 0, 1, 0, 1}, {2004, 2005, 0, 1, 1002, 1003}, {2004, 2005, 0, 1, 2004, 2005}, {2004, 2005, 1002, 1003, 0, 1}, {2004, 2005, 1002, 1003, 1002, 1003}, {2004, 2005, 1002, 1003, 2004, 2005}, {2004, 2005, 2004, 2005, 0, 1}, {2004, 2005, 2004, 2005, 1002, 1003}, {2004, 2005, 2004, 2005, 2004, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 1, 0, 1},
+                                                    {0, 1, 0, 1, 1002, 1003},
+                                                    {0, 1, 0, 1, 2004, 2005},
+                                                    {0, 1, 1002, 1003, 0, 1},
+                                                    {0, 1, 1002, 1003, 1002, 1003},
+                                                    {0, 1, 1002, 1003, 2004, 2005},
+                                                    {0, 1, 2004, 2005, 0, 1},
+                                                    {0, 1, 2004, 2005, 1002, 1003},
+                                                    {0, 1, 2004, 2005, 2004, 2005},
+                                                    {1002, 1003, 0, 1, 0, 1},
+                                                    {1002, 1003, 0, 1, 1002, 1003},
+                                                    {1002, 1003, 0, 1, 2004, 2005},
+                                                    {1002, 1003, 1002, 1003, 0, 1},
+                                                    {1002, 1003, 1002, 1003, 1002, 1003},
+                                                    {1002, 1003, 1002, 1003, 2004, 2005},
+                                                    {1002, 1003, 2004, 2005, 0, 1},
+                                                    {1002, 1003, 2004, 2005, 1002, 1003},
+                                                    {1002, 1003, 2004, 2005, 2004, 2005},
+                                                    {2004, 2005, 0, 1, 0, 1},
+                                                    {2004, 2005, 0, 1, 1002, 1003},
+                                                    {2004, 2005, 0, 1, 2004, 2005},
+                                                    {2004, 2005, 1002, 1003, 0, 1},
+                                                    {2004, 2005, 1002, 1003, 1002, 1003},
+                                                    {2004, 2005, 1002, 1003, 2004, 2005},
+                                                    {2004, 2005, 2004, 2005, 0, 1},
+                                                    {2004, 2005, 2004, 2005, 1002, 1003},
+                                                    {2004, 2005, 2004, 2005, 2004, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -412,7 +491,10 @@ TEST(AllPartitions, n6_p10_0_1_3_2_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 3, 1, 3}, {0, 1, 1002, 3, 1004, 1005}, {1002, 1004, 0, 1005, 1, 3}, {1002, 1004, 1002, 1005, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 3, 1, 3},
+                                                    {0, 1, 1002, 3, 1004, 1005},
+                                                    {1002, 1004, 0, 1005, 1, 3},
+                                                    {1002, 1004, 1002, 1005, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -427,7 +509,10 @@ TEST(AllPartitions, n6_p11_1_3_0_2_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1000, 1, 1002, 3, 1004, 1005}, {1000, 1000, 1002, 1002, 1004, 1005}, {1000, 1002, 1002, 1004, 1004, 1005}, {1000, 1004, 1002, 1005, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1000, 1, 1002, 3, 1004, 1005},
+                                                    {1000, 1000, 1002, 1002, 1004, 1005},
+                                                    {1000, 1002, 1002, 1004, 1004, 1005},
+                                                    {1000, 1004, 1002, 1005, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -442,7 +527,10 @@ TEST(AllPartitions, n6_p12_0_3_1_2_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1001, 1002, 3, 1004, 1005}, {1001, 1001, 1002, 1002, 1004, 1005}, {1002, 1001, 1002, 1004, 1004, 1005}, {1004, 1001, 1002, 1005, 1004, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1001, 1002, 3, 1004, 1005},
+                                                    {1001, 1001, 1002, 1002, 1004, 1005},
+                                                    {1002, 1001, 1002, 1004, 1004, 1005},
+                                                    {1004, 1001, 1002, 1005, 1004, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -457,7 +545,33 @@ TEST(AllPartitions, n6_p13_1_2_0_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 2, 1, 2}, {1, 1, 2, 2, 1000, 1003}, {1, 1, 2, 2, 2004, 2005}, {1, 1000, 1003, 2, 1, 2}, {1, 1000, 1003, 2, 1000, 1003}, {1, 1000, 1003, 2, 2004, 2005}, {1, 2004, 2005, 2, 1, 2}, {1, 2004, 2005, 2, 1000, 1003}, {1, 2004, 2005, 2, 2004, 2005}, {1000, 1, 2, 1003, 1, 2}, {1000, 1, 2, 1003, 1000, 1003}, {1000, 1, 2, 1003, 2004, 2005}, {1000, 1000, 1003, 1003, 1, 2}, {1000, 1000, 1003, 1003, 1000, 1003}, {1000, 1000, 1003, 1003, 2004, 2005}, {1000, 2004, 2005, 1003, 1, 2}, {1000, 2004, 2005, 1003, 1000, 1003}, {1000, 2004, 2005, 1003, 2004, 2005}, {2004, 1, 2, 2005, 1, 2}, {2004, 1, 2, 2005, 1000, 1003}, {2004, 1, 2, 2005, 2004, 2005}, {2004, 1000, 1003, 2005, 1, 2}, {2004, 1000, 1003, 2005, 1000, 1003}, {2004, 1000, 1003, 2005, 2004, 2005}, {2004, 2004, 2005, 2005, 1, 2}, {2004, 2004, 2005, 2005, 1000, 1003}, {2004, 2004, 2005, 2005, 2004, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 2, 1, 2},
+                                                    {1, 1, 2, 2, 1000, 1003},
+                                                    {1, 1, 2, 2, 2004, 2005},
+                                                    {1, 1000, 1003, 2, 1, 2},
+                                                    {1, 1000, 1003, 2, 1000, 1003},
+                                                    {1, 1000, 1003, 2, 2004, 2005},
+                                                    {1, 2004, 2005, 2, 1, 2},
+                                                    {1, 2004, 2005, 2, 1000, 1003},
+                                                    {1, 2004, 2005, 2, 2004, 2005},
+                                                    {1000, 1, 2, 1003, 1, 2},
+                                                    {1000, 1, 2, 1003, 1000, 1003},
+                                                    {1000, 1, 2, 1003, 2004, 2005},
+                                                    {1000, 1000, 1003, 1003, 1, 2},
+                                                    {1000, 1000, 1003, 1003, 1000, 1003},
+                                                    {1000, 1000, 1003, 1003, 2004, 2005},
+                                                    {1000, 2004, 2005, 1003, 1, 2},
+                                                    {1000, 2004, 2005, 1003, 1000, 1003},
+                                                    {1000, 2004, 2005, 1003, 2004, 2005},
+                                                    {2004, 1, 2, 2005, 1, 2},
+                                                    {2004, 1, 2, 2005, 1000, 1003},
+                                                    {2004, 1, 2, 2005, 2004, 2005},
+                                                    {2004, 1000, 1003, 2005, 1, 2},
+                                                    {2004, 1000, 1003, 2005, 1000, 1003},
+                                                    {2004, 1000, 1003, 2005, 2004, 2005},
+                                                    {2004, 2004, 2005, 2005, 1, 2},
+                                                    {2004, 2004, 2005, 2005, 1000, 1003},
+                                                    {2004, 2004, 2005, 2005, 2004, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -472,7 +586,33 @@ TEST(AllPartitions, n6_p14_0_2_1_3_4_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 2, 0, 2}, {0, 0, 2, 2, 1001, 1003}, {0, 0, 2, 2, 2004, 2005}, {0, 1001, 2, 1003, 0, 2}, {0, 1001, 2, 1003, 1001, 1003}, {0, 1001, 2, 1003, 2004, 2005}, {0, 2004, 2, 2005, 0, 2}, {0, 2004, 2, 2005, 1001, 1003}, {0, 2004, 2, 2005, 2004, 2005}, {1001, 0, 1003, 2, 0, 2}, {1001, 0, 1003, 2, 1001, 1003}, {1001, 0, 1003, 2, 2004, 2005}, {1001, 1001, 1003, 1003, 0, 2}, {1001, 1001, 1003, 1003, 1001, 1003}, {1001, 1001, 1003, 1003, 2004, 2005}, {1001, 2004, 1003, 2005, 0, 2}, {1001, 2004, 1003, 2005, 1001, 1003}, {1001, 2004, 1003, 2005, 2004, 2005}, {2004, 0, 2005, 2, 0, 2}, {2004, 0, 2005, 2, 1001, 1003}, {2004, 0, 2005, 2, 2004, 2005}, {2004, 1001, 2005, 1003, 0, 2}, {2004, 1001, 2005, 1003, 1001, 1003}, {2004, 1001, 2005, 1003, 2004, 2005}, {2004, 2004, 2005, 2005, 0, 2}, {2004, 2004, 2005, 2005, 1001, 1003}, {2004, 2004, 2005, 2005, 2004, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 2, 0, 2},
+                                                    {0, 0, 2, 2, 1001, 1003},
+                                                    {0, 0, 2, 2, 2004, 2005},
+                                                    {0, 1001, 2, 1003, 0, 2},
+                                                    {0, 1001, 2, 1003, 1001, 1003},
+                                                    {0, 1001, 2, 1003, 2004, 2005},
+                                                    {0, 2004, 2, 2005, 0, 2},
+                                                    {0, 2004, 2, 2005, 1001, 1003},
+                                                    {0, 2004, 2, 2005, 2004, 2005},
+                                                    {1001, 0, 1003, 2, 0, 2},
+                                                    {1001, 0, 1003, 2, 1001, 1003},
+                                                    {1001, 0, 1003, 2, 2004, 2005},
+                                                    {1001, 1001, 1003, 1003, 0, 2},
+                                                    {1001, 1001, 1003, 1003, 1001, 1003},
+                                                    {1001, 1001, 1003, 1003, 2004, 2005},
+                                                    {1001, 2004, 1003, 2005, 0, 2},
+                                                    {1001, 2004, 1003, 2005, 1001, 1003},
+                                                    {1001, 2004, 1003, 2005, 2004, 2005},
+                                                    {2004, 0, 2005, 2, 0, 2},
+                                                    {2004, 0, 2005, 2, 1001, 1003},
+                                                    {2004, 0, 2005, 2, 2004, 2005},
+                                                    {2004, 1001, 2005, 1003, 0, 2},
+                                                    {2004, 1001, 2005, 1003, 1001, 1003},
+                                                    {2004, 1001, 2005, 1003, 2004, 2005},
+                                                    {2004, 2004, 2005, 2005, 0, 2},
+                                                    {2004, 2004, 2005, 2005, 1001, 1003},
+                                                    {2004, 2004, 2005, 2005, 2004, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -487,7 +627,10 @@ TEST(AllPartitions, n6_p15_1_2_3_4_0_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 3, 4, 2}, {2, 1, 2, 3, 4, 3}, {3, 1, 2, 3, 4, 4}, {1000, 1, 2, 3, 4, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 3, 4, 2},
+                                                    {2, 1, 2, 3, 4, 3},
+                                                    {3, 1, 2, 3, 4, 4},
+                                                    {1000, 1, 2, 3, 4, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -502,7 +645,10 @@ TEST(AllPartitions, n6_p16_0_2_3_4_1_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 3, 4, 2}, {0, 2, 2, 3, 4, 3}, {0, 3, 2, 3, 4, 4}, {0, 1001, 2, 3, 4, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 3, 4, 2},
+                                                    {0, 2, 2, 3, 4, 3},
+                                                    {0, 3, 2, 3, 4, 4},
+                                                    {0, 1001, 2, 3, 4, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -517,7 +663,10 @@ TEST(AllPartitions, n6_p17_2_3_4_0_1_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{2, 3, 2, 3, 4, 4}, {2, 3, 1000, 1001, 1005, 4}, {1000, 1001, 2, 3, 4, 1005}, {1000, 1001, 1000, 1001, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{2, 3, 2, 3, 4, 4},
+                                                    {2, 3, 1000, 1001, 1005, 4},
+                                                    {1000, 1001, 2, 3, 4, 1005},
+                                                    {1000, 1001, 1000, 1001, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -532,7 +681,10 @@ TEST(AllPartitions, n6_p18_0_1_3_4_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 3, 4, 1}, {0, 1, 1, 3, 4, 3}, {0, 1, 3, 3, 4, 4}, {0, 1, 1002, 3, 4, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 3, 4, 1},
+                                                    {0, 1, 1, 3, 4, 3},
+                                                    {0, 1, 3, 3, 4, 4},
+                                                    {0, 1, 1002, 3, 4, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -547,7 +699,10 @@ TEST(AllPartitions, n6_p19_1_3_4_0_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 3, 3, 4, 4}, {1, 1000, 3, 1002, 1005, 4}, {1000, 1, 1002, 3, 4, 1005}, {1000, 1000, 1002, 1002, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 3, 3, 4, 4},
+                                                    {1, 1000, 3, 1002, 1005, 4},
+                                                    {1000, 1, 1002, 3, 4, 1005},
+                                                    {1000, 1000, 1002, 1002, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -562,7 +717,10 @@ TEST(AllPartitions, n6_p20_0_3_4_1_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 3, 3, 4, 4}, {0, 1001, 1002, 3, 4, 1005}, {1001, 0, 3, 1002, 1005, 4}, {1001, 1001, 1002, 1002, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 3, 3, 4, 4},
+                                                    {0, 1001, 1002, 3, 4, 1005},
+                                                    {1001, 0, 3, 1002, 1005, 4},
+                                                    {1001, 1001, 1002, 1002, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -577,7 +735,10 @@ TEST(AllPartitions, n6_p21_3_4_0_1_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1000, 1001, 1002, 3, 4, 1005}, {1000, 1001, 1002, 1000, 1001, 1005}, {1000, 1001, 1002, 1001, 1002, 1005}, {1000, 1001, 1002, 1002, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1000, 1001, 1002, 3, 4, 1005},
+                                                    {1000, 1001, 1002, 1000, 1001, 1005},
+                                                    {1000, 1001, 1002, 1001, 1002, 1005},
+                                                    {1000, 1001, 1002, 1002, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -592,7 +753,33 @@ TEST(AllPartitions, n6_p22_0_1_3_4_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 0, 1, 1}, {0, 1, 0, 1003, 1004, 1}, {0, 1, 0, 2002, 2005, 1}, {0, 1, 1003, 0, 1, 1004}, {0, 1, 1003, 1003, 1004, 1004}, {0, 1, 1003, 2002, 2005, 1004}, {0, 1, 2002, 0, 1, 2005}, {0, 1, 2002, 1003, 1004, 2005}, {0, 1, 2002, 2002, 2005, 2005}, {1003, 1004, 0, 0, 1, 1}, {1003, 1004, 0, 1003, 1004, 1}, {1003, 1004, 0, 2002, 2005, 1}, {1003, 1004, 1003, 0, 1, 1004}, {1003, 1004, 1003, 1003, 1004, 1004}, {1003, 1004, 1003, 2002, 2005, 1004}, {1003, 1004, 2002, 0, 1, 2005}, {1003, 1004, 2002, 1003, 1004, 2005}, {1003, 1004, 2002, 2002, 2005, 2005}, {2002, 2005, 0, 0, 1, 1}, {2002, 2005, 0, 1003, 1004, 1}, {2002, 2005, 0, 2002, 2005, 1}, {2002, 2005, 1003, 0, 1, 1004}, {2002, 2005, 1003, 1003, 1004, 1004}, {2002, 2005, 1003, 2002, 2005, 1004}, {2002, 2005, 2002, 0, 1, 2005}, {2002, 2005, 2002, 1003, 1004, 2005}, {2002, 2005, 2002, 2002, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 0, 1, 1},
+                                                    {0, 1, 0, 1003, 1004, 1},
+                                                    {0, 1, 0, 2002, 2005, 1},
+                                                    {0, 1, 1003, 0, 1, 1004},
+                                                    {0, 1, 1003, 1003, 1004, 1004},
+                                                    {0, 1, 1003, 2002, 2005, 1004},
+                                                    {0, 1, 2002, 0, 1, 2005},
+                                                    {0, 1, 2002, 1003, 1004, 2005},
+                                                    {0, 1, 2002, 2002, 2005, 2005},
+                                                    {1003, 1004, 0, 0, 1, 1},
+                                                    {1003, 1004, 0, 1003, 1004, 1},
+                                                    {1003, 1004, 0, 2002, 2005, 1},
+                                                    {1003, 1004, 1003, 0, 1, 1004},
+                                                    {1003, 1004, 1003, 1003, 1004, 1004},
+                                                    {1003, 1004, 1003, 2002, 2005, 1004},
+                                                    {1003, 1004, 2002, 0, 1, 2005},
+                                                    {1003, 1004, 2002, 1003, 1004, 2005},
+                                                    {1003, 1004, 2002, 2002, 2005, 2005},
+                                                    {2002, 2005, 0, 0, 1, 1},
+                                                    {2002, 2005, 0, 1003, 1004, 1},
+                                                    {2002, 2005, 0, 2002, 2005, 1},
+                                                    {2002, 2005, 1003, 0, 1, 1004},
+                                                    {2002, 2005, 1003, 1003, 1004, 1004},
+                                                    {2002, 2005, 1003, 2002, 2005, 1004},
+                                                    {2002, 2005, 2002, 0, 1, 2005},
+                                                    {2002, 2005, 2002, 1003, 1004, 2005},
+                                                    {2002, 2005, 2002, 2002, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -607,7 +794,33 @@ TEST(AllPartitions, n6_p23_1_2_3_4_0_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 1, 2, 2}, {1, 1, 2, 1003, 1004, 2}, {1, 1, 2, 2000, 2005, 2}, {1, 1003, 1004, 1, 2, 2}, {1, 1003, 1004, 1003, 1004, 2}, {1, 1003, 1004, 2000, 2005, 2}, {1, 2000, 2005, 1, 2, 2}, {1, 2000, 2005, 1003, 1004, 2}, {1, 2000, 2005, 2000, 2005, 2}, {1003, 1, 2, 1, 2, 1004}, {1003, 1, 2, 1003, 1004, 1004}, {1003, 1, 2, 2000, 2005, 1004}, {1003, 1003, 1004, 1, 2, 1004}, {1003, 1003, 1004, 1003, 1004, 1004}, {1003, 1003, 1004, 2000, 2005, 1004}, {1003, 2000, 2005, 1, 2, 1004}, {1003, 2000, 2005, 1003, 1004, 1004}, {1003, 2000, 2005, 2000, 2005, 1004}, {2000, 1, 2, 1, 2, 2005}, {2000, 1, 2, 1003, 1004, 2005}, {2000, 1, 2, 2000, 2005, 2005}, {2000, 1003, 1004, 1, 2, 2005}, {2000, 1003, 1004, 1003, 1004, 2005}, {2000, 1003, 1004, 2000, 2005, 2005}, {2000, 2000, 2005, 1, 2, 2005}, {2000, 2000, 2005, 1003, 1004, 2005}, {2000, 2000, 2005, 2000, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 1, 2, 2},
+                                                    {1, 1, 2, 1003, 1004, 2},
+                                                    {1, 1, 2, 2000, 2005, 2},
+                                                    {1, 1003, 1004, 1, 2, 2},
+                                                    {1, 1003, 1004, 1003, 1004, 2},
+                                                    {1, 1003, 1004, 2000, 2005, 2},
+                                                    {1, 2000, 2005, 1, 2, 2},
+                                                    {1, 2000, 2005, 1003, 1004, 2},
+                                                    {1, 2000, 2005, 2000, 2005, 2},
+                                                    {1003, 1, 2, 1, 2, 1004},
+                                                    {1003, 1, 2, 1003, 1004, 1004},
+                                                    {1003, 1, 2, 2000, 2005, 1004},
+                                                    {1003, 1003, 1004, 1, 2, 1004},
+                                                    {1003, 1003, 1004, 1003, 1004, 1004},
+                                                    {1003, 1003, 1004, 2000, 2005, 1004},
+                                                    {1003, 2000, 2005, 1, 2, 1004},
+                                                    {1003, 2000, 2005, 1003, 1004, 1004},
+                                                    {1003, 2000, 2005, 2000, 2005, 1004},
+                                                    {2000, 1, 2, 1, 2, 2005},
+                                                    {2000, 1, 2, 1003, 1004, 2005},
+                                                    {2000, 1, 2, 2000, 2005, 2005},
+                                                    {2000, 1003, 1004, 1, 2, 2005},
+                                                    {2000, 1003, 1004, 1003, 1004, 2005},
+                                                    {2000, 1003, 1004, 2000, 2005, 2005},
+                                                    {2000, 2000, 2005, 1, 2, 2005},
+                                                    {2000, 2000, 2005, 1003, 1004, 2005},
+                                                    {2000, 2000, 2005, 2000, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -622,7 +835,33 @@ TEST(AllPartitions, n6_p24_0_2_3_4_1_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 0, 2, 2}, {0, 0, 2, 1003, 1004, 2}, {0, 0, 2, 2001, 2005, 2}, {0, 1003, 2, 0, 2, 1004}, {0, 1003, 2, 1003, 1004, 1004}, {0, 1003, 2, 2001, 2005, 1004}, {0, 2001, 2, 0, 2, 2005}, {0, 2001, 2, 1003, 1004, 2005}, {0, 2001, 2, 2001, 2005, 2005}, {1003, 0, 1004, 0, 2, 2}, {1003, 0, 1004, 1003, 1004, 2}, {1003, 0, 1004, 2001, 2005, 2}, {1003, 1003, 1004, 0, 2, 1004}, {1003, 1003, 1004, 1003, 1004, 1004}, {1003, 1003, 1004, 2001, 2005, 1004}, {1003, 2001, 1004, 0, 2, 2005}, {1003, 2001, 1004, 1003, 1004, 2005}, {1003, 2001, 1004, 2001, 2005, 2005}, {2001, 0, 2005, 0, 2, 2}, {2001, 0, 2005, 1003, 1004, 2}, {2001, 0, 2005, 2001, 2005, 2}, {2001, 1003, 2005, 0, 2, 1004}, {2001, 1003, 2005, 1003, 1004, 1004}, {2001, 1003, 2005, 2001, 2005, 1004}, {2001, 2001, 2005, 0, 2, 2005}, {2001, 2001, 2005, 1003, 1004, 2005}, {2001, 2001, 2005, 2001, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 0, 2, 2},
+                                                    {0, 0, 2, 1003, 1004, 2},
+                                                    {0, 0, 2, 2001, 2005, 2},
+                                                    {0, 1003, 2, 0, 2, 1004},
+                                                    {0, 1003, 2, 1003, 1004, 1004},
+                                                    {0, 1003, 2, 2001, 2005, 1004},
+                                                    {0, 2001, 2, 0, 2, 2005},
+                                                    {0, 2001, 2, 1003, 1004, 2005},
+                                                    {0, 2001, 2, 2001, 2005, 2005},
+                                                    {1003, 0, 1004, 0, 2, 2},
+                                                    {1003, 0, 1004, 1003, 1004, 2},
+                                                    {1003, 0, 1004, 2001, 2005, 2},
+                                                    {1003, 1003, 1004, 0, 2, 1004},
+                                                    {1003, 1003, 1004, 1003, 1004, 1004},
+                                                    {1003, 1003, 1004, 2001, 2005, 1004},
+                                                    {1003, 2001, 1004, 0, 2, 2005},
+                                                    {1003, 2001, 1004, 1003, 1004, 2005},
+                                                    {1003, 2001, 1004, 2001, 2005, 2005},
+                                                    {2001, 0, 2005, 0, 2, 2},
+                                                    {2001, 0, 2005, 1003, 1004, 2},
+                                                    {2001, 0, 2005, 2001, 2005, 2},
+                                                    {2001, 1003, 2005, 0, 2, 1004},
+                                                    {2001, 1003, 2005, 1003, 1004, 1004},
+                                                    {2001, 1003, 2005, 2001, 2005, 1004},
+                                                    {2001, 2001, 2005, 0, 2, 2005},
+                                                    {2001, 2001, 2005, 1003, 1004, 2005},
+                                                    {2001, 2001, 2005, 2001, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -637,7 +876,10 @@ TEST(AllPartitions, n6_p25_0_1_2_4_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 2, 0, 4, 1}, {0, 1, 2, 1, 4, 2}, {0, 1, 2, 2, 4, 4}, {0, 1, 2, 1003, 4, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 2, 0, 4, 1},
+                                                    {0, 1, 2, 1, 4, 2},
+                                                    {0, 1, 2, 2, 4, 4},
+                                                    {0, 1, 2, 1003, 4, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -652,7 +894,10 @@ TEST(AllPartitions, n6_p26_1_2_4_0_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 2, 4, 4}, {1, 1000, 1003, 2, 1005, 4}, {1000, 1, 2, 1003, 4, 1005}, {1000, 1000, 1003, 1003, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 2, 4, 4},
+                                                    {1, 1000, 1003, 2, 1005, 4},
+                                                    {1000, 1, 2, 1003, 4, 1005},
+                                                    {1000, 1000, 1003, 1003, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -667,7 +912,10 @@ TEST(AllPartitions, n6_p27_0_2_4_1_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 2, 4, 4}, {0, 1001, 2, 1003, 4, 1005}, {1001, 0, 1003, 2, 1005, 4}, {1001, 1001, 1003, 1003, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 2, 4, 4},
+                                                    {0, 1001, 2, 1003, 4, 1005},
+                                                    {1001, 0, 1003, 2, 1005, 4},
+                                                    {1001, 1001, 1003, 1003, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -682,7 +930,10 @@ TEST(AllPartitions, n6_p28_2_4_0_1_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1000, 1001, 2, 1003, 4, 1005}, {1000, 1001, 1000, 1003, 1001, 1005}, {1000, 1001, 1001, 1003, 1003, 1005}, {1000, 1001, 1003, 1003, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1000, 1001, 2, 1003, 4, 1005},
+                                                    {1000, 1001, 1000, 1003, 1001, 1005},
+                                                    {1000, 1001, 1001, 1003, 1003, 1005},
+                                                    {1000, 1001, 1003, 1003, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -697,7 +948,33 @@ TEST(AllPartitions, n6_p29_0_1_2_4_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 0, 1, 1}, {0, 1, 0, 1002, 1, 1004}, {0, 1, 0, 2003, 1, 2005}, {0, 1, 1002, 0, 1004, 1}, {0, 1, 1002, 1002, 1004, 1004}, {0, 1, 1002, 2003, 1004, 2005}, {0, 1, 2003, 0, 2005, 1}, {0, 1, 2003, 1002, 2005, 1004}, {0, 1, 2003, 2003, 2005, 2005}, {1002, 1004, 0, 0, 1, 1}, {1002, 1004, 0, 1002, 1, 1004}, {1002, 1004, 0, 2003, 1, 2005}, {1002, 1004, 1002, 0, 1004, 1}, {1002, 1004, 1002, 1002, 1004, 1004}, {1002, 1004, 1002, 2003, 1004, 2005}, {1002, 1004, 2003, 0, 2005, 1}, {1002, 1004, 2003, 1002, 2005, 1004}, {1002, 1004, 2003, 2003, 2005, 2005}, {2003, 2005, 0, 0, 1, 1}, {2003, 2005, 0, 1002, 1, 1004}, {2003, 2005, 0, 2003, 1, 2005}, {2003, 2005, 1002, 0, 1004, 1}, {2003, 2005, 1002, 1002, 1004, 1004}, {2003, 2005, 1002, 2003, 1004, 2005}, {2003, 2005, 2003, 0, 2005, 1}, {2003, 2005, 2003, 1002, 2005, 1004}, {2003, 2005, 2003, 2003, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 0, 1, 1},
+                                                    {0, 1, 0, 1002, 1, 1004},
+                                                    {0, 1, 0, 2003, 1, 2005},
+                                                    {0, 1, 1002, 0, 1004, 1},
+                                                    {0, 1, 1002, 1002, 1004, 1004},
+                                                    {0, 1, 1002, 2003, 1004, 2005},
+                                                    {0, 1, 2003, 0, 2005, 1},
+                                                    {0, 1, 2003, 1002, 2005, 1004},
+                                                    {0, 1, 2003, 2003, 2005, 2005},
+                                                    {1002, 1004, 0, 0, 1, 1},
+                                                    {1002, 1004, 0, 1002, 1, 1004},
+                                                    {1002, 1004, 0, 2003, 1, 2005},
+                                                    {1002, 1004, 1002, 0, 1004, 1},
+                                                    {1002, 1004, 1002, 1002, 1004, 1004},
+                                                    {1002, 1004, 1002, 2003, 1004, 2005},
+                                                    {1002, 1004, 2003, 0, 2005, 1},
+                                                    {1002, 1004, 2003, 1002, 2005, 1004},
+                                                    {1002, 1004, 2003, 2003, 2005, 2005},
+                                                    {2003, 2005, 0, 0, 1, 1},
+                                                    {2003, 2005, 0, 1002, 1, 1004},
+                                                    {2003, 2005, 0, 2003, 1, 2005},
+                                                    {2003, 2005, 1002, 0, 1004, 1},
+                                                    {2003, 2005, 1002, 1002, 1004, 1004},
+                                                    {2003, 2005, 1002, 2003, 1004, 2005},
+                                                    {2003, 2005, 2003, 0, 2005, 1},
+                                                    {2003, 2005, 2003, 1002, 2005, 1004},
+                                                    {2003, 2005, 2003, 2003, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -712,7 +989,10 @@ TEST(AllPartitions, n6_p30_0_1_4_2_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 1, 4, 4}, {0, 1, 1002, 1003, 4, 1005}, {1002, 1003, 0, 1, 1005, 4}, {1002, 1003, 1002, 1003, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1, 0, 1, 4, 4},
+                                                    {0, 1, 1002, 1003, 4, 1005},
+                                                    {1002, 1003, 0, 1, 1005, 4},
+                                                    {1002, 1003, 1002, 1003, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -727,7 +1007,10 @@ TEST(AllPartitions, n6_p31_1_4_0_2_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1000, 1, 1002, 1003, 4, 1005}, {1000, 1000, 1002, 1003, 1002, 1005}, {1000, 1002, 1002, 1003, 1003, 1005}, {1000, 1003, 1002, 1003, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1000, 1, 1002, 1003, 4, 1005},
+                                                    {1000, 1000, 1002, 1003, 1002, 1005},
+                                                    {1000, 1002, 1002, 1003, 1003, 1005},
+                                                    {1000, 1003, 1002, 1003, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -742,7 +1025,10 @@ TEST(AllPartitions, n6_p32_0_4_1_2_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 1001, 1002, 1003, 4, 1005}, {1001, 1001, 1002, 1003, 1002, 1005}, {1002, 1001, 1002, 1003, 1003, 1005}, {1003, 1001, 1002, 1003, 1005, 1005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 1001, 1002, 1003, 4, 1005},
+                                                    {1001, 1001, 1002, 1003, 1002, 1005},
+                                                    {1002, 1001, 1002, 1003, 1003, 1005},
+                                                    {1003, 1001, 1002, 1003, 1005, 1005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -757,7 +1043,33 @@ TEST(AllPartitions, n6_p33_1_2_0_4_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 1, 2, 2}, {1, 1, 2, 1000, 2, 1004}, {1, 1, 2, 2003, 2, 2005}, {1, 1000, 1004, 1, 2, 2}, {1, 1000, 1004, 1000, 2, 1004}, {1, 1000, 1004, 2003, 2, 2005}, {1, 2003, 2005, 1, 2, 2}, {1, 2003, 2005, 1000, 2, 1004}, {1, 2003, 2005, 2003, 2, 2005}, {1000, 1, 2, 1, 1004, 2}, {1000, 1, 2, 1000, 1004, 1004}, {1000, 1, 2, 2003, 1004, 2005}, {1000, 1000, 1004, 1, 1004, 2}, {1000, 1000, 1004, 1000, 1004, 1004}, {1000, 1000, 1004, 2003, 1004, 2005}, {1000, 2003, 2005, 1, 1004, 2}, {1000, 2003, 2005, 1000, 1004, 1004}, {1000, 2003, 2005, 2003, 1004, 2005}, {2003, 1, 2, 1, 2005, 2}, {2003, 1, 2, 1000, 2005, 1004}, {2003, 1, 2, 2003, 2005, 2005}, {2003, 1000, 1004, 1, 2005, 2}, {2003, 1000, 1004, 1000, 2005, 1004}, {2003, 1000, 1004, 2003, 2005, 2005}, {2003, 2003, 2005, 1, 2005, 2}, {2003, 2003, 2005, 1000, 2005, 1004}, {2003, 2003, 2005, 2003, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 2, 1, 2, 2},
+                                                    {1, 1, 2, 1000, 2, 1004},
+                                                    {1, 1, 2, 2003, 2, 2005},
+                                                    {1, 1000, 1004, 1, 2, 2},
+                                                    {1, 1000, 1004, 1000, 2, 1004},
+                                                    {1, 1000, 1004, 2003, 2, 2005},
+                                                    {1, 2003, 2005, 1, 2, 2},
+                                                    {1, 2003, 2005, 1000, 2, 1004},
+                                                    {1, 2003, 2005, 2003, 2, 2005},
+                                                    {1000, 1, 2, 1, 1004, 2},
+                                                    {1000, 1, 2, 1000, 1004, 1004},
+                                                    {1000, 1, 2, 2003, 1004, 2005},
+                                                    {1000, 1000, 1004, 1, 1004, 2},
+                                                    {1000, 1000, 1004, 1000, 1004, 1004},
+                                                    {1000, 1000, 1004, 2003, 1004, 2005},
+                                                    {1000, 2003, 2005, 1, 1004, 2},
+                                                    {1000, 2003, 2005, 1000, 1004, 1004},
+                                                    {1000, 2003, 2005, 2003, 1004, 2005},
+                                                    {2003, 1, 2, 1, 2005, 2},
+                                                    {2003, 1, 2, 1000, 2005, 1004},
+                                                    {2003, 1, 2, 2003, 2005, 2005},
+                                                    {2003, 1000, 1004, 1, 2005, 2},
+                                                    {2003, 1000, 1004, 1000, 2005, 1004},
+                                                    {2003, 1000, 1004, 2003, 2005, 2005},
+                                                    {2003, 2003, 2005, 1, 2005, 2},
+                                                    {2003, 2003, 2005, 1000, 2005, 1004},
+                                                    {2003, 2003, 2005, 2003, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -772,7 +1084,33 @@ TEST(AllPartitions, n6_p34_0_2_1_4_3_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 0, 2, 2}, {0, 0, 2, 1001, 2, 1004}, {0, 0, 2, 2003, 2, 2005}, {0, 1001, 2, 0, 1004, 2}, {0, 1001, 2, 1001, 1004, 1004}, {0, 1001, 2, 2003, 1004, 2005}, {0, 2003, 2, 0, 2005, 2}, {0, 2003, 2, 1001, 2005, 1004}, {0, 2003, 2, 2003, 2005, 2005}, {1001, 0, 1004, 0, 2, 2}, {1001, 0, 1004, 1001, 2, 1004}, {1001, 0, 1004, 2003, 2, 2005}, {1001, 1001, 1004, 0, 1004, 2}, {1001, 1001, 1004, 1001, 1004, 1004}, {1001, 1001, 1004, 2003, 1004, 2005}, {1001, 2003, 1004, 0, 2005, 2}, {1001, 2003, 1004, 1001, 2005, 1004}, {1001, 2003, 1004, 2003, 2005, 2005}, {2003, 0, 2005, 0, 2, 2}, {2003, 0, 2005, 1001, 2, 1004}, {2003, 0, 2005, 2003, 2, 2005}, {2003, 1001, 2005, 0, 1004, 2}, {2003, 1001, 2005, 1001, 1004, 1004}, {2003, 1001, 2005, 2003, 1004, 2005}, {2003, 2003, 2005, 0, 2005, 2}, {2003, 2003, 2005, 1001, 2005, 1004}, {2003, 2003, 2005, 2003, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 2, 0, 2, 2},
+                                                    {0, 0, 2, 1001, 2, 1004},
+                                                    {0, 0, 2, 2003, 2, 2005},
+                                                    {0, 1001, 2, 0, 1004, 2},
+                                                    {0, 1001, 2, 1001, 1004, 1004},
+                                                    {0, 1001, 2, 2003, 1004, 2005},
+                                                    {0, 2003, 2, 0, 2005, 2},
+                                                    {0, 2003, 2, 1001, 2005, 1004},
+                                                    {0, 2003, 2, 2003, 2005, 2005},
+                                                    {1001, 0, 1004, 0, 2, 2},
+                                                    {1001, 0, 1004, 1001, 2, 1004},
+                                                    {1001, 0, 1004, 2003, 2, 2005},
+                                                    {1001, 1001, 1004, 0, 1004, 2},
+                                                    {1001, 1001, 1004, 1001, 1004, 1004},
+                                                    {1001, 1001, 1004, 2003, 1004, 2005},
+                                                    {1001, 2003, 1004, 0, 2005, 2},
+                                                    {1001, 2003, 1004, 1001, 2005, 1004},
+                                                    {1001, 2003, 1004, 2003, 2005, 2005},
+                                                    {2003, 0, 2005, 0, 2, 2},
+                                                    {2003, 0, 2005, 1001, 2, 1004},
+                                                    {2003, 0, 2005, 2003, 2, 2005},
+                                                    {2003, 1001, 2005, 0, 1004, 2},
+                                                    {2003, 1001, 2005, 1001, 1004, 1004},
+                                                    {2003, 1001, 2005, 2003, 1004, 2005},
+                                                    {2003, 2003, 2005, 0, 2005, 2},
+                                                    {2003, 2003, 2005, 1001, 2005, 1004},
+                                                    {2003, 2003, 2005, 2003, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -787,7 +1125,33 @@ TEST(AllPartitions, n6_p35_2_3_1_4_0_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{2, 2, 2, 3, 3, 3}, {2, 2, 1001, 1004, 3, 3}, {2, 2, 2000, 2005, 3, 3}, {2, 1001, 2, 3, 1004, 3}, {2, 1001, 1001, 1004, 1004, 3}, {2, 1001, 2000, 2005, 1004, 3}, {2, 2000, 2, 3, 2005, 3}, {2, 2000, 1001, 1004, 2005, 3}, {2, 2000, 2000, 2005, 2005, 3}, {1001, 2, 2, 3, 3, 1004}, {1001, 2, 1001, 1004, 3, 1004}, {1001, 2, 2000, 2005, 3, 1004}, {1001, 1001, 2, 3, 1004, 1004}, {1001, 1001, 1001, 1004, 1004, 1004}, {1001, 1001, 2000, 2005, 1004, 1004}, {1001, 2000, 2, 3, 2005, 1004}, {1001, 2000, 1001, 1004, 2005, 1004}, {1001, 2000, 2000, 2005, 2005, 1004}, {2000, 2, 2, 3, 3, 2005}, {2000, 2, 1001, 1004, 3, 2005}, {2000, 2, 2000, 2005, 3, 2005}, {2000, 1001, 2, 3, 1004, 2005}, {2000, 1001, 1001, 1004, 1004, 2005}, {2000, 1001, 2000, 2005, 1004, 2005}, {2000, 2000, 2, 3, 2005, 2005}, {2000, 2000, 1001, 1004, 2005, 2005}, {2000, 2000, 2000, 2005, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{2, 2, 2, 3, 3, 3},
+                                                    {2, 2, 1001, 1004, 3, 3},
+                                                    {2, 2, 2000, 2005, 3, 3},
+                                                    {2, 1001, 2, 3, 1004, 3},
+                                                    {2, 1001, 1001, 1004, 1004, 3},
+                                                    {2, 1001, 2000, 2005, 1004, 3},
+                                                    {2, 2000, 2, 3, 2005, 3},
+                                                    {2, 2000, 1001, 1004, 2005, 3},
+                                                    {2, 2000, 2000, 2005, 2005, 3},
+                                                    {1001, 2, 2, 3, 3, 1004},
+                                                    {1001, 2, 1001, 1004, 3, 1004},
+                                                    {1001, 2, 2000, 2005, 3, 1004},
+                                                    {1001, 1001, 2, 3, 1004, 1004},
+                                                    {1001, 1001, 1001, 1004, 1004, 1004},
+                                                    {1001, 1001, 2000, 2005, 1004, 1004},
+                                                    {1001, 2000, 2, 3, 2005, 1004},
+                                                    {1001, 2000, 1001, 1004, 2005, 1004},
+                                                    {1001, 2000, 2000, 2005, 2005, 1004},
+                                                    {2000, 2, 2, 3, 3, 2005},
+                                                    {2000, 2, 1001, 1004, 3, 2005},
+                                                    {2000, 2, 2000, 2005, 3, 2005},
+                                                    {2000, 1001, 2, 3, 1004, 2005},
+                                                    {2000, 1001, 1001, 1004, 1004, 2005},
+                                                    {2000, 1001, 2000, 2005, 1004, 2005},
+                                                    {2000, 2000, 2, 3, 2005, 2005},
+                                                    {2000, 2000, 1001, 1004, 2005, 2005},
+                                                    {2000, 2000, 2000, 2005, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -802,7 +1166,33 @@ TEST(AllPartitions, n6_p36_2_3_0_4_1_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{2, 2, 2, 3, 3, 3}, {2, 2, 1000, 1004, 3, 3}, {2, 2, 2001, 2005, 3, 3}, {2, 1000, 2, 3, 3, 1004}, {2, 1000, 1000, 1004, 3, 1004}, {2, 1000, 2001, 2005, 3, 1004}, {2, 2001, 2, 3, 3, 2005}, {2, 2001, 1000, 1004, 3, 2005}, {2, 2001, 2001, 2005, 3, 2005}, {1000, 2, 2, 3, 1004, 3}, {1000, 2, 1000, 1004, 1004, 3}, {1000, 2, 2001, 2005, 1004, 3}, {1000, 1000, 2, 3, 1004, 1004}, {1000, 1000, 1000, 1004, 1004, 1004}, {1000, 1000, 2001, 2005, 1004, 1004}, {1000, 2001, 2, 3, 1004, 2005}, {1000, 2001, 1000, 1004, 1004, 2005}, {1000, 2001, 2001, 2005, 1004, 2005}, {2001, 2, 2, 3, 2005, 3}, {2001, 2, 1000, 1004, 2005, 3}, {2001, 2, 2001, 2005, 2005, 3}, {2001, 1000, 2, 3, 2005, 1004}, {2001, 1000, 1000, 1004, 2005, 1004}, {2001, 1000, 2001, 2005, 2005, 1004}, {2001, 2001, 2, 3, 2005, 2005}, {2001, 2001, 1000, 1004, 2005, 2005}, {2001, 2001, 2001, 2005, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{2, 2, 2, 3, 3, 3},
+                                                    {2, 2, 1000, 1004, 3, 3},
+                                                    {2, 2, 2001, 2005, 3, 3},
+                                                    {2, 1000, 2, 3, 3, 1004},
+                                                    {2, 1000, 1000, 1004, 3, 1004},
+                                                    {2, 1000, 2001, 2005, 3, 1004},
+                                                    {2, 2001, 2, 3, 3, 2005},
+                                                    {2, 2001, 1000, 1004, 3, 2005},
+                                                    {2, 2001, 2001, 2005, 3, 2005},
+                                                    {1000, 2, 2, 3, 1004, 3},
+                                                    {1000, 2, 1000, 1004, 1004, 3},
+                                                    {1000, 2, 2001, 2005, 1004, 3},
+                                                    {1000, 1000, 2, 3, 1004, 1004},
+                                                    {1000, 1000, 1000, 1004, 1004, 1004},
+                                                    {1000, 1000, 2001, 2005, 1004, 1004},
+                                                    {1000, 2001, 2, 3, 1004, 2005},
+                                                    {1000, 2001, 1000, 1004, 1004, 2005},
+                                                    {1000, 2001, 2001, 2005, 1004, 2005},
+                                                    {2001, 2, 2, 3, 2005, 3},
+                                                    {2001, 2, 1000, 1004, 2005, 3},
+                                                    {2001, 2, 2001, 2005, 2005, 3},
+                                                    {2001, 1000, 2, 3, 2005, 1004},
+                                                    {2001, 1000, 1000, 1004, 2005, 1004},
+                                                    {2001, 1000, 2001, 2005, 2005, 1004},
+                                                    {2001, 2001, 2, 3, 2005, 2005},
+                                                    {2001, 2001, 1000, 1004, 2005, 2005},
+                                                    {2001, 2001, 2001, 2005, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -817,7 +1207,33 @@ TEST(AllPartitions, n6_p37_1_3_2_4_0_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 1, 3, 3, 3}, {1, 1, 1002, 3, 1004, 3}, {1, 1, 2000, 3, 2005, 3}, {1, 1002, 1, 1004, 3, 3}, {1, 1002, 1002, 1004, 1004, 3}, {1, 1002, 2000, 1004, 2005, 3}, {1, 2000, 1, 2005, 3, 3}, {1, 2000, 1002, 2005, 1004, 3}, {1, 2000, 2000, 2005, 2005, 3}, {1002, 1, 1, 3, 3, 1004}, {1002, 1, 1002, 3, 1004, 1004}, {1002, 1, 2000, 3, 2005, 1004}, {1002, 1002, 1, 1004, 3, 1004}, {1002, 1002, 1002, 1004, 1004, 1004}, {1002, 1002, 2000, 1004, 2005, 1004}, {1002, 2000, 1, 2005, 3, 1004}, {1002, 2000, 1002, 2005, 1004, 1004}, {1002, 2000, 2000, 2005, 2005, 1004}, {2000, 1, 1, 3, 3, 2005}, {2000, 1, 1002, 3, 1004, 2005}, {2000, 1, 2000, 3, 2005, 2005}, {2000, 1002, 1, 1004, 3, 2005}, {2000, 1002, 1002, 1004, 1004, 2005}, {2000, 1002, 2000, 1004, 2005, 2005}, {2000, 2000, 1, 2005, 3, 2005}, {2000, 2000, 1002, 2005, 1004, 2005}, {2000, 2000, 2000, 2005, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 1, 3, 3, 3},
+                                                    {1, 1, 1002, 3, 1004, 3},
+                                                    {1, 1, 2000, 3, 2005, 3},
+                                                    {1, 1002, 1, 1004, 3, 3},
+                                                    {1, 1002, 1002, 1004, 1004, 3},
+                                                    {1, 1002, 2000, 1004, 2005, 3},
+                                                    {1, 2000, 1, 2005, 3, 3},
+                                                    {1, 2000, 1002, 2005, 1004, 3},
+                                                    {1, 2000, 2000, 2005, 2005, 3},
+                                                    {1002, 1, 1, 3, 3, 1004},
+                                                    {1002, 1, 1002, 3, 1004, 1004},
+                                                    {1002, 1, 2000, 3, 2005, 1004},
+                                                    {1002, 1002, 1, 1004, 3, 1004},
+                                                    {1002, 1002, 1002, 1004, 1004, 1004},
+                                                    {1002, 1002, 2000, 1004, 2005, 1004},
+                                                    {1002, 2000, 1, 2005, 3, 1004},
+                                                    {1002, 2000, 1002, 2005, 1004, 1004},
+                                                    {1002, 2000, 2000, 2005, 2005, 1004},
+                                                    {2000, 1, 1, 3, 3, 2005},
+                                                    {2000, 1, 1002, 3, 1004, 2005},
+                                                    {2000, 1, 2000, 3, 2005, 2005},
+                                                    {2000, 1002, 1, 1004, 3, 2005},
+                                                    {2000, 1002, 1002, 1004, 1004, 2005},
+                                                    {2000, 1002, 2000, 1004, 2005, 2005},
+                                                    {2000, 2000, 1, 2005, 3, 2005},
+                                                    {2000, 2000, 1002, 2005, 1004, 2005},
+                                                    {2000, 2000, 2000, 2005, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -832,7 +1248,33 @@ TEST(AllPartitions, n6_p38_0_3_2_4_1_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 0, 3, 3, 3}, {0, 0, 1002, 3, 1004, 3}, {0, 0, 2001, 3, 2005, 3}, {0, 1002, 0, 3, 3, 1004}, {0, 1002, 1002, 3, 1004, 1004}, {0, 1002, 2001, 3, 2005, 1004}, {0, 2001, 0, 3, 3, 2005}, {0, 2001, 1002, 3, 1004, 2005}, {0, 2001, 2001, 3, 2005, 2005}, {1002, 0, 0, 1004, 3, 3}, {1002, 0, 1002, 1004, 1004, 3}, {1002, 0, 2001, 1004, 2005, 3}, {1002, 1002, 0, 1004, 3, 1004}, {1002, 1002, 1002, 1004, 1004, 1004}, {1002, 1002, 2001, 1004, 2005, 1004}, {1002, 2001, 0, 1004, 3, 2005}, {1002, 2001, 1002, 1004, 1004, 2005}, {1002, 2001, 2001, 1004, 2005, 2005}, {2001, 0, 0, 2005, 3, 3}, {2001, 0, 1002, 2005, 1004, 3}, {2001, 0, 2001, 2005, 2005, 3}, {2001, 1002, 0, 2005, 3, 1004}, {2001, 1002, 1002, 2005, 1004, 1004}, {2001, 1002, 2001, 2005, 2005, 1004}, {2001, 2001, 0, 2005, 3, 2005}, {2001, 2001, 1002, 2005, 1004, 2005}, {2001, 2001, 2001, 2005, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 0, 3, 3, 3},
+                                                    {0, 0, 1002, 3, 1004, 3},
+                                                    {0, 0, 2001, 3, 2005, 3},
+                                                    {0, 1002, 0, 3, 3, 1004},
+                                                    {0, 1002, 1002, 3, 1004, 1004},
+                                                    {0, 1002, 2001, 3, 2005, 1004},
+                                                    {0, 2001, 0, 3, 3, 2005},
+                                                    {0, 2001, 1002, 3, 1004, 2005},
+                                                    {0, 2001, 2001, 3, 2005, 2005},
+                                                    {1002, 0, 0, 1004, 3, 3},
+                                                    {1002, 0, 1002, 1004, 1004, 3},
+                                                    {1002, 0, 2001, 1004, 2005, 3},
+                                                    {1002, 1002, 0, 1004, 3, 1004},
+                                                    {1002, 1002, 1002, 1004, 1004, 1004},
+                                                    {1002, 1002, 2001, 1004, 2005, 1004},
+                                                    {1002, 2001, 0, 1004, 3, 2005},
+                                                    {1002, 2001, 1002, 1004, 1004, 2005},
+                                                    {1002, 2001, 2001, 1004, 2005, 2005},
+                                                    {2001, 0, 0, 2005, 3, 3},
+                                                    {2001, 0, 1002, 2005, 1004, 3},
+                                                    {2001, 0, 2001, 2005, 2005, 3},
+                                                    {2001, 1002, 0, 2005, 3, 1004},
+                                                    {2001, 1002, 1002, 2005, 1004, 1004},
+                                                    {2001, 1002, 2001, 2005, 2005, 1004},
+                                                    {2001, 2001, 0, 2005, 3, 2005},
+                                                    {2001, 2001, 1002, 2005, 1004, 2005},
+                                                    {2001, 2001, 2001, 2005, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -847,7 +1289,33 @@ TEST(AllPartitions, n6_p39_1_3_0_4_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 1, 3, 3, 3}, {1, 1, 1000, 3, 3, 1004}, {1, 1, 2002, 3, 3, 2005}, {1, 1000, 1, 1004, 3, 3}, {1, 1000, 1000, 1004, 3, 1004}, {1, 1000, 2002, 1004, 3, 2005}, {1, 2002, 1, 2005, 3, 3}, {1, 2002, 1000, 2005, 3, 1004}, {1, 2002, 2002, 2005, 3, 2005}, {1000, 1, 1, 3, 1004, 3}, {1000, 1, 1000, 3, 1004, 1004}, {1000, 1, 2002, 3, 1004, 2005}, {1000, 1000, 1, 1004, 1004, 3}, {1000, 1000, 1000, 1004, 1004, 1004}, {1000, 1000, 2002, 1004, 1004, 2005}, {1000, 2002, 1, 2005, 1004, 3}, {1000, 2002, 1000, 2005, 1004, 1004}, {1000, 2002, 2002, 2005, 1004, 2005}, {2002, 1, 1, 3, 2005, 3}, {2002, 1, 1000, 3, 2005, 1004}, {2002, 1, 2002, 3, 2005, 2005}, {2002, 1000, 1, 1004, 2005, 3}, {2002, 1000, 1000, 1004, 2005, 1004}, {2002, 1000, 2002, 1004, 2005, 2005}, {2002, 2002, 1, 2005, 2005, 3}, {2002, 2002, 1000, 2005, 2005, 1004}, {2002, 2002, 2002, 2005, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{1, 1, 1, 3, 3, 3},
+                                                    {1, 1, 1000, 3, 3, 1004},
+                                                    {1, 1, 2002, 3, 3, 2005},
+                                                    {1, 1000, 1, 1004, 3, 3},
+                                                    {1, 1000, 1000, 1004, 3, 1004},
+                                                    {1, 1000, 2002, 1004, 3, 2005},
+                                                    {1, 2002, 1, 2005, 3, 3},
+                                                    {1, 2002, 1000, 2005, 3, 1004},
+                                                    {1, 2002, 2002, 2005, 3, 2005},
+                                                    {1000, 1, 1, 3, 1004, 3},
+                                                    {1000, 1, 1000, 3, 1004, 1004},
+                                                    {1000, 1, 2002, 3, 1004, 2005},
+                                                    {1000, 1000, 1, 1004, 1004, 3},
+                                                    {1000, 1000, 1000, 1004, 1004, 1004},
+                                                    {1000, 1000, 2002, 1004, 1004, 2005},
+                                                    {1000, 2002, 1, 2005, 1004, 3},
+                                                    {1000, 2002, 1000, 2005, 1004, 1004},
+                                                    {1000, 2002, 2002, 2005, 1004, 2005},
+                                                    {2002, 1, 1, 3, 2005, 3},
+                                                    {2002, 1, 1000, 3, 2005, 1004},
+                                                    {2002, 1, 2002, 3, 2005, 2005},
+                                                    {2002, 1000, 1, 1004, 2005, 3},
+                                                    {2002, 1000, 1000, 1004, 2005, 1004},
+                                                    {2002, 1000, 2002, 1004, 2005, 2005},
+                                                    {2002, 2002, 1, 2005, 2005, 3},
+                                                    {2002, 2002, 1000, 2005, 2005, 1004},
+                                                    {2002, 2002, 2002, 2005, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);
@@ -862,7 +1330,33 @@ TEST(AllPartitions, n6_p40_0_3_1_4_2_5) {
     dl.solve();
     auto actual = result.extract();
     std::sort(actual.begin(), actual.end());
-    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 0, 3, 3, 3}, {0, 0, 1001, 3, 3, 1004}, {0, 0, 2002, 3, 3, 2005}, {0, 1001, 0, 3, 1004, 3}, {0, 1001, 1001, 3, 1004, 1004}, {0, 1001, 2002, 3, 1004, 2005}, {0, 2002, 0, 3, 2005, 3}, {0, 2002, 1001, 3, 2005, 1004}, {0, 2002, 2002, 3, 2005, 2005}, {1001, 0, 0, 1004, 3, 3}, {1001, 0, 1001, 1004, 3, 1004}, {1001, 0, 2002, 1004, 3, 2005}, {1001, 1001, 0, 1004, 1004, 3}, {1001, 1001, 1001, 1004, 1004, 1004}, {1001, 1001, 2002, 1004, 1004, 2005}, {1001, 2002, 0, 1004, 2005, 3}, {1001, 2002, 1001, 1004, 2005, 1004}, {1001, 2002, 2002, 1004, 2005, 2005}, {2002, 0, 0, 2005, 3, 3}, {2002, 0, 1001, 2005, 3, 1004}, {2002, 0, 2002, 2005, 3, 2005}, {2002, 1001, 0, 2005, 1004, 3}, {2002, 1001, 1001, 2005, 1004, 1004}, {2002, 1001, 2002, 2005, 1004, 2005}, {2002, 2002, 0, 2005, 2005, 3}, {2002, 2002, 1001, 2005, 2005, 1004}, {2002, 2002, 2002, 2005, 2005, 2005}};
+    std::vector<std::array<int32_t, 6>> expected = {{0, 0, 0, 3, 3, 3},
+                                                    {0, 0, 1001, 3, 3, 1004},
+                                                    {0, 0, 2002, 3, 3, 2005},
+                                                    {0, 1001, 0, 3, 1004, 3},
+                                                    {0, 1001, 1001, 3, 1004, 1004},
+                                                    {0, 1001, 2002, 3, 1004, 2005},
+                                                    {0, 2002, 0, 3, 2005, 3},
+                                                    {0, 2002, 1001, 3, 2005, 1004},
+                                                    {0, 2002, 2002, 3, 2005, 2005},
+                                                    {1001, 0, 0, 1004, 3, 3},
+                                                    {1001, 0, 1001, 1004, 3, 1004},
+                                                    {1001, 0, 2002, 1004, 3, 2005},
+                                                    {1001, 1001, 0, 1004, 1004, 3},
+                                                    {1001, 1001, 1001, 1004, 1004, 1004},
+                                                    {1001, 1001, 2002, 1004, 1004, 2005},
+                                                    {1001, 2002, 0, 1004, 2005, 3},
+                                                    {1001, 2002, 1001, 1004, 2005, 1004},
+                                                    {1001, 2002, 2002, 1004, 2005, 2005},
+                                                    {2002, 0, 0, 2005, 3, 3},
+                                                    {2002, 0, 1001, 2005, 3, 1004},
+                                                    {2002, 0, 2002, 2005, 3, 2005},
+                                                    {2002, 1001, 0, 2005, 1004, 3},
+                                                    {2002, 1001, 1001, 2005, 1004, 1004},
+                                                    {2002, 1001, 2002, 2005, 1004, 2005},
+                                                    {2002, 2002, 0, 2005, 2005, 3},
+                                                    {2002, 2002, 1001, 2005, 2005, 1004},
+                                                    {2002, 2002, 2002, 2005, 2005, 2005}};
     ASSERT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < actual.size(); i++)
         ASSERT_EQ(actual[i], expected[i]);

@@ -142,11 +142,19 @@ def generate_test_func(n, partition, idx):
     edges_code = "{%s}" % ", ".join(edge_vals)
     insert_code = "    edge.insert(df::Relation<Edge>::from_vec(%s));" % edges_code
 
-    expected_code = (
-        "{"
-        + ", ".join("{%s}" % ", ".join(str(v) for v in tup) for tup in expected)
-        + "}"
-    )
+    expected_decl = "    std::vector<std::array<int32_t, %d>> expected = " % n
+    expected_tuples = [
+        "{%s}" % ", ".join(str(v) for v in tup) for tup in expected
+    ]
+    if expected_tuples:
+        expected_code = "{" + expected_tuples[0]
+        expected_code += "".join(
+            ",\n" + " " * (len(expected_decl) + 1) + tup
+            for tup in expected_tuples[1:]
+        )
+        expected_code += "}"
+    else:
+        expected_code = "{}"
 
     lines = []
     lines.append("TEST(AllPartitions, %s) {" % func_name)
@@ -158,9 +166,7 @@ def generate_test_func(n, partition, idx):
     lines.append("    dl.solve();")
     lines.append("    auto actual = result.extract();")
     lines.append("    std::sort(actual.begin(), actual.end());")
-    lines.append(
-        "    std::vector<std::array<int32_t, %d>> expected = %s;" % (n, expected_code)
-    )
+    lines.append(expected_decl + expected_code + ";")
     lines.append("    ASSERT_EQ(actual.size(), expected.size());")
     lines.append("    for (size_t i = 0; i < actual.size(); i++)")
     lines.append("        ASSERT_EQ(actual[i], expected[i]);")
