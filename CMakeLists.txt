@@ -45,7 +45,12 @@ function(add_souffle_benchmark TARGET_NAME DL_FILE DATA_DIR BENCHMARK_TARGET)
     add_dependencies(${BENCHMARK_TARGET} ${TARGET_NAME}_target unzip_${BENCH_NAME})
 endfunction()
 
-# find_program(CLANG_TIDY NAMES clang-tidy)
+find_program(CLANG_TIDY NAMES clang-tidy)
+
+if(CLANG_TIDY)
+    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};")
+endif()
+
 find_program(CLANG_FORMAT NAMES clang-format)
 
 file(GLOB_RECURSE ALL_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/headers/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/*.hpp)
