@@ -235,4 +235,14 @@ add_souffle_benchmark(
     doop_benchmark
 )
 
+set(CPACK_PACKAGE_NAME "dartfrog")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_CONTACT "JM")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Header-only Datalog library")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "JM")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.35), libstdc++6 (>= 14)")
+set(CPACK_GENERATOR "DEB")
+
+include(CPack)
+
 endif() # DARTFROG_DEV_BUILDS
