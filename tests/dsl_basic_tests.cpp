@@ -915,3 +915,38 @@ TEST(DslRuleSyntax, TriangleTest) {
         (std::vector<std::array<int, 3>>{
             {1, 2, 3}, {2, 3, 1}, {2, 4, 5}, {3, 1, 2}, {4, 5, 2}, {5, 2, 4}}));
 }
+
+TEST(DslInlineVars, SanityCheck) {
+
+    Datalog dl;
+    Predicate<int, 2> Edge(dl);
+    Predicate<int, 2> Copy(dl);
+    Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
+
+    DL_RULE(dl, (x, y), Copy(x, y) <= Edge(x, y));
+    dl.solve();
+
+    EXPECT_EQ(sorted(Copy.extract()),
+              (std::vector<std::array<int, 2>>{{1, 2}, {2, 3}, {3, 4}}));
+}
+
+
+TEST(DslInlineVars, DeclsDontCollide) {
+
+    Datalog dl;
+    Predicate<int, 2> Edge(dl);
+    Predicate<int, 2> Original(dl);
+    Predicate<int, 2> Reversed(dl);
+    Edge.insert(rel<int>({{1, 2}, {2, 3}, {3, 4}}));
+
+    DL_RULE(dl, (x, y), Original(x, y) <= Edge(x, y));
+    DL_RULE(dl, (x, y), Reversed(y, x) <= Edge(x, y));
+    dl.solve();
+
+    EXPECT_EQ(sorted(Original.extract()),
+              (std::vector<std::array<int, 2>>{{1, 2}, {2, 3}, {3, 4}}));
+
+    EXPECT_EQ(sorted(Reversed.extract()),
+              (std::vector<std::array<int, 2>>{{2, 1}, {3, 2}, {4, 3}}));
+}
+

@@ -234,8 +234,10 @@ auto operator,(const Rule<Head, Body> &r, const Next &next) {
 // Var<0>, Var<1>, ... in listing order, so a ported rule can name
 // its variables instead of hand-numbering positional Var<N>:
 //
-//   DL_VARS(x, y, z);
-//   dl.add_rule(Foo(c, y) <= Bar(z, y), Baz(x, z));
+//   {
+//       DL_VARS(x, y, z);
+//       dl.add_rule(Foo(c, y) <= Bar(z, y), Baz(x, z));
+//    }
 //
 // To improve performance, list variables in the order they appear in columns
 #define DT_DL_NARG(...) DT_DL_NARG_IMPL(__VA_ARGS__, DT_DL_RSEQ_N())
@@ -247,4 +249,22 @@ auto operator,(const Rule<Head, Body> &r, const Next &next) {
 #define DL_VARS(...)                                                           \
     auto const &[__VA_ARGS__] = ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
 
+#define DT_DL_UNPAREN(...) __VA_ARGS__
+#define DT_DL_DECLARE_VARS(...)                                                \
+    auto const &[__VA_ARGS__] =                                                \
+        ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
+
+// RULE registers a rule using the variables declared with a prior DL_VARS(...)
+// In most cases, t
 #define RULE(dl, ...) (dl).add_rule((__VA_ARGS__))
+
+// DL_RULE registers a rule using inline variables
+// This allows you to omit the scoping brackets usually required with DL_VARS
+//
+// DL_RULE(dl, (x, y, z), Foo(c, y) <= Bar(z, y), Baz(x, z));
+//
+#define DL_RULE(dl, vars, ...)                                                 \
+    do {                                                                       \
+        DT_DL_DECLARE_VARS(DT_DL_UNPAREN vars);                                \
+        (dl).add_rule((__VA_ARGS__));                                          \
+    } while (false)
