@@ -7,6 +7,52 @@ project(
     LANGUAGES CXX
 )
 
+option(DARTFROG_DEV_BUILDS "Build the Dartfrog tests and benchmarks" ON)
+
+if(POLICY CMP0090)
+    cmake_policy(SET CMP0090 NEW)
+endif()
+set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+
+
+add_library(dartfrog INTERFACE)
+target_sources(dartfrog
+    INTERFACE
+        FILE_SET HEADERS
+        BASE_DIRS headers
+        FILES
+            headers/dartfrog.hpp
+            headers/dartfrog/iteration.hpp
+            headers/dartfrog/join.hpp
+            headers/dartfrog/leapers.hpp
+            headers/dartfrog/relation.hpp
+            headers/dartfrog/variable.hpp
+            headers/datalog.hpp
+            headers/datalog/executor.hpp
+            headers/datalog/lftj.hpp
+            headers/datalog/predicate.hpp
+            headers/datalog/query_planner.hpp
+            headers/datalog/var.hpp
+)
+target_include_directories(dartfrog INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/headers>
+)
+
+install(TARGETS dartfrog
+    FILE_SET HEADERS DESTINATION include
+)
+
+export(TARGETS dartfrog FILE "${CMAKE_CURRENT_BINARY_DIR}/dartfrogTargets.cmake")
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/dartfrogConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/dartfrogConfig.cmake"
+    @ONLY
+)
+
+export(PACKAGE dartfrog)
+
+if(DARTFROG_DEV_BUILDS)
 find_package(GTest REQUIRED)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
@@ -62,28 +108,6 @@ if(CLANG_FORMAT)
 else()
     message(STATUS "clang-format not found. Disabling format target")
 endif()
-
-
-if(POLICY CMP0090)
-    cmake_policy(SET CMP0090 NEW)
-endif()
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-
-
-add_library(dartfrog INTERFACE)
-target_include_directories(dartfrog INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/headers>
-)
-
-export(TARGETS dartfrog FILE "${CMAKE_CURRENT_BINARY_DIR}/dartfrogTargets.cmake")
-
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/dartfrogConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/dartfrogConfig.cmake"
-    @ONLY
-)
-
-export(PACKAGE dartfrog)
 
 #####################################
 
@@ -211,3 +235,4 @@ add_souffle_benchmark(
     doop_benchmark
 )
 
+endif() # DARTFROG_DEV_BUILDS
