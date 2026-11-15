@@ -49,15 +49,15 @@ static size_t run_tc(const df::Relation<std::array<int, 2>> &graph) {
     Var<1> y;
     Var<2> z;
 
-    RULE(dl, tc(x, y) <= edge(x, y));
-    RULE(dl, tc(x, z) <= tc(x, y), edge(y, z));
+    DL_RULE(dl, (x, y, z), tc(x, y) <= edge(x, y));
+    DL_RULE(dl, (x, y, z), tc(x, z) <= tc(x, y), edge(y, z));
     edge.insert(graph);
     dl.solve();
 
     return tc.extract().size();
 }
 
-static void BM_TC_Dense(benchmark::State &state) {
+static void bm_tc_dense(benchmark::State &state) {
     const int n = state.range(0);
     std::mt19937_64 rng(42);
     std::bernoulli_distribution keep(0.1);
@@ -75,7 +75,7 @@ static void BM_TC_Dense(benchmark::State &state) {
     state.counters["tc_size"] = (double)tc_size;
 }
 
-static void BM_TC_Sparse(benchmark::State &state) {
+static void bm_tc_sparse(benchmark::State &state) {
     const int n = state.range(0);
     auto graph = to_relation(make_random_kout(n, 5));
 
@@ -86,7 +86,7 @@ static void BM_TC_Sparse(benchmark::State &state) {
     state.counters["tc_size"] = (double)tc_size;
 }
 
-static void BM_TC_Windowed(benchmark::State &state) {
+static void bm_tc_windowed(benchmark::State &state) {
     const int n = state.range(0);
     auto graph = to_relation(make_windowed_dag(n, 5, 100));
 
@@ -107,8 +107,8 @@ static size_t run_tc_magic(const df::Relation<std::array<int, 2>> &graph,
     Var<1> y;
     Var<2> z;
 
-    RULE(dl, tc(x, y) <= magic_tc(x), edge(x, y));
-    RULE(dl, tc(x, z) <= magic_tc(x), tc(x, y), edge(y, z));
+    DL_RULE(dl, (x, y, z), tc(x, y) <= magic_tc(x), edge(x, y));
+    DL_RULE(dl, (x, y, z), tc(x, z) <= magic_tc(x), tc(x, y), edge(y, z));
     edge.insert(graph);
     magic_tc.insert(df::Relation<std::array<int, 1>>::from_vec({{{start}}}));
     dl.solve();
@@ -116,7 +116,7 @@ static size_t run_tc_magic(const df::Relation<std::array<int, 2>> &graph,
     return tc.extract().size();
 }
 
-static void BM_TCMagic_Windowed(benchmark::State &state) {
+static void bm_tc_magic_windowed(benchmark::State &state) {
     const int n = state.range(0);
     auto graph = to_relation(make_windowed_dag(n, 5, 100));
 
@@ -127,7 +127,7 @@ static void BM_TCMagic_Windowed(benchmark::State &state) {
     state.counters["tc_size"] = (double)tc_size;
 }
 
-static void BM_TCMagic_Sparse(benchmark::State &state) {
+static void bm_tc_magic_sparse(benchmark::State &state) {
     const int n = state.range(0);
     auto graph = to_relation(make_random_kout(n, 5));
 
@@ -138,31 +138,31 @@ static void BM_TCMagic_Sparse(benchmark::State &state) {
     state.counters["tc_size"] = (double)tc_size;
 }
 
-BENCHMARK(BM_TC_Dense)
+BENCHMARK(bm_tc_dense)
     ->Arg(200)
     ->Arg(500)
     ->Arg(1000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK(BM_TC_Sparse)
+BENCHMARK(bm_tc_sparse)
     ->Arg(200)
     ->Arg(500)
     ->Arg(1000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK(BM_TC_Windowed)
+BENCHMARK(bm_tc_windowed)
     ->Arg(1000)
     ->Arg(5000)
     ->Arg(10000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK(BM_TCMagic_Windowed)
+BENCHMARK(bm_tc_magic_windowed)
     ->Arg(10000)
     ->Arg(100000)
     ->Arg(1000000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK(BM_TCMagic_Sparse)
+BENCHMARK(bm_tc_magic_sparse)
     ->Arg(10000)
     ->Arg(100000)
     ->Arg(1000000)

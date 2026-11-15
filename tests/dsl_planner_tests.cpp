@@ -14,7 +14,6 @@ namespace {
 
 using df::datalog::Datalog;
 using df::datalog::Predicate;
-using df::datalog::Var;
 using Edge = std::array<int32_t, 2>;
 using Triple = std::array<int32_t, 3>;
 
@@ -47,9 +46,8 @@ std::set<Edge> dartfrog_sg(const std::vector<Edge> &edges) {
     Datalog dl;
     Predicate<int32_t, 2> edge(dl);
     Predicate<int32_t, 2> tc(dl);
-    DL_VARS(A, B, C);
-    RULE(dl, tc(A, B) <= edge(A, B));
-    RULE(dl, tc(A, C) <= edge(A, B), tc(B, C));
+    DL_RULE(dl, (A, B, C), tc(A, B) <= edge(A, B));
+    DL_RULE(dl, (A, B, C), tc(A, C) <= edge(A, B), tc(B, C));
     edge.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(edges)));
     dl.solve();
     const std::vector<Edge> out = tc.extract();
@@ -87,9 +85,8 @@ std::set<Edge> dartfrog_sg(const std::vector<Edge> &up,
     Predicate<int32_t, 2> down_p(dl);
     Predicate<int32_t, 2> flat_p(dl);
     Predicate<int32_t, 2> sg(dl);
-    DL_VARS(A, B, C, D);
-    RULE(dl, sg(A, B) <= flat_p(A, B));
-    RULE(dl, sg(A, D) <= up_p(A, B), sg(B, C), down_p(C, D));
+    DL_RULE(dl, (A, B, C, D), sg(A, B) <= flat_p(A, B));
+    DL_RULE(dl, (A, B, C, D), sg(A, D) <= up_p(A, B), sg(B, C), down_p(C, D));
     up_p.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(up)));
     down_p.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(down)));
     flat_p.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(flat)));
@@ -113,8 +110,7 @@ std::set<Triple> dartfrog_tri(const std::vector<Edge> &edges) {
     Datalog dl;
     Predicate<int32_t, 2> e(dl);
     Predicate<int32_t, 3> tri(dl);
-    DL_VARS(A, B, C);
-    RULE(dl, tri(A, B, C) <= e(A, B), e(B, C), e(A, C));
+    DL_RULE(dl, (A, B, C), tri(A, B, C) <= e(A, B), e(B, C), e(A, C));
     e.insert(df::Relation<Edge>::from_vec(std::vector<Edge>(edges)));
     dl.solve();
     const std::vector<Triple> out = tri.extract();

@@ -180,18 +180,18 @@ class Datalog {
     void register_neg_deps(const Filters &filters, size_t head_idx) {
         for_indices<std::tuple_size_v<Filters>>([&]<size_t F>() {
             using Filt = std::tuple_element_t<F, Filters>;
-            if constexpr (is_negated<Filt>::value)
+            if constexpr (IsNegated<Filt>::value)
                 add_dep(get_or_add_pred(std::get<F>(filters).pred), head_idx,
                         true);
         });
     }
 
     std::vector<std::vector<size_t>> compute_strata() const {
-        size_t N = next_idx;
-        std::vector<int> strata(N, 0);
-        for (size_t round = 0; round < N + 1; round++) {
+        size_t predicate_count = next_idx;
+        std::vector<int> strata(predicate_count, 0);
+        for (size_t round = 0; round < predicate_count + 1; round++) {
             bool changed = false;
-            for (size_t from = 0; from < N; from++) {
+            for (size_t from = 0; from < predicate_count; from++) {
                 for (const auto &edge : dep_edges[from]) {
                     int new_stratum = strata[from] + (edge.negative ? 1 : 0);
                     if (new_stratum > strata[edge.to]) {
@@ -204,7 +204,7 @@ class Datalog {
                 break;
             // Bellman-ford guaranteed to terminate within N rounds, so reaching
             // this means the program has a dependency cycle somewhere
-            if (round == N)
+            if (round == predicate_count)
                 throw std::logic_error(
                     "Datalog program is not stratifiable: "
                     "negation cycle detected in predicate dependency graph.");
@@ -215,7 +215,8 @@ class Datalog {
         std::vector<std::vector<size_t>> result(max_s + 1);
         for (size_t i = 0; i < evaluators.size(); i++) {
             size_t head_pred_idx = eval_head_idx[i];
-            result[head_pred_idx < N ? strata[head_pred_idx] : 0].push_back(i);
+            result[head_pred_idx < predicate_count ? strata[head_pred_idx] : 0]
+                .push_back(i);
         }
         return result;
     }
@@ -338,9 +339,9 @@ class Datalog {
     }
 
     template <typename Planner> void bind_indexes(Planner &p) {
-        constexpr size_t NA = Planner::NumAtoms;
-        for_indices<NA>([&]<size_t S>() {
-            for_indices<NA>([&]<size_t I>() {
+        constexpr size_t numAtoms = Planner::NumAtoms;
+        for_indices<numAtoms>([&]<size_t S>() {
+            for_indices<numAtoms>([&]<size_t I>() {
                 if constexpr (I != S) {
                     constexpr auto perm =
                         Planner::template atom_reindex_perm<S, I>();
@@ -370,10 +371,10 @@ class Datalog {
         if constexpr (sizeof...(HeadVars) == sizeof...(BodyVars)) {
             if constexpr ((std::is_same_v<HeadVars, BodyVars> && ...)) {
                 size_t head_idx = get_or_add_pred(rule.head.pred);
-                const size_t body_idx = get_or_add_pred(rule.body.pred);
-                add_dep(body_idx, head_idx, false);
+                const size_t bodyIdx = get_or_add_pred(rule.body.pred);
+                add_dep(bodyIdx, head_idx, false);
 
-                rule_access.push_back({{body_idx}, {head_idx}});
+                rule_access.push_back({{bodyIdx}, {head_idx}});
                 eval_head_idx.push_back(head_idx);
                 struct IdentityEval {
                     HeadPred *head;
@@ -401,36 +402,36 @@ class Datalog {
         const auto &body = body_as_conjunction(rule.body);
         using Atoms = std::remove_cvref_t<decltype(body.pos)>;
         using Filters = std::remove_cvref_t<decltype(body.filt)>;
-        constexpr size_t H = std::tuple_size_v<decltype(heads)>;
-        const std::array<size_t, H> head_idxs =
+        constexpr size_t numHeads = std::tuple_size_v<decltype(heads)>;
+        const std::array<size_t, numHeads> headIdxs =
             [&]<size_t... Hs>(std::index_sequence<Hs...>) {
-                return std::array<size_t, H>{
+                return std::array<size_t, numHeads>{
                     get_or_add_pred(std::get<Hs>(heads).pred)...};
-            }(std::make_index_sequence<H>{});
-        for (size_t hi : head_idxs) {
+            }(std::make_index_sequence<numHeads>{});
+        for (size_t hi : headIdxs) {
             register_pos_deps(
                 body.pos, hi,
                 std::make_index_sequence<std::tuple_size_v<Atoms>>{});
             register_neg_deps<Filters>(body.filt, hi);
         }
-        // Tie every head to head_idxs[0]'s stratum with zero-weight edges.
-        for (size_t k = 1; k < H; k++) {
-            add_dep(head_idxs[0], head_idxs[k], false);
-            add_dep(head_idxs[k], head_idxs[0], false);
+        // Tie every head to headIdxs[0]'s stratum with zero-weight edges.
+        for (size_t k = 1; k < numHeads; k++) {
+            add_dep(headIdxs[0], headIdxs[k], false);
+            add_dep(headIdxs[k], headIdxs[0], false);
         }
 
-        RuleAccess access{{}, {head_idxs.begin(), head_idxs.end()}};
+        RuleAccess access{{}, {headIdxs.begin(), headIdxs.end()}};
         for_indices<std::tuple_size_v<Atoms>>([&]<size_t I>() {
             access.inputs.push_back(get_or_add_pred(std::get<I>(body.pos).pred));
         });
         for_indices<std::tuple_size_v<Filters>>([&]<size_t F>() {
-            if constexpr (is_negated<std::tuple_element_t<F, Filters>>::value)
+            if constexpr (IsNegated<std::tuple_element_t<F, Filters>>::value)
                 access.inputs.push_back(
                     get_or_add_pred(std::get<F>(body.filt).pred));
         });
         rule_access.push_back(std::move(access));
 
-        eval_head_idx.push_back(head_idxs[0]);
+        eval_head_idx.push_back(headIdxs[0]);
         QueryPlanner<decltype(heads), Atoms, Filters> runner{
             std::move(heads), body.pos, body.filt};
         bind_indexes(runner);
@@ -438,13 +439,13 @@ class Datalog {
     }
 
     void solve() {
-        const auto stratum_evals = compute_strata();
+        const auto stratumEvals = compute_strata();
         ThreadExecutor executor(
             std::min(worker_count, std::max<size_t>(1, evaluators.size())));
 
         prime_all_indexes();
 
-        for (const auto &evals : stratum_evals) {
+        for (const auto &evals : stratumEvals) {
             for (auto &h : predicates)
                 h.step(h.instance);
 

@@ -3,15 +3,15 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <iostream>
 
 #include "benchmark/benchmark.h"
 
-#include "datalog.hpp"
 #include "dartfrog.hpp"
+#include "datalog.hpp"
 
 using namespace df::datalog;
 namespace fs = std::filesystem;
@@ -34,7 +34,7 @@ std::vector<std::array<int32_t, N>> load_csv(const std::filesystem::path &path) 
     return rows;
 }
 
-size_t countLines(const std::string& filename) {
+size_t count_lines(const std::string& filename) {
     std::ifstream file(filename);
     std::string line;
     int count = 0;
@@ -83,38 +83,37 @@ std::array<size_t, 2> run_dartfrog_galen(const GalenData &data) {
     dl.make_reindexed<2, 1, 0>(q_rel, q_by_yr);
     dl.make_reindexed<1, 0, 2>(q_rel, q_by_r);
 
-    DL_VARS(X, Y, Z, R, W, Q);
-    RULE(dl,
+    DL_RULE(dl, (X, Y, Z, R, W, Q),
             p_rel(X, Z) <=
                 p_by_z(Y, X),
                 p_rel(Y, Z)
     );
-    RULE(dl,
+    DL_RULE(dl, (X, Y, Z, R, W, Q),
             q_rel(X, Z, R) <=
                 p_by_z(Y, X),
                 q_rel(Y, Z, R)
     );
-    RULE(dl,
+    DL_RULE(dl, (X, Y, Z, R, W, Q),
             p_rel(W, R) <=
                 p_rel(X, Y),
                 u_rel(Y, Z, R),
                 q_by_yr(X, Z, W)
     );
-    RULE(dl,
+    DL_RULE(dl, (X, Y, Z, R, W, Q),
             p_rel(R, Z) <=
                 c_rel(X, Y, Z),
                 p_by_z(Y, R),
                 p_rel(R, X)
     );
-    RULE(dl,
+    DL_RULE(dl, (X, Y, Z, R, W, Q),
             q_rel(X, R, Z) <=
                 q_by_r(Y, X, Z),
                 s_rel(Y, R)
     );
-    RULE(dl,
+    DL_RULE(dl, (X, Y, Z, R, W, Q),
             q_rel(X, W, Q) <=
                 q_by_z(Z, X, Y),
-                r_rel(Y, R, W), 
+                r_rel(Y, R, W),
                 q_by_r(R, Z, Q)
     );
 
@@ -136,7 +135,7 @@ std::array<size_t, 2> run_dartfrog_galen(const GalenData &data) {
     return {p_result.size(), q_result.size()};
 }
 
-void BM_Dartfrog_Galen(benchmark::State &state) {
+void bm_dartfrog_galen(benchmark::State &state) {
     fs::path data_dir(DATA_DIR);
     const GalenData data =
         load_galen_data(data_dir.string());
@@ -148,13 +147,13 @@ void BM_Dartfrog_Galen(benchmark::State &state) {
     state.counters["q"] = static_cast<double>(results[1]);
 }
 
-void BM_Souffle_Galen(benchmark::State &state) {
-    const std::string bin_path = BIN_PATH;
-    const std::string data_dir = DATA_DIR;
-    const std::string souffle_args = SOUFFLE_ARGS;
-    const fs::path output_dir(OUT_DIR);
+void bm_souffle_galen(benchmark::State &state) {
+    const std::string binPath = BIN_PATH;
+    const std::string dataDir = DATA_DIR;
+    const std::string souffleArgs = SOUFFLE_ARGS;
+    const fs::path outputDir(OUT_DIR);
 
-    std::string cmd = bin_path + " -F " + data_dir + " -D " + output_dir.string() + " " + souffle_args;
+    std::string cmd = binPath + " -F " + dataDir + " -D " + outputDir.string() + " " + souffleArgs;
 
     for (auto _ : state) {
         int ret = std::system(cmd.c_str());
@@ -163,16 +162,16 @@ void BM_Souffle_Galen(benchmark::State &state) {
             break;
         }
     }
-    state.counters["p"] = static_cast<double>(countLines(output_dir / "p.csv"));
-    state.counters["q"] = static_cast<double>(countLines(output_dir / "q.csv"));
+    state.counters["p"] = static_cast<double>(count_lines(outputDir / "p.csv"));
+    state.counters["q"] = static_cast<double>(count_lines(outputDir / "q.csv"));
 }
 
-BENCHMARK(BM_Dartfrog_Galen)
+BENCHMARK(bm_dartfrog_galen)
 ->MeasureProcessCPUTime()
 ->UseRealTime()
 ->Unit(benchmark::kMillisecond);
 
-BENCHMARK(BM_Souffle_Galen)
+BENCHMARK(bm_souffle_galen)
 ->MeasureProcessCPUTime()
 ->UseRealTime()
 ->Unit(benchmark::kMillisecond);

@@ -19,10 +19,11 @@
 namespace df {
 
 template <typename T, typename Tuple, typename Val>
-concept Leaper = requires(T l, const Tuple &t, std::vector<const Val *> &v) {
-    { l.count(t) } -> std::same_as<size_t>;
-    { l.propose(t, v) } -> std::same_as<void>;
-    { l.intersect(t, v) } -> std::same_as<void>;
+concept Leaper = requires(T leaper, const Tuple &t,
+                          std::vector<const Val *> &v) {
+    { leaper.count(t) } -> std::same_as<size_t>;
+    { leaper.propose(t, v) } -> std::same_as<void>;
+    { leaper.intersect(t, v) } -> std::same_as<void>;
 };
 
 struct Unit {
@@ -328,20 +329,20 @@ template <typename V, size_t K, size_t PrefixLen> struct PrefixExtractor {
 
 template <typename V, size_t N, size_t ProposeCol, typename ExtractorT>
 class TupleLeaper {
-    static constexpr size_t MAX_BATCHES = 32;
+    static constexpr size_t MaxBatches = 32;
 
     const std::vector<Relation<std::array<V, N>>> *batches;
     std::optional<std::array<V, ProposeCol>> cached_prefix;
 
     // [start, end)
     using batch_range = std::pair<size_t, size_t>;
-    std::array<batch_range, MAX_BATCHES> ranges;
+    std::array<batch_range, MaxBatches> ranges;
     size_t num_batches = 0;
     size_t total_count = 0;
     ExtractorT extractor;
 
     void update_ranges(const std::array<V, ProposeCol> &prefix) {
-        if (batches->size() >= MAX_BATCHES) {
+        if (batches->size() >= MaxBatches) {
             throw std::logic_error("Exceeded max batches");
         }
 
@@ -394,7 +395,7 @@ class TupleLeaper {
     template <size_t JoinLen>
     void intersect(const std::array<V, JoinLen> &,
                    std::vector<const V *> &values) {
-        std::array<std::span<const std::array<V, N>>, MAX_BATCHES> slices;
+        std::array<std::span<const std::array<V, N>>, MaxBatches> slices;
         for (size_t batch_idx = 0; batch_idx < num_batches; batch_idx++)
             slices[batch_idx] = {(*batches)[batch_idx].elements.begin() +
                                      ranges[batch_idx].first,

@@ -9,16 +9,16 @@ namespace df::datalog {
 
 template <int N> struct Var {
     static_assert(N >= 0, "Var must be a non-negative index");
-    static constexpr int id = N;
+    static constexpr int Id = N;
 
     constexpr operator size_t() const noexcept {
         return static_cast<size_t>(N);
     }
 };
 
-template <class T> struct is_var : std::false_type {};
-template <int N> struct is_var<Var<N>> : std::true_type {};
-template <class T> inline constexpr bool is_var_v = is_var<T>::value;
+template <class T> struct IsVar : std::false_type {};
+template <int N> struct IsVar<Var<N>> : std::true_type {};
+template <class T> inline constexpr bool IsVarV = IsVar<T>::value;
 
 template <std::size_t N> static constexpr auto vars() {
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
@@ -26,10 +26,10 @@ template <std::size_t N> static constexpr auto vars() {
     }(std::make_index_sequence<N>{});
 }
 
-template <std::size_t N> inline constexpr auto vars_v = vars<N>();
+template <std::size_t N> inline constexpr auto VarsV = vars<N>();
 
 template <typename T>
-inline constexpr int var_id_v = std::remove_cvref_t<T>::id;
+inline constexpr int VarIdV = std::remove_cvref_t<T>::Id;
 
 template <typename Pred, typename... Vars> struct Term;
 template <typename Head, typename Body> struct Rule;
@@ -131,9 +131,9 @@ const auto &body_as_conjunction(const Conjunction<Pos, Filt> &body) {
     return body;
 }
 
-template <class T> struct is_filter_atom : std::true_type {};
+template <class T> struct IsFilterAtom : std::true_type {};
 template <class P, class... Vars>
-struct is_filter_atom<Term<P, Vars...>> : std::false_type {};
+struct IsFilterAtom<Term<P, Vars...>> : std::false_type {};
 
 /* Expression filters */
 template <typename Func, int... VarIds> struct ExpressionFilter {
@@ -141,66 +141,66 @@ template <typename Func, int... VarIds> struct ExpressionFilter {
 };
 
 template <typename Func, int... VarIds>
-struct is_filter_atom<ExpressionFilter<Func, VarIds...>> : std::true_type {};
+struct IsFilterAtom<ExpressionFilter<Func, VarIds...>> : std::true_type {};
 
 template <auto... Vars, typename Func>
-    requires(is_var_v<decltype(Vars)> && ...)
+    requires(IsVarV<decltype(Vars)> && ...)
 auto where(Func &&f) {
     using F = std::remove_cvref_t<Func>;
-    return ExpressionFilter<F, var_id_v<decltype(Vars)>...>{
+    return ExpressionFilter<F, VarIdV<decltype(Vars)>...>{
         std::forward<Func>(f)};
 }
 
 /* Aggregates */
-template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
+template <typename Func, int OutVarIdT, int ValueVarIdT, int... GroupVarIdsT>
 struct AggregateFilter {
     Func func;
-    static constexpr int out_var_id = OutVarId;
-    static constexpr int value_var_id = ValueVarId;
+    static constexpr int OutVarId = OutVarIdT;
+    static constexpr int ValueVarId = ValueVarIdT;
 
-    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids{
-        GroupVarIds...};
+    static constexpr std::array<int, sizeof...(GroupVarIdsT)> GroupVarIds{
+        GroupVarIdsT...};
 };
 
 template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
-struct is_filter_atom<
+struct IsFilterAtom<
     AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>>
     : std::true_type {};
 
 template <auto OutVar, auto ValueVar, auto... GroupVars, typename Func>
-    requires(is_var_v<decltype(OutVar)> && is_var_v<decltype(ValueVar)> &&
-             (is_var_v<decltype(GroupVars)> && ...))
+    requires(IsVarV<decltype(OutVar)> && IsVarV<decltype(ValueVar)> &&
+             (IsVarV<decltype(GroupVars)> && ...))
 auto group_by(Func &&func) {
     using F = std::remove_cvref_t<Func>;
 
-    return AggregateFilter<F, var_id_v<decltype(OutVar)>,
-                           var_id_v<decltype(ValueVar)>,
-                           var_id_v<decltype(GroupVars)>...>{
+    return AggregateFilter<F, VarIdV<decltype(OutVar)>,
+                           VarIdV<decltype(ValueVar)>,
+                           VarIdV<decltype(GroupVars)>...>{
         std::forward<Func>(func)};
 }
 
-template <typename Func, int OutVarId, int... GroupVarIds>
+template <typename Func, int OutVarIdT, int... GroupVarIdsT>
 struct AggregateRowsFilter {
     Func func;
-    static constexpr int out_var_id = OutVarId;
-    static constexpr int value_var_id = -1;
+    static constexpr int OutVarId = OutVarIdT;
+    static constexpr int ValueVarId = -1;
 
-    static constexpr std::array<int, sizeof...(GroupVarIds)> group_var_ids{
-        GroupVarIds...};
+    static constexpr std::array<int, sizeof...(GroupVarIdsT)> GroupVarIds{
+        GroupVarIdsT...};
 };
 
 template <typename Func, int OutVarId, int... GroupVarIds>
-struct is_filter_atom<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
+struct IsFilterAtom<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
     : std::true_type {};
 
 template <auto OutVar, auto... GroupVars, typename Func>
-    requires(is_var_v<decltype(OutVar)> &&
-             (is_var_v<decltype(GroupVars)> && ...))
+    requires(IsVarV<decltype(OutVar)> &&
+             (IsVarV<decltype(GroupVars)> && ...))
 auto group_by_rows(Func &&func) {
     using F = std::remove_cvref_t<Func>;
 
-    return AggregateRowsFilter<F, var_id_v<decltype(OutVar)>,
-                               var_id_v<decltype(GroupVars)>...>{
+    return AggregateRowsFilter<F, VarIdV<decltype(OutVar)>,
+                               VarIdV<decltype(GroupVars)>...>{
         std::forward<Func>(func)};
 }
 
@@ -208,7 +208,7 @@ auto group_by_rows(Func &&func) {
 
 template <class Pos, class Filt, class Next>
 auto append_body(const Conjunction<Pos, Filt> &body, const Next &next) {
-    if constexpr (is_filter_atom<Next>::value) {
+    if constexpr (IsFilterAtom<Next>::value) {
         return Conjunction<Pos, decltype(std::tuple_cat(
                                     body.filt, std::make_tuple(next)))>{
             body.pos, std::tuple_cat(body.filt, std::make_tuple(next))};
@@ -247,12 +247,12 @@ auto operator,(const Rule<Head, Body> &r, const Next &next) {
     N
 #define DT_DL_RSEQ_N() 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 #define DL_VARS(...)                                                           \
-    auto const &[__VA_ARGS__] = ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
+    auto const &[__VA_ARGS__] = ::df::datalog::VarsV<DT_DL_NARG(__VA_ARGS__)>
 
 #define DT_DL_UNPAREN(...) __VA_ARGS__
 #define DT_DL_DECLARE_VARS(...)                                                \
     auto const &[__VA_ARGS__] =                                                \
-        ::df::datalog::vars_v<DT_DL_NARG(__VA_ARGS__)>
+        ::df::datalog::VarsV<DT_DL_NARG(__VA_ARGS__)>
 
 // RULE registers a rule using the variables declared with a prior DL_VARS(...)
 // In most cases, t

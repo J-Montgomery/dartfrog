@@ -178,16 +178,16 @@ void dedup_against(Relation<T> &rel,
         if (batch.empty())
             continue;
 
-        const size_t log_size =
+        const size_t logSize =
             std::bit_width(static_cast<size_t>(batch.size()));
 
         if (rel.size() > std::numeric_limits<size_t>::max() /
-                             std::max<size_t>(1, log_size)) {
+                             std::max<size_t>(1, logSize)) {
             binary_cost = std::numeric_limits<size_t>::max();
             break;
         }
 
-        binary_cost += rel.size() * log_size;
+        binary_cost += rel.size() * logSize;
     }
 
     if (binary_cost < stable_size) {

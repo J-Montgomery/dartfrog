@@ -14,33 +14,33 @@
 
 namespace df::datalog {
 
-static constexpr size_t MAX_ARITY = 8;
+static constexpr size_t MaxArity = 8;
 
 template <typename T> struct atom_traits;
 template <typename P, int... Ids> struct atom_traits<Term<P, Var<Ids>...>> {
     using pred_t = P;
-    static constexpr size_t arity = sizeof...(Ids);
-    static constexpr std::array<int, sizeof...(Ids)> var_ids = {Ids...};
+    static constexpr size_t Arity = sizeof...(Ids);
+    static constexpr std::array<int, sizeof...(Ids)> VarIdsValue = {Ids...};
 };
 
 template <typename Atoms> constexpr auto atom_ids() {
-    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
-    std::array<std::array<int, MAX_ARITY>, NumAtoms> result{};
+    constexpr size_t numAtoms = std::tuple_size_v<Atoms>;
+    std::array<std::array<int, MaxArity>, numAtoms> result{};
     for (auto &row : result)
         row.fill(-1);
-    for_indices<NumAtoms>([&]<size_t I>() {
+    for_indices<numAtoms>([&]<size_t I>() {
         using AT = atom_traits<std::tuple_element_t<I, Atoms>>;
-        for (size_t j = 0; j < AT::arity; j++)
-            result[I][j] = AT::var_ids[j];
+        for (size_t j = 0; j < AT::Arity; j++)
+            result[I][j] = AT::VarIdsValue[j];
     });
     return result;
 }
 
 template <typename Atoms> constexpr auto atom_arities() {
-    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
-    std::array<size_t, NumAtoms> result{};
-    for_indices<NumAtoms>([&]<size_t I>() {
-        result[I] = atom_traits<std::tuple_element_t<I, Atoms>>::arity;
+    constexpr size_t numAtoms = std::tuple_size_v<Atoms>;
+    std::array<size_t, numAtoms> result{};
+    for_indices<numAtoms>([&]<size_t I>() {
+        result[I] = atom_traits<std::tuple_element_t<I, Atoms>>::Arity;
     });
     return result;
 }
@@ -95,21 +95,21 @@ constexpr bool is_identity_prefix(const std::array<int, N> &positions) {
 // rules with lots of bound variables should be
 // bound and proposed before less common variables
 template <typename Atoms> constexpr auto make_order(size_t s) {
-    constexpr size_t NumVars = num_vars<Atoms>();
-    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+    constexpr size_t numVars = num_vars<Atoms>();
+    constexpr size_t numAtoms = std::tuple_size_v<Atoms>;
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
 
-    std::array<int, NumVars> order{};
-    std::array<bool, NumVars> bound{};
-    std::array<int, NumVars> score{};
+    std::array<int, numVars> order{};
+    std::array<bool, numVars> bound{};
+    std::array<int, numVars> score{};
 
     bound.fill(false);
     score.fill(0);
 
     auto bind = [&](int var_id) {
         bound[var_id] = true;
-        for (size_t atom = 0; atom < NumAtoms; atom++) {
+        for (size_t atom = 0; atom < numAtoms; atom++) {
             bool has_var = false;
             for (size_t col = 0; col < arities[atom]; col++)
                 if (ids[atom][col] == var_id) {
@@ -135,9 +135,9 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
 
     // Now bind the unbound variables in order of the scores
     // we've calculated
-    while (num_bound < NumVars) {
+    while (num_bound < numVars) {
         int best_var = -1, best_score = -1;
-        for (int var_id = 0; var_id < (int)NumVars; var_id++)
+        for (int var_id = 0; var_id < (int)numVars; var_id++)
             if (!bound[var_id] && score[var_id] > best_score) {
                 best_score = score[var_id];
                 best_var = var_id;
@@ -149,36 +149,36 @@ template <typename Atoms> constexpr auto make_order(size_t s) {
 }
 
 /* Negation */
-template <typename T> struct is_negated : std::false_type {};
+template <typename T> struct IsNegated : std::false_type {};
 template <typename P, typename... Vars>
-struct is_negated<NegatedTerm<P, Vars...>> : std::true_type {};
+struct IsNegated<NegatedTerm<P, Vars...>> : std::true_type {};
 
 /* Expression filters */
 
-template <typename T> struct is_expression_filter : std::false_type {};
+template <typename T> struct IsExpressionFilter : std::false_type {};
 template <typename Func, int... VarIds>
-struct is_expression_filter<ExpressionFilter<Func, VarIds...>>
+struct IsExpressionFilter<ExpressionFilter<Func, VarIds...>>
     : std::true_type {};
 
 /* Aggregates */
 
-template <typename T> struct is_aggregate_filter : std::false_type {};
+template <typename T> struct IsAggregateFilter : std::false_type {};
 
 template <typename Func, int OutVarId, int ValueVarId, int... GroupVarIds>
-struct is_aggregate_filter<
+struct IsAggregateFilter<
     AggregateFilter<Func, OutVarId, ValueVarId, GroupVarIds...>>
     : std::true_type {};
 
 template <typename Func, int OutVarId, int... GroupVarIds>
-struct is_aggregate_filter<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
+struct IsAggregateFilter<AggregateRowsFilter<Func, OutVarId, GroupVarIds...>>
     : std::true_type {};
 
 template <typename T>
-inline constexpr bool is_aggregate_filter_v = is_aggregate_filter<T>::value;
+inline constexpr bool IsAggregateFilterV = IsAggregateFilter<T>::value;
 
 template <typename Filters> constexpr size_t aggregate_count() {
     return []<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
-        return (0 + ... + (is_aggregate_filter_v<Ts> ? 1 : 0));
+        return (0 + ... + (IsAggregateFilterV<Ts> ? 1 : 0));
     }(std::type_identity<Filters>{});
 }
 
@@ -187,7 +187,7 @@ template <typename Filters> constexpr size_t aggregate_index() {
 
     for_indices<std::tuple_size_v<Filters>>([&]<size_t I>() {
         using Filt = std::tuple_element_t<I, Filters>;
-        if constexpr (is_aggregate_filter_v<Filt>)
+        if constexpr (IsAggregateFilterV<Filt>)
             result = I;
     });
 
@@ -195,7 +195,7 @@ template <typename Filters> constexpr size_t aggregate_index() {
 }
 
 template <typename Agg> constexpr bool aggregate_group_ids_unique() {
-    constexpr auto ids = Agg::group_var_ids;
+    constexpr auto ids = Agg::GroupVarIds;
 
     for (size_t i = 0; i < ids.size(); i++) {
         for (size_t j = i + 1; j < ids.size(); j++) {
@@ -229,18 +229,18 @@ template <typename V, size_t N> struct AggregateArrayHash {
 /* Relational operators */
 
 template <typename T> struct filter_traits;
-template <typename Func, int... VarIds>
-struct filter_traits<ExpressionFilter<Func, VarIds...>> {
-    static constexpr std::array<int, sizeof...(VarIds)> var_ids = {VarIds...};
+template <typename Func, int... VarIdsT>
+struct filter_traits<ExpressionFilter<Func, VarIdsT...>> {
+    static constexpr std::array<int, sizeof...(VarIdsT)> VarIds{VarIdsT...};
 };
-template <typename P, int... Ids>
-struct filter_traits<NegatedTerm<P, Var<Ids>...>> {
-    static constexpr std::array<int, sizeof...(Ids)> var_ids = {Ids...};
+template <typename P, int... IdsT>
+struct filter_traits<NegatedTerm<P, Var<IdsT>...>> {
+    static constexpr std::array<int, sizeof...(IdsT)> VarIds{IdsT...};
 };
 template <Cmp Op, int A, int B>
 struct filter_traits<Compare<Op, Var<A>, Var<B>>> {
-    static constexpr std::array<int, 2> var_ids = {A, B};
-    static constexpr Cmp op = Op;
+    static constexpr std::array<int, 2> VarIds = {A, B};
+    static constexpr Cmp Operation = Op;
 };
 
 template <size_t NumVars, size_t N>
@@ -253,21 +253,21 @@ constexpr bool vars_bound(const std::array<int, N> &ids) {
 
 template <typename Agg, size_t NumVars>
 constexpr bool aggregate_inputs_valid() {
-    return Agg::out_var_id == static_cast<int>(NumVars) &&
-           (Agg::value_var_id < 0 ||
-            Agg::value_var_id < static_cast<int>(NumVars)) &&
-           vars_bound<NumVars>(Agg::group_var_ids) &&
+    return Agg::OutVarId == static_cast<int>(NumVars) &&
+           (Agg::ValueVarId < 0 ||
+            Agg::ValueVarId < static_cast<int>(NumVars)) &&
+           vars_bound<NumVars>(Agg::GroupVarIds) &&
            aggregate_group_ids_unique<Agg>();
 }
 
 template <typename Filt, size_t NumVars>
 constexpr bool validate_filter_vars() {
-    if constexpr (!is_aggregate_filter_v<Filt>) {
-        constexpr bool bound = vars_bound<NumVars>(filter_traits<Filt>::var_ids);
-        if constexpr (is_expression_filter<Filt>::value)
+    if constexpr (!IsAggregateFilterV<Filt>) {
+        constexpr bool bound = vars_bound<NumVars>(filter_traits<Filt>::VarIds);
+        if constexpr (IsExpressionFilter<Filt>::value)
             static_assert(bound,
                           "expression filter not bound by body atom");
-        else if constexpr (is_negated<Filt>::value)
+        else if constexpr (IsNegated<Filt>::value)
             static_assert(bound,
                           "negated variable not bound by body atom");
         else
@@ -279,26 +279,26 @@ constexpr bool validate_filter_vars() {
 }
 
 
-template <Cmp op, typename T> constexpr bool cmp_apply(const T &x, const T &y) {
-    if constexpr (op == Cmp::Lt)
+template <Cmp Op, typename T> constexpr bool cmp_apply(const T &x, const T &y) {
+    if constexpr (Op == Cmp::Lt)
         return x < y;
-    else if constexpr (op == Cmp::Le)
+    else if constexpr (Op == Cmp::Le)
         return x <= y;
-    else if constexpr (op == Cmp::Gt)
+    else if constexpr (Op == Cmp::Gt)
         return x > y;
-    else if constexpr (op == Cmp::Ge)
+    else if constexpr (Op == Cmp::Ge)
         return x >= y;
-    else if constexpr (op == Cmp::Ne)
+    else if constexpr (Op == Cmp::Ne)
         return x != y;
     else
         return x == y;
 }
 
 template <typename Atoms> constexpr bool has_duplicate_var_atom() {
-    constexpr size_t NumAtoms = std::tuple_size_v<Atoms>;
+    constexpr size_t numAtoms = std::tuple_size_v<Atoms>;
     constexpr auto ids = atom_ids<Atoms>();
     constexpr auto arities = atom_arities<Atoms>();
-    for (size_t atom = 0; atom < NumAtoms; atom++)
+    for (size_t atom = 0; atom < numAtoms; atom++)
         for (size_t i = 0; i < arities[atom]; i++)
             for (size_t j = i + 1; j < arities[atom]; j++)
                 if (ids[atom][i] == ids[atom][j])
@@ -308,7 +308,7 @@ template <typename Atoms> constexpr bool has_duplicate_var_atom() {
 
 // True iff Head references only variable ids in [0, NumVars).
 template <typename Head, size_t NumVars> constexpr bool one_head_covered() {
-    return vars_bound<NumVars>(atom_traits<Head>::var_ids);
+    return vars_bound<NumVars>(atom_traits<Head>::VarIdsValue);
 }
 
 // True iff every head in HeadTup references only variable ids in [0, NumVars).
@@ -320,15 +320,15 @@ constexpr bool all_heads_covered(std::index_sequence<Hs...>) {
 
 template <typename Head, typename Agg>
 constexpr bool one_aggregate_head_covered() {
-    for (int id : atom_traits<Head>::var_ids) {
+    for (int id : atom_traits<Head>::VarIdsValue) {
         if (id < 0)
             return false;
 
-        if (id == Agg::out_var_id)
+        if (id == Agg::OutVarId)
             continue;
 
         bool is_group = false;
-        for (int group_id : Agg::group_var_ids) {
+        for (int group_id : Agg::GroupVarIds) {
             if (id == group_id) {
                 is_group = true;
                 break;
@@ -376,19 +376,19 @@ struct QueryPlanner {
     static_assert(NumAggregates <= 1, "A rule can have at most 1 aggregate");
 
     template <bool Enabled, typename Dummy = void>
-    struct aggregate_type_holder {
+    struct AggregateTypeHolder {
         using type = void;
     };
 
-    template <typename Dummy> struct aggregate_type_holder<true, Dummy> {
+    template <typename Dummy> struct AggregateTypeHolder<true, Dummy> {
         using type = std::tuple_element_t<AggregateIndex, Filters>;
     };
 
-    using Aggregate = typename aggregate_type_holder<HasAggregate>::type;
+    using Aggregate = typename AggregateTypeHolder<HasAggregate>::type;
 
     static constexpr size_t ResultNumVars = [] {
         if constexpr (HasAggregate) {
-            return static_cast<size_t>(Aggregate::out_var_id + 1);
+            return static_cast<size_t>(Aggregate::OutVarId + 1);
         } else {
             return NumVars;
         }
@@ -488,7 +488,7 @@ struct QueryPlanner {
         constexpr auto ids = atom_ids<Atoms>();
         constexpr auto arities = atom_arities<Atoms>();
         constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
-        std::array<std::array<int, MAX_ARITY>, NumAtoms> table{};
+        std::array<std::array<int, MaxArity>, NumAtoms> table{};
         for (auto &row : table)
             row.fill(-1);
         for_indices<NumAtoms>([&]<size_t I>() {
@@ -527,15 +527,15 @@ struct QueryPlanner {
 
     template <size_t S, size_t F> static constexpr size_t filter_bound() {
         using Filt = std::tuple_element_t<F, Filters>;
-        if constexpr (is_aggregate_filter_v<Filt>) {
+        if constexpr (IsAggregateFilterV<Filt>) {
             return NumVars;
         } else {
-            constexpr auto ids = filter_traits<Filt>::var_ids;
-            constexpr auto var_pos = invert<NumVars>(make_order<Atoms>(S));
+            constexpr auto ids = filter_traits<Filt>::VarIds;
+            constexpr auto varPos = invert<NumVars>(make_order<Atoms>(S));
             size_t bound = 0;
             for (int id : ids)
                 bound = std::max(
-                    bound, static_cast<size_t>(var_pos[id] + 1));
+                    bound, static_cast<size_t>(varPos[id] + 1));
             return bound;
         }
     }
@@ -547,9 +547,9 @@ struct QueryPlanner {
                     return [&]<size_t... Fs>(std::index_sequence<Fs...>) {
                         return ([&] {
                             if constexpr (filter_bound<S, Fs>() == BoundVars) {
-                                constexpr auto var_positions =
+                                constexpr auto varPositions =
                                     invert<NumVars>(make_order<Atoms>(S));
-                                return filter_check<Fs>(row, var_positions);
+                                return filter_check<Fs>(row, varPositions);
                             } else {
                                 return true;
                             }
@@ -598,28 +598,28 @@ struct QueryPlanner {
             return;
         }
 
-        constexpr size_t FLUSH_ROWS = size_t{1} << 16;
+        constexpr size_t flushRows = size_t{1} << 16;
         auto batches = [&]<size_t... Hs>(std::index_sequence<Hs...>) {
             return std::make_tuple(
                 std::vector<
-                    std::array<V, atom_traits<HeadAt<Hs>>::arity>>{}...);
+                    std::array<V, atom_traits<HeadAt<Hs>>::Arity>>{}...);
         }(std::make_index_sequence<NumHeads>{});
         for_indices<NumHeads>(
-            [&]<size_t H>() { std::get<H>(batches).reserve(FLUSH_ROWS); });
+            [&]<size_t H>() { std::get<H>(batches).reserve(flushRows); });
 
         auto flush_head = [&]<size_t H>() {
             auto &b = std::get<H>(batches);
             if (b.empty())
                 return;
-            constexpr size_t head_arity = atom_traits<HeadAt<H>>::arity;
-            constexpr auto var_plan = invert<NumVars>(make_order<Atoms>(S));
-            constexpr auto head_positions =
-                project<head_arity>(var_plan, atom_traits<HeadAt<H>>::var_ids);
+            constexpr size_t headArity = atom_traits<HeadAt<H>>::Arity;
+            constexpr auto varPlan = invert<NumVars>(make_order<Atoms>(S));
+            constexpr auto headPositions =
+                project<headArity>(varPlan, atom_traits<HeadAt<H>>::VarIdsValue);
 
-            using ResultTuple = std::array<V, head_arity>;
+            using ResultTuple = std::array<V, headArity>;
             using ResultRelation = df::Relation<ResultTuple>;
 
-            if constexpr (is_identity_prefix(head_positions)) {
+            if constexpr (is_identity_prefix(headPositions)) {
                 b.erase(std::unique(b.begin(), b.end()), b.end());
 
                 head_pred<H>()->insert(
@@ -629,18 +629,18 @@ struct QueryPlanner {
             }
 
             b.clear();
-            b.reserve(FLUSH_ROWS);
+            b.reserve(flushRows);
         };
 
         for_each_match<S>(src, [&](const std::array<V, NumVars> &row) {
             for_indices<NumHeads>([&]<size_t H>() {
-                constexpr size_t ha = atom_traits<HeadAt<H>>::arity;
+                constexpr size_t ha = atom_traits<HeadAt<H>>::Arity;
                 constexpr auto vp = invert<NumVars>(make_order<Atoms>(S));
                 constexpr auto hpos =
-                    project<ha>(vp, atom_traits<HeadAt<H>>::var_ids);
+                    project<ha>(vp, atom_traits<HeadAt<H>>::VarIdsValue);
                 auto &b = std::get<H>(batches);
                 b.push_back(project<ha>(row, hpos));
-                if (b.size() >= FLUSH_ROWS)
+                if (b.size() >= flushRows)
                     flush_head.template operator()<H>();
             });
         });
@@ -656,10 +656,10 @@ struct QueryPlanner {
     // When starting a new stratum we need to iterate over all
     // the committed facts recorded in var.stable
     template <size_t S> void do_source_full() const {
-        constexpr size_t source_arity = atom_arities<Atoms>()[S];
+        constexpr size_t sourceArity = atom_arities<Atoms>()[S];
         auto *source_pred = std::get<S>(atoms).pred;
         for (const auto &batch : source_pred->var.stable) {
-            do_source_impl<S>(std::span<const std::array<V, source_arity>>(
+            do_source_impl<S>(std::span<const std::array<V, sourceArity>>(
                 batch.elements));
         }
     }
@@ -668,67 +668,67 @@ struct QueryPlanner {
     bool filter_check(const std::array<V, NumVars> &tuple,
                       const std::array<int, NumVars> &var_positions) const {
         using Filt = std::tuple_element_t<F, Filters>;
-        if constexpr (is_aggregate_filter_v<Filt>) {
+        if constexpr (IsAggregateFilterV<Filt>) {
             return true;
-        } else if constexpr (is_expression_filter<Filt>::value) {
-            constexpr auto ids = filter_traits<Filt>::var_ids;
+        } else if constexpr (IsExpressionFilter<Filt>::value) {
+            constexpr auto ids = filter_traits<Filt>::VarIds;
             return [&]<size_t... Is>(std::index_sequence<Is...>) {
                 return std::get<F>(filters).func(
                     tuple[var_positions[ids[Is]]]...);
             }(std::make_index_sequence<ids.size()>{});
-        } else if constexpr (is_negated<Filt>::value) {
-            constexpr auto ids = filter_traits<Filt>::var_ids;
+        } else if constexpr (IsNegated<Filt>::value) {
+            constexpr auto ids = filter_traits<Filt>::VarIds;
             std::array<V, ids.size()> key;
             for (size_t i = 0; i < ids.size(); i++)
                 key[i] = tuple[var_positions[ids[i]]];
             return !std::get<F>(filters).pred->stable_contains(key);
         } else {
-            constexpr auto ids = filter_traits<Filt>::var_ids;
-            return cmp_apply<filter_traits<Filt>::op>(
+            constexpr auto ids = filter_traits<Filt>::VarIds;
+            return cmp_apply<filter_traits<Filt>::Operation>(
                 tuple[var_positions[ids[0]]], tuple[var_positions[ids[1]]]);
         }
     }
 
     auto make_agg_groups() const {
         static_assert(HasAggregate);
-        constexpr size_t NumGroups = Aggregate::group_var_ids.size();
-        constexpr bool rows_reduction = Aggregate::value_var_id < 0;
-        using GroupKey = std::array<V, NumGroups>;
+        constexpr size_t numGroups = Aggregate::GroupVarIds.size();
+        constexpr bool rowsReduction = Aggregate::ValueVarId < 0;
+        using GroupKey = std::array<V, numGroups>;
         using AggValue =
-            std::conditional_t<rows_reduction, std::array<V, NumVars>, V>;
+            std::conditional_t<rowsReduction, std::array<V, NumVars>, V>;
 
         return std::unordered_map<GroupKey, std::vector<AggValue>,
-                                  AggregateArrayHash<V, NumGroups>>{};
+                                  AggregateArrayHash<V, numGroups>>{};
     }
 
     template <size_t S, typename Groups>
     void collect_agg_row(const std::array<V, NumVars> &tuple,
                              Groups &groups) const {
-        constexpr size_t NumGroups = Aggregate::group_var_ids.size();
-        constexpr auto var_positions = invert<NumVars>(make_order<Atoms>(S));
+        constexpr size_t numGroups = Aggregate::GroupVarIds.size();
+        constexpr auto varPositions = invert<NumVars>(make_order<Atoms>(S));
 
         typename Groups::key_type key{};
-        for (size_t i = 0; i < NumGroups; i++)
-            key[i] = tuple[var_positions[Aggregate::group_var_ids[i]]];
+        for (size_t i = 0; i < numGroups; i++)
+            key[i] = tuple[varPositions[Aggregate::GroupVarIds[i]]];
 
         auto [group, inserted] = groups.try_emplace(std::move(key));
         (void)inserted;
-        if constexpr (Aggregate::value_var_id < 0) {
+        if constexpr (Aggregate::ValueVarId < 0) {
             // Present rows in variable-id order so the reducer can
             // index independentl from the join binding order.
             std::array<V, NumVars> row{};
             for (size_t id = 0; id < NumVars; id++)
-                row[id] = tuple[var_positions[id]];
+                row[id] = tuple[varPositions[id]];
             group->second.push_back(std::move(row));
         } else {
-            group->second.push_back(tuple[var_positions[Aggregate::value_var_id]]);
+            group->second.push_back(tuple[varPositions[Aggregate::ValueVarId]]);
         }
     }
 
     template <typename Groups>
     auto apply_agg(const Groups &groups) const {
         static_assert(HasAggregate);
-        constexpr size_t NumGroups = Aggregate::group_var_ids.size();
+        constexpr size_t numGroups = Aggregate::GroupVarIds.size();
         using ResultRow = std::array<V, ResultNumVars>;
         using AggValue = typename Groups::mapped_type::value_type;
 
@@ -739,8 +739,8 @@ struct QueryPlanner {
         for (const auto &[key, values] : groups) {
             ResultRow row{};
 
-            for (size_t i = 0; i < NumGroups; i++)
-                row[Aggregate::group_var_ids[i]] = key[i];
+            for (size_t i = 0; i < numGroups; i++)
+                row[Aggregate::GroupVarIds[i]] = key[i];
 
             auto value = aggregate.func(
                 std::span<const AggValue>(values.data(), values.size()));
@@ -748,7 +748,7 @@ struct QueryPlanner {
             static_assert(std::is_convertible_v<decltype(value), V>,
                           "Aggregate reducer result must be "
                           "convertible to the predicate value type");
-            row[Aggregate::out_var_id] = static_cast<V>(std::move(value));
+            row[Aggregate::OutVarId] = static_cast<V>(std::move(value));
 
             result.push_back(std::move(row));
         }
@@ -759,35 +759,35 @@ struct QueryPlanner {
     template <typename Rows>
     void materialize_agg_heads(const Rows &rows) const {
         for_indices<NumHeads>([&]<size_t H>() {
-            constexpr size_t HeadArity = atom_traits<HeadAt<H>>::arity;
-            constexpr auto HeadIds = atom_traits<HeadAt<H>>::var_ids;
+            constexpr size_t headArity = atom_traits<HeadAt<H>>::Arity;
+            constexpr auto headIds = atom_traits<HeadAt<H>>::VarIdsValue;
 
-            std::vector<std::array<V, HeadArity>> output;
+            std::vector<std::array<V, headArity>> output;
             output.reserve(rows.size());
 
             for (const auto &row : rows) {
-                std::array<V, HeadArity> projected{};
-                for (size_t col = 0; col < HeadArity; col++)
-                    projected[col] = row[HeadIds[col]];
+                std::array<V, headArity> projected{};
+                for (size_t col = 0; col < headArity; col++)
+                    projected[col] = row[headIds[col]];
 
                 output.push_back(std::move(projected));
             }
 
             head_pred<H>()->insert(
-                df::Relation<std::array<V, HeadArity>>::from_vec(
+                df::Relation<std::array<V, headArity>>::from_vec(
                     std::move(output)));
         });
     }
 
     template <size_t S> void do_agg_source_full() const {
         static_assert(HasAggregate);
-        constexpr size_t source_arity = atom_arities<Atoms>()[S];
+        constexpr size_t sourceArity = atom_arities<Atoms>()[S];
 
         auto groups = make_agg_groups();
         auto *source_pred = std::get<S>(atoms).pred;
         for (const auto &batch : source_pred->var.stable) {
             for_each_match<S>(
-                std::span<const std::array<V, source_arity>>(batch.elements),
+                std::span<const std::array<V, sourceArity>>(batch.elements),
                 [&](const std::array<V, NumVars> &row) {
                     collect_agg_row<S>(row, groups);
                 });

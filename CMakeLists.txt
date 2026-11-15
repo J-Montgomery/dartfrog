@@ -48,7 +48,7 @@ endfunction()
 find_program(CLANG_TIDY NAMES clang-tidy)
 
 if(CLANG_TIDY)
-    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};")
+    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
 endif()
 
 find_program(CLANG_FORMAT NAMES clang-format)

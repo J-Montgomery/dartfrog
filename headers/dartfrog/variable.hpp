@@ -106,11 +106,11 @@ template <std::totally_ordered Tuple> class Variable {
             return;
         }
         while (!to_add.empty()) {
-            const size_t previous_size = to_add.back().size();
-            const size_t incoming_size = relation.size();
+            const size_t previousSize = to_add.back().size();
+            const size_t incomingSize = relation.size();
 
-            if (previous_size > incoming_size &&
-                previous_size - incoming_size > incoming_size) {
+            if (previousSize > incomingSize &&
+                previousSize - incomingSize > incomingSize) {
                 break;
             }
 
@@ -163,8 +163,8 @@ template <std::totally_ordered Tuple> class Variable {
     }
 
   private:
-    static constexpr size_t pending_growth_factor_ = 2;
-    static constexpr size_t min_dedup_size_ = 4096;
+    static constexpr size_t PendingGrowthFactor = 2;
+    static constexpr size_t MinDedupSize = 4096;
 
     constexpr size_t pending_size() const {
         return std::accumulate(
@@ -174,10 +174,10 @@ template <std::totally_ordered Tuple> class Variable {
 
     constexpr bool should_compact_pending() const {
         size_t reference = recent_data.size();
-        if (reference < min_dedup_size_) {
-            reference = min_dedup_size_;
+        if (reference < MinDedupSize) {
+            reference = MinDedupSize;
         }
-        return pending_size() > pending_growth_factor_ * reference;
+        return pending_size() > PendingGrowthFactor * reference;
     }
 
     constexpr void compact_pending() {

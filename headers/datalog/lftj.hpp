@@ -19,20 +19,20 @@ template <typename V, size_t N> class TrieIterator {
     TrieIterator() = default;
 
     explicit TrieIterator(std::span<const std::array<V, N>> rows)
-        : rows_(rows) {
-        lo_[0] = 0;
-        hi_[0] = rows_.size();
-        pos_[0] = 0;
+        : row_data(rows) {
+        lower_bounds[0] = 0;
+        upper_bounds[0] = row_data.size();
+        positions[0] = 0;
     }
 
     __attribute__((always_inline)) size_t find_group_end(size_t d, size_t begin,
                                                          size_t limit) const {
-        const V &value = rows_[begin][d];
+        const V &value = row_data[begin][d];
 
         size_t lo = begin;
         size_t step = 1;
 
-        while (lo + step < limit && rows_[lo + step][d] == value) {
+        while (lo + step < limit && row_data[lo + step][d] == value) {
             lo += step;
             step <<= 1;
         }
@@ -42,7 +42,7 @@ template <typename V, size_t N> class TrieIterator {
         while (lo < hi) {
             const size_t mid = lo + (hi - lo) / 2;
 
-            if (!(value < rows_[mid][d]))
+            if (!(value < row_data[mid][d]))
                 lo = mid + 1;
             else
                 hi = mid;
@@ -51,38 +51,38 @@ template <typename V, size_t N> class TrieIterator {
         return lo;
     }
 
-    __attribute__((always_inline)) size_t depth() const { return depth_; }
+    __attribute__((always_inline)) size_t depth() const { return depth_value; }
     // Check if no more keys remain at the current level.
     __attribute__((always_inline)) bool at_end() const {
-        return pos_[depth_] >= hi_[depth_];
+        return positions[depth_value] >= upper_bounds[depth_value];
     }
     __attribute__((always_inline)) const V &key() const {
-        return rows_[pos_[depth_]][depth_];
+        return row_data[positions[depth_value]][depth_value];
     }
 
     __attribute__((always_inline)) void next() {
-        const size_t d = depth_;
+        const size_t d = depth_value;
 
-        if (!group_end_valid_[d]) {
-            group_end_[d] = find_group_end(d, pos_[d], hi_[d]);
+        if (!group_end_validity[d]) {
+            group_ends[d] = find_group_end(d, positions[d], upper_bounds[d]);
         }
 
-        pos_[d] = group_end_[d];
-        group_end_valid_[d] = false;
+        positions[d] = group_ends[d];
+        group_end_validity[d] = false;
     }
 
     // Advance to the first key >= target at the current level
     __attribute__((always_inline)) void seek(const V &target) {
-        const size_t d = depth_;
-        group_end_valid_[d] = false;
-        size_t lo = pos_[d];
-        const size_t hi = hi_[d];
+        const size_t d = depth_value;
+        group_end_validity[d] = false;
+        size_t lo = positions[d];
+        const size_t hi = upper_bounds[d];
 
-        if (lo >= hi || rows_[lo][d] >= target)
+        if (lo >= hi || row_data[lo][d] >= target)
             return;
 
         size_t step = 1;
-        while (lo + step < hi && rows_[lo + step][d] < target) {
+        while (lo + step < hi && row_data[lo + step][d] < target) {
             lo += step;
             step <<= 1;
         }
@@ -90,165 +90,165 @@ template <typename V, size_t N> class TrieIterator {
         size_t upper = std::min(hi, lo + step + 1);
         while (lo < upper) {
             const size_t mid = lo + (upper - lo) / 2;
-            if (rows_[mid][d] < target)
+            if (row_data[mid][d] < target)
                 lo = mid + 1;
             else
                 upper = mid;
         }
-        pos_[d] = lo;
+        positions[d] = lo;
     }
 
     __attribute__((always_inline)) void open() {
-        const size_t d = depth_;
+        const size_t d = depth_value;
 
-        if (!group_end_valid_[d]) {
-            group_end_[d] = find_group_end(d, pos_[d], hi_[d]);
-            group_end_valid_[d] = true;
+        if (!group_end_validity[d]) {
+            group_ends[d] = find_group_end(d, positions[d], upper_bounds[d]);
+            group_end_validity[d] = true;
         }
 
-        const size_t next_d = d + 1;
-        lo_[next_d] = pos_[d];
-        hi_[next_d] = group_end_[d];
-        pos_[next_d] = pos_[d];
-        group_end_valid_[next_d] = false;
-        depth_ = next_d;
+        const size_t nextDepth = d + 1;
+        lower_bounds[nextDepth] = positions[d];
+        upper_bounds[nextDepth] = group_ends[d];
+        positions[nextDepth] = positions[d];
+        group_end_validity[nextDepth] = false;
+        depth_value = nextDepth;
     }
 
-    __attribute__((always_inline)) void up() { --depth_; }
+    __attribute__((always_inline)) void up() { --depth_value; }
 
     // Reposition to the first key of the current level's sub-range
     __attribute__((always_inline)) void rewind() {
-        pos_[depth_] = lo_[depth_];
-        group_end_valid_[depth_] = false;
+        positions[depth_value] = lower_bounds[depth_value];
+        group_end_validity[depth_value] = false;
     }
 
   private:
-    std::span<const std::array<V, N>> rows_;
-    size_t depth_ = 0;
+    std::span<const std::array<V, N>> row_data;
+    size_t depth_value = 0;
 
-    std::array<size_t, N + 1> lo_{};
-    std::array<size_t, N + 1> hi_{};
-    std::array<size_t, N + 1> pos_{};
+    std::array<size_t, N + 1> lower_bounds{};
+    std::array<size_t, N + 1> upper_bounds{};
+    std::array<size_t, N + 1> positions{};
 
-    std::array<size_t, N + 1> group_end_{};
-    std::array<bool, N + 1> group_end_valid_{};
+    std::array<size_t, N + 1> group_ends{};
+    std::array<bool, N + 1> group_end_validity{};
 };
 
 // A trie iterator presenting several sorted batches, so
 // duplicate keys shared by several batches are visited once.
-template <typename V, size_t N, size_t MAX_BATCHES = 16>
+template <typename V, size_t N, size_t MaxBatches = 16>
 class MergedTrieIterator {
   public:
     explicit MergedTrieIterator(
         const std::vector<std::span<const std::array<V, N>>> &batches)
-        : num_batches_(batches.size()) {
+        : num_batches(batches.size()) {
 
-        if (batches.size() > MAX_BATCHES)
+        if (batches.size() > MaxBatches)
             throw std::logic_error(
                 "MergedTrieIterator batch capacity exceeded");
-        for (size_t i = 0; i < num_batches_; ++i) {
-            batches_[i] = TrieIterator<V, N>(batches[i]);
-            active_[i] = static_cast<uint8_t>(i);
+        for (size_t i = 0; i < num_batches; ++i) {
+            batch_iters[i] = TrieIterator<V, N>(batches[i]);
+            active_batches[i] = static_cast<uint8_t>(i);
         }
-        counts_[0] = static_cast<uint8_t>(num_batches_);
+        level_counts[0] = static_cast<uint8_t>(num_batches);
         refresh();
     }
 
-    __attribute__((always_inline)) size_t depth() const { return depth_; }
+    __attribute__((always_inline)) size_t depth() const { return depth_value; }
     __attribute__((always_inline)) bool at_end() const {
-        return at_end_[depth_];
+        return end_by_depth[depth_value];
     }
-    __attribute__((always_inline)) const V &key() const { return key_[depth_]; }
+    __attribute__((always_inline)) const V &key() const { return keys_by_depth[depth_value]; }
 
     __attribute__((always_inline)) void next() {
-        const V current = key_[depth_];
-        const uint8_t count = counts_[depth_];
+        const V current = keys_by_depth[depth_value];
+        const uint8_t count = level_counts[depth_value];
 
         for (uint8_t i = 0; i < count; ++i) {
-            const uint8_t b = active_[i];
-            if (!batches_[b].at_end() && batches_[b].key() == current) {
-                batches_[b].next();
+            const uint8_t b = active_batches[i];
+            if (!batch_iters[b].at_end() && batch_iters[b].key() == current) {
+                batch_iters[b].next();
             }
         }
         refresh();
     }
 
     __attribute__((always_inline)) void seek(const V &target) {
-        const uint8_t count = counts_[depth_];
+        const uint8_t count = level_counts[depth_value];
         for (uint8_t i = 0; i < count; ++i) {
-            const uint8_t b = active_[i];
-            if (!batches_[b].at_end()) {
-                batches_[b].seek(target);
+            const uint8_t b = active_batches[i];
+            if (!batch_iters[b].at_end()) {
+                batch_iters[b].seek(target);
             }
         }
         refresh();
     }
 
     __attribute__((always_inline)) void open() {
-        const V current = key_[depth_];
-        const uint8_t count = counts_[depth_];
+        const V current = keys_by_depth[depth_value];
+        const uint8_t count = level_counts[depth_value];
 
         uint8_t matched = 0;
         for (uint8_t i = 0; i < count; ++i) {
-            const uint8_t b = active_[i];
-            if (!batches_[b].at_end() && batches_[b].key() == current) {
-                std::swap(active_[matched], active_[i]);
-                batches_[b].open();
+            const uint8_t b = active_batches[i];
+            if (!batch_iters[b].at_end() && batch_iters[b].key() == current) {
+                std::swap(active_batches[matched], active_batches[i]);
+                batch_iters[b].open();
                 matched++;
             }
         }
 
-        counts_[++depth_] = matched;
-        if (depth_ < N) {
+        level_counts[++depth_value] = matched;
+        if (depth_value < N) {
             refresh();
         }
     }
 
     __attribute__((always_inline)) void up() {
-        const uint8_t count = counts_[depth_];
+        const uint8_t count = level_counts[depth_value];
         for (uint8_t i = 0; i < count; ++i) {
-            batches_[active_[i]].up();
+            batch_iters[active_batches[i]].up();
         }
-        --depth_;
+        --depth_value;
     }
 
     __attribute__((always_inline)) void rewind() {
-        const uint8_t count = counts_[depth_];
+        const uint8_t count = level_counts[depth_value];
         for (uint8_t i = 0; i < count; ++i) {
-            batches_[active_[i]].rewind();
+            batch_iters[active_batches[i]].rewind();
         }
         refresh();
     }
 
   private:
     __attribute__((always_inline)) void refresh() {
-        const uint8_t count = counts_[depth_];
+        const uint8_t count = level_counts[depth_value];
         const V *best = nullptr;
 
         for (uint8_t i = 0; i < count; ++i) {
-            const uint8_t b = active_[i];
-            if (!batches_[b].at_end()) {
-                const V &k = batches_[b].key();
+            const uint8_t b = active_batches[i];
+            if (!batch_iters[b].at_end()) {
+                const V &k = batch_iters[b].key();
                 if (best == nullptr || k < *best) {
                     best = &k;
                 }
             }
         }
 
-        at_end_[depth_] = (best == nullptr);
+        end_by_depth[depth_value] = (best == nullptr);
         if (best != nullptr) {
-            key_[depth_] = *best;
+            keys_by_depth[depth_value] = *best;
         }
     }
 
-    std::array<TrieIterator<V, N>, MAX_BATCHES> batches_;
-    std::array<uint8_t, MAX_BATCHES> active_;
-    size_t num_batches_ = 0;
-    size_t depth_ = 0;
+    std::array<TrieIterator<V, N>, MaxBatches> batch_iters;
+    std::array<uint8_t, MaxBatches> active_batches;
+    size_t num_batches = 0;
+    size_t depth_value = 0;
 
-    std::array<uint8_t, N + 1> counts_{};
-    std::array<V, N + 1> key_{};
-    std::array<bool, N + 1> at_end_{};
+    std::array<uint8_t, N + 1> level_counts{};
+    std::array<V, N + 1> keys_by_depth{};
+    std::array<bool, N + 1> end_by_depth{};
 };
 
 template <typename V, size_t N>
